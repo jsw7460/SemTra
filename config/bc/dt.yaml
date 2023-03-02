@@ -1,0 +1,41 @@
+entity_name: jsw7460
+run_name: jax_dt
+
+env_name: hopper-expert
+
+seed: 0
+
+subseq_len: 20
+observation_dim: ???
+action_dim: ???
+dataset_path: ???
+n_eval: 1
+
+batch_size: 64
+num_steps_per_iter: 10000
+max_iters: 100
+env_time_limit: 1000
+data_normalization:
+  - observation
+#  - action
+
+gpt2_config:
+  vocab_size: 1 # No matter
+  n_positions: 1024
+  n_embd: 128
+  n_layer: 3
+  n_head: 1
+  n_inner: 512  # 4 * n_embd
+  activation_function: relu
+  resid_pdrop: 0.1
+  attn_pdrop: 0.1
+
+dt_config:
+  observation_dim: ${observation_dim}
+  action_dim: ${action_dim}
+  gpt2_config: ${gpt2_config}
+  hidden_size: 128
+  act_scale: 1.0
+  subseq_len: ${subseq_len}
+  lr: 1e-4
+  max_ep_len: 1100
