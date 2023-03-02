@@ -89,5 +89,6 @@ def program(cfg: DictConfig) -> None:
 		for k, v in episodic_info.items():
 			print(f"Env: {env_name}", k, sum(v["rewards"]))
 
+
 if __name__ == "__main__":
 	program()
