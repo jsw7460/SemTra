@@ -56,8 +56,7 @@ class IJaxSavable(metaclass=ABCMeta):
 		data, params, *_ = load_from_zip_file(path)
 		class_type_name = IJaxSavable.get_class_type_name(cls)
 
-		# Implemet Here 0228 Comde
-		raise NotImplementedError(f"Undefined Class for Comde ({class_type_name})")
+		raise NotImplementedError(f"Undefined Class for ComDe ({class_type_name})")
 
 		# load parameters
 		model.__dict__.update(data)
@@ -67,11 +66,6 @@ class IJaxSavable(metaclass=ABCMeta):
 		# put state_dicts back in place
 		model.set_parameters(params, exact_match=True)
 		return model
-
-	@staticmethod
-	def get_class_type_name(cls) -> str:
-		return None
-		# raise NotImplementedError("See here")
 
 	def set_parameters(
 		self,

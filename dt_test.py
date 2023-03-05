@@ -1,5 +1,4 @@
 from jax.config import config
-
 config.update("jax_debug_nans", True)
 
 import pickle

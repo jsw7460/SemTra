@@ -5,6 +5,8 @@ from jax import dtypes
 from jax import numpy as jnp
 from jax import random
 
+from flax import linen as nn
+
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Dtype
 
@@ -57,18 +59,5 @@ def jnp_polyak_update(source: jnp.ndarray, target: jnp.ndarray, tau: float) -> j
 	return source * tau + target * (1 - tau)
 
 
-def compute_rbf_kernel(x1: jnp.ndarray, x2: jnp.ndarray, bandwidth: float) -> jnp.ndarray:
-	z_dim = x1.shape[-1]
-	x1 = jnp.expand_dims(x1, axis=0)
-	x2 = jnp.expand_dims(x2, axis=1)
-	squared_norm = jnp.sum((x1 - x2) ** 2, axis=-1)
-	kernel = jnp.exp((- squared_norm ** 2) / (2 * bandwidth * z_dim))	# [i, j]
-	return kernel
-
-
-def compute_inverse_multiquadratics_kernel(x1: jnp.ndarray, x2: jnp.ndarray, bandwidth: float) -> jnp.ndarray:
-	x1 = jnp.expand_dims(x1, axis=0)
-	x2 = jnp.expand_dims(x2, axis=1)
-	squared_norm = jnp.sum((x1 - x2) ** 2, axis=-1)
-	kernel = bandwidth / (bandwidth + squared_norm)
-	return kernel
+def str_to_flax_activation(name: str):
+	return getattr(nn, name)

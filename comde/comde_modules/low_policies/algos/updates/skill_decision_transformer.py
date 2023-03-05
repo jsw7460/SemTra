@@ -8,11 +8,12 @@ from comde.utils.jax_utils.type_aliases import Params
 
 
 @jax.jit
-def dt_updt(
+def skill_dt_updt(
 	rng: jnp.ndarray,
 	dt: Model,
 	observations: jnp.ndarray,
 	actions: jnp.ndarray,
+	skills: jnp.ndarray,
 	rtgs: jnp.ndarray,
 	timesteps: jnp.ndarray,
 	maskings: jnp.ndarray,
@@ -28,6 +29,7 @@ def dt_updt(
 			{"params": params},
 			observations=observations,
 			actions=actions,
+			skills=skills,
 			timesteps=timesteps,
 			maskings=maskings,
 			rtgs=rtgs,

@@ -6,6 +6,7 @@ import numpy as np
 from stable_baselines3.common.vec_env import VecNormalize
 
 from comde.rl.buffers.base import BaseBuffer
+from comde.rl.buffers.episodes.skill import SkillContainedEpisode
 from comde.rl.buffers.type_aliases import ComDeBufferSample
 
 

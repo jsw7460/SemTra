@@ -16,25 +16,34 @@ class ReplayBufferSamples(NamedTuple):
 
 class ComDeBufferSample(NamedTuple):
 	"""
-		This is for the "EPISODIC" buffer sample.
-		So each component has shape [batch_size, 'subseq_len', dimension].
-		This may contain unwanted zeropadding.
 
 	b: batch size
 	l: subsequence length
 	d: dimension
+	M: Maximum possible number of skill in episode
 
-	T: Variable integer. Can be sliced by timestep 0 to T
 	"""
+
+	# === Task Agnostic Data ===
 	observations: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l, d]
 	actions: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l, d]
+	next_observations: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l, d]
+
+	# === ComDe ===
 	first_observations: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l, d]
+	# Note: M := The maximum possible number of skills in a trajectory
+	source_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b, M, d]
+	target_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b, M, d]
+	n_source_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b, 1]
+	n_target_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, 1]
+	language_operators: Union[np.ndarray, th.tensor] = np.empty(0, )	# [b, d]
+
 	skills: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l, d]
+	skills_order: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b, l]
 	skills_idxs: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
 	skills_done: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
 
-	# Followings are for the torch_transformer decoder model.
-	next_observations: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l, d]
+	# === Transformer, ... ===
 	rewards: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
 	dones: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
 	infos: List = np.empty(0, )  # [b, l]
@@ -43,14 +52,7 @@ class ComDeBufferSample(NamedTuple):
 	rtgs: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
 	true_subseq_len: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, ]
 
-	# Followings are for the dynamic encoder which inputs the subsequence 'from first timestep to current'
-	all_previous_observations: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, T, d]
-	all_previous_actions: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, T, d]
-	previous_observations_mean: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, d]
-	previous_actions_mean: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b, d]
-
 	def __repr__(self):
-		"""Print helper"""
 		base = f"observations: {self.observations.shape}\n" \
 			   f"actions: {self.actions.shape}\n" \
 			   f"first_observations: {self.first_observations.shape}\n" \
@@ -69,63 +71,18 @@ class ComDeBufferSample(NamedTuple):
 						  f"timesteps: {self.timesteps.shape}\n" \
 						  f"rtgs: {self.rtgs.shape}"
 
-	def to_tensor(self, device: th.device) -> "ComDeBufferSample":
-		raise NotImplementedError()
-
-	# tensorized_sample = {}
-	# for key, value in self.__dict__.items():
-	# 	if value is not None and key != "infos":
-	# 		value = th.tensor(value, device=device, dtype=th.float32)
-	# 	tensorized_sample[key] = value
-	# return MMSbrlOfflineBufferSample(**tensorized_sample)
-
-	def flatten_basic_components(self) -> "ComDeBufferSample":
-		raise NotImplementedError("Obsolete")
-
-	# """
-	# Since next_observations ~ rtgs are used only for torch_transformer model,
-	# flatten is only required for basic components (observations ~ skills_done)
-	# """
-	# return MMSbrlOfflineBufferSample(
-	# 	observations=self.observations.reshape(-1, self.observations.shape[-1]),
-	# 	actions=self.actions.reshape(-1, self.actions.shape[-1]),
-	# 	first_observations=self.first_observations.reshape(-1, self.first_observations.shape[-1]),
-	# 	skills=self.skills.reshape(-1, self.skills.shape[-1]),
-	# 	skills_idxs=self.skills_idxs.reshape(-1, ),
-	# 	skills_done=self.skills_done.reshape(-1, )
-	# )
-
-	def get_last_timestep_components(self) -> "ComDeBufferSample":
-		data = {
-			"observations": self.observations[:, -1, ...],
-			"actions": self.actions[:, -1, ...],
-			"first_observations": self.first_observations[:, -1, ...],
-			"skills": self.skills[:, -1],
-			# "skills_idxs": self.skills_idxs[:, -1],
-			"skills_done": self.skills_done[:, -1]
-		}
-		if self.maskings is None:
-			return ComDeBufferSample(**data)
-		else:
-			data.update(
-				{
-					"next_observations": self.next_observations[:, -1, ...],
-					# "rewards": self.rewards[:, -1],
-					"dones": self.dones[:, -1],
-					# "infos": self.infos[:, -1],
-					"maskings": self.maskings[:, -1],
-					# "timesteps": self.timesteps[:, -1],
-					# "rtgs": self.rtgs[:, -1],
-					"true_subseq_len": self.true_subseq_len[-1]
-				}
-			)
-			return ComDeBufferSample(**data)
-
 	def __getitem__(self, idx: Union[slice, int]) -> "ComDeBufferSample":
 		"""Slice for timesteps, not batch"""
 		observations = self.observations[:, idx, ...]
 		actions = self.actions[:, idx, ...]
 		first_observations = self.first_observations[:, idx, ...]
+
+		source_skills = self.source_skills.copy()
+		target_skills = self.target_skills.copy()
+		n_source_skills = self.n_source_skills.copy()
+		n_target_skills = self.n_target_skills.copy()
+		language_operators = self.language_operators.copy()
+
 		skills = self.skills[:, idx, ...]
 		skills_idxs = self.skills_idxs[:, idx]
 		skills_done = self.skills_done[:, idx]

@@ -5,20 +5,20 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 
-from comde.comde_modules.low_policies.algos.forwards import decisiontransformer_forward as fwd
-from comde.comde_modules.low_policies.algos.updates.decision_transformer import dt_updt
+from comde.utils.interfaces import IJaxSavable, ITrainable
+from comde.comde_modules.low_policies.algos.forwards import skill_decisiontransformer_forward as fwd
+from comde.comde_modules.low_policies.algos.updates.skill_decision_transformer import skill_dt_updt
 from comde.comde_modules.low_policies.base import BaseLowPolicy
 from comde.rl.buffers.type_aliases import ComDeBufferSample
-from comde.utils.interfaces import IJaxSavable, ITrainable
 from comde.utils.jax_utils.general import get_basic_rngs
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
-from comde.utils.superclasses.loggable import Loggable
-from .architectures.decision_transformer import PrimDecisionTransformer
+from .architectures.skill_decision_transformer import PrimSkillDecisionTransformer
 
 
-class DecisionTransformer(Loggable, BaseLowPolicy, IJaxSavable, ITrainable):
-	PARAM_COMPONENTS = ["_DecisionTransformer__model"]
+class SkillDecisionTransformer(BaseLowPolicy, IJaxSavable, ITrainable):
+
+	PARAM_COMPONENTS = ["_SkillDecisionTransformer__model"]
 
 	def __init__(
 		self,
@@ -26,14 +26,13 @@ class DecisionTransformer(Loggable, BaseLowPolicy, IJaxSavable, ITrainable):
 		cfg: Dict,
 		init_build_model: bool = True
 	):
-		super(DecisionTransformer, self).__init__(
+		super(SkillDecisionTransformer, self).__init__(
 			seed=seed,
 			cfg=cfg,
 			init_build_model=init_build_model
 		)
 		self.__model = None
-		self.optimizer = None
-		self.scheduler = None
+		self.skill_dim = cfg["skill_dim"]
 		self.max_ep_len = cfg["max_ep_len"]
 
 		if init_build_model:
@@ -47,11 +46,15 @@ class DecisionTransformer(Loggable, BaseLowPolicy, IJaxSavable, ITrainable):
 	def model(self, value):
 		self.__model = value
 
+	def str_to_activation(self, activation_fn: str):
+		return activation_fn
+
 	def build_model(self):
-		transformer = PrimDecisionTransformer(
+		transformer = PrimSkillDecisionTransformer(
 			gpt2_config=self.cfg["gpt2_config"],
 			obs_dim=self.observation_dim,
 			act_dim=self.action_dim,
+			skill_dim=self.skill_dim,
 			hidden_size=self.cfg["hidden_size"],
 			act_scale=self.cfg["act_scale"],
 			max_ep_len=self.max_ep_len,
@@ -62,6 +65,7 @@ class DecisionTransformer(Loggable, BaseLowPolicy, IJaxSavable, ITrainable):
 		subseq_len = self.cfg["subseq_len"]
 		init_observations = np.zeros((1, subseq_len, self.observation_dim))
 		init_actions = np.zeros((1, subseq_len, self.action_dim))
+		init_skills = np.zeros((1, subseq_len, self.skill_dim))
 		init_timesteps = np.zeros((1, self.cfg["subseq_len"]), dtype="i4")
 		init_masks = np.zeros((1, self.cfg["subseq_len"]))
 		init_rtgs = np.zeros((1, subseq_len, 1))
@@ -77,6 +81,7 @@ class DecisionTransformer(Loggable, BaseLowPolicy, IJaxSavable, ITrainable):
 				rngs,
 				init_observations,
 				init_actions,
+				init_skills,
 				init_timesteps,
 				init_masks,
 				init_rtgs,
@@ -85,11 +90,12 @@ class DecisionTransformer(Loggable, BaseLowPolicy, IJaxSavable, ITrainable):
 		)
 
 	def update(self, replay_data: ComDeBufferSample) -> Dict:
-		new_model, info = dt_updt(
+		new_model, info = skill_dt_updt(
 			rng=self.rng,
 			dt=self.model,
 			observations=replay_data.observations,
 			actions=replay_data.actions,
+			skills=replay_data.skills,
 			rtgs=replay_data.rtgs[..., np.newaxis],
 			timesteps=replay_data.timesteps.astype("i4"),
 			maskings=replay_data.maskings,
@@ -98,7 +104,6 @@ class DecisionTransformer(Loggable, BaseLowPolicy, IJaxSavable, ITrainable):
 
 		self.model = new_model
 		self.rng, _ = jax.random.split(self.rng)
-		self.record_mean(info)
 
 		return info
 
@@ -106,15 +111,17 @@ class DecisionTransformer(Loggable, BaseLowPolicy, IJaxSavable, ITrainable):
 		self,
 		observations: jnp.ndarray,
 		actions: jnp.ndarray,
+		skills: jnp.ndarray,
 		timesteps: jnp.ndarray,
 		maskings: Union[jnp.ndarray],
-		rtgs: jnp.ndarray = None,
+		rtgs: jnp.ndarray,
 	) -> jnp.ndarray:
 		self.rng, prediction = fwd(
 			rng=self.rng,
 			model=self.model,
 			observations=observations,
 			actions=actions,
+			skills=skills,
 			timesteps=timesteps,
 			maskings=maskings,
 			rtgs=rtgs,
@@ -124,41 +131,44 @@ class DecisionTransformer(Loggable, BaseLowPolicy, IJaxSavable, ITrainable):
 
 	def evaluate(
 		self,
-		observations: jnp.ndarray,
-		actions: jnp.ndarray,
-		maskings: jnp.ndarray,
-		**kwargs
+		replay_data: ComDeBufferSample
 	) -> Dict:
-		if observations.ndim == 2:
-			observations = observations[np.newaxis, ...]
-			actions = actions[np.newaxis, ...]
-			maskings = maskings[np.newaxis, ...]
+		observations = replay_data.observations
+		actions = replay_data.actions
+		skills = replay_data.skills
+		timesteps = replay_data.timesteps
+		maskings = replay_data.maskings
+		rtgs = replay_data.rtgs
+
 		action_preds = self.predict(
 			observations=observations,
 			actions=actions,
+			skills=skills,
+			timesteps=timesteps,
 			maskings=maskings,
+			rtgs=rtgs
 		)
 		action_preds = action_preds.reshape(-1, self.action_dim) * maskings.reshape(-1, 1)
 		action_targets = actions.reshape(-1, self.action_dim) * maskings.reshape(-1, 1)
 
-		mse_error = (action_preds - action_targets) ** 2
-		mse_error = jnp.mean(mse_error)
+		mse_error = jnp.sum((action_preds - action_targets)) / jnp.sum(maskings)
 
 		eval_info = {
 			"decoder/mse_error": mse_error,
 			"decoder/mse_error_scaled(x100)": mse_error * 100
 		}
+
 		return eval_info
 
 	def _excluded_save_params(self) -> List:
-		return DecisionTransformer.PARAM_COMPONENTS
+		return SkillDecisionTransformer.PARAM_COMPONENTS
 
 	def _get_save_params(self) -> Dict[str, Params]:
 		params_dict = {}
-		for component_str in DecisionTransformer.PARAM_COMPONENTS:
+		for component_str in SkillDecisionTransformer.PARAM_COMPONENTS:
 			component = getattr(self, component_str)
 			params_dict[component_str] = component.params
 		return params_dict
 
 	def _get_load_params(self) -> List[str]:
-		return DecisionTransformer.PARAM_COMPONENTS
+		return SkillDecisionTransformer.PARAM_COMPONENTS
