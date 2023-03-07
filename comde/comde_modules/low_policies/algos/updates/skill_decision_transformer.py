@@ -14,7 +14,6 @@ def skill_dt_updt(
 	observations: jnp.ndarray,
 	actions: jnp.ndarray,
 	skills: jnp.ndarray,
-	rtgs: jnp.ndarray,
 	timesteps: jnp.ndarray,
 	maskings: jnp.ndarray,
 	action_targets: jnp.ndarray,
@@ -32,7 +31,6 @@ def skill_dt_updt(
 			skills=skills,
 			timesteps=timesteps,
 			maskings=maskings,
-			rtgs=rtgs,
 			deterministic=False,
 			rngs={"dropout": dropout_key},
 		)

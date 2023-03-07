@@ -3,9 +3,9 @@ from typing import Dict
 import numpy as np
 
 from comde.comde_modules.base import ComdeBaseModule
+from comde.utils.interfaces import ITrainable, IJaxSavable
 
-
-class BaseTermination(ComdeBaseModule):
+class BaseTermination(ComdeBaseModule, ITrainable, IJaxSavable):
 
 	def __init__(
 		self,

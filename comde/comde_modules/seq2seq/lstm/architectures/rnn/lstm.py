@@ -10,7 +10,6 @@ from comde.utils.jax_utils.general import uniform
 
 class PrimLSTM(nn.Module):
 	max_iter_len: int
-	batch_dim: int
 	embed_dim: int  # Embed whole sequences
 	hidden_dim: int  # Dimension of output of LSTM
 	dropout: float

@@ -1,21 +1,20 @@
-from typing import List, Dict, Tuple, Union
+from typing import List, Dict
 
 import jax.random
 import numpy as np
 import optax
 
+from comde.comde_modules.seq2seq.algos.forward import skilltoskill_lstm_forward as fwd
 from comde.comde_modules.seq2seq.algos.updates.skilltoskill_lstm import skilltoskill_lstm_updt
 from comde.comde_modules.seq2seq.base import BaseSeqToSeq
 from comde.comde_modules.seq2seq.lstm.architectures.rnn.lstm import PrimLSTM
 from comde.rl.buffers.type_aliases import ComDeBufferSample
-from comde.utils.interfaces import IJaxSavable, ITrainable
 from comde.utils.jax_utils.general import get_basic_rngs
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
-from comde.comde_modules.seq2seq.algos.forward import skilltoskill_lstm_forward as fwd
 
 
-class SkillToSkillLSTM(BaseSeqToSeq, IJaxSavable, ITrainable):
+class SkillToSkillLSTM(BaseSeqToSeq):
 	PARAM_COMPONENTS = [
 		"_LSTM__model",
 		"_LSTM__task_decoder"
@@ -58,22 +57,21 @@ class SkillToSkillLSTM(BaseSeqToSeq, IJaxSavable, ITrainable):
 	def build_model(self):
 		lstm_model = PrimLSTM(
 			max_iter_len=self.max_iter_len,
-			batch_dim=self.cfg["batch_dim"],
-			embed_dim=self.cfg["encoder_embed_dim"],
-			hidden_dim=self.cfg["encoder_hidden_dim"],
-			dropout=self.cfg["encoder_dropout"],
-			activation_fn=self.cfg["encoder_activation_fn"],
-			embed_net_arch=self.cfg["encoder_embed_net_arch"]
+			embed_dim=self.cfg["embed_dim"],
+			hidden_dim=self.cfg["hidden_dim"],
+			dropout=self.cfg["dropout"],
+			activation_fn=self.cfg["activation_fn"],
+			embed_net_arch=self.cfg["embed_net_arch"]
 		)
 
 		# Input of task encoder: state-action
 		init_sequence = np.zeros((1, self.max_iter_len, self.cfg["skill_dim"]))
 		self.rng, rngs = get_basic_rngs(self.rng)
 		encoder_scheduler = optax.exponential_decay(
-			init_value=self.cfg["encoder_lr"],
-			decay_rate=self.cfg["encoder_decay_rate"],
-			transition_steps=self.cfg["encoder_transition_steps"],
-			transition_begin=self.cfg["encoder_transition_begin"],
+			init_value=self.cfg["lr"],
+			decay_rate=self.cfg["decay_rate"],
+			transition_steps=self.cfg["transition_steps"],
+			transition_begin=self.cfg["transition_begin"],
 		)
 		encoder_tx = optax.chain(
 			optax.clip(1.0),
@@ -117,8 +115,8 @@ class SkillToSkillLSTM(BaseSeqToSeq, IJaxSavable, ITrainable):
 
 	def predict(
 		self,
-		source_skills: np.ndarray,		# [b, M, d]
-		language_operators: np.ndarray,	# [b, d]
+		source_skills: np.ndarray,  # [b, M, d]
+		language_operators: np.ndarray,  # [b, d]
 	) -> np.ndarray:
 		batch_size = source_skills.shape[0]
 		language_operators = language_operators[:, np.newaxis, ...]

@@ -14,7 +14,6 @@ class SkillContainedEpisode(Episode):
 		self.skills_idxs = []
 		self.rtgs = []
 		self.timesteps = []
-		self.representative = None
 
 	def __getitem__(self, idx):
 		episode = super(SkillContainedEpisode, self).__getitem__(idx)
@@ -55,17 +54,10 @@ class SkillContainedEpisode(Episode):
 			"timesteps": np.array(self.timesteps[from_: to_]),
 		}
 		if batch_mode:
-			for key, array in current_data.items():
-				current_data.update({key: array[np.newaxis, ...]})
+			self.expand_1st_dim(current_data)
 
 		data = {**super_data, **current_data}
 		return data
-
-	def is_from_same_mdp(self, episode: "SkillContainedEpisode") -> bool:
-		if self.representative is None:
-			return False
-		else:
-			return self.representative == episode.representative
 
 	@property
 	def skill_dim(self):

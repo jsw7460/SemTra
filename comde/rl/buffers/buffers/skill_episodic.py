@@ -1,16 +1,16 @@
 from collections import defaultdict
-from typing import List, Dict, Optional, Union, Tuple
+from typing import Dict, Optional, Union, Tuple
 
 import gym
 import numpy as np
 from stable_baselines3.common.vec_env import VecNormalize
 
-from comde.rl.buffers.base import BaseBuffer
 from comde.rl.buffers.episodes.skill import SkillContainedEpisode
+from comde.rl.buffers.buffers.episodic import EpisodicMaskingBuffer
 from comde.rl.buffers.type_aliases import ComDeBufferSample
 
 
-class SkillEpisodicMaskingBuffer(BaseBuffer):
+class SkillEpisodicMaskingBuffer(EpisodicMaskingBuffer):
 	BUFFER_COMPONENTS = \
 		{
 			"observations", "next_observations", "actions", "dones",
@@ -26,39 +26,19 @@ class SkillEpisodicMaskingBuffer(BaseBuffer):
 		buffer_size: int = -1,  # No matter
 		use_all_previous_components: bool = False
 	):
-		"""
-		This is a buffer for an episode.
-		Thus sampled buffer has a shape [batch_size, max_len, (obs, act, reward, done, ...)-dim]
-		"""
 		super(SkillEpisodicMaskingBuffer, self).__init__(
-			buffer_size=buffer_size,
 			observation_space=observation_space,
 			action_space=action_space,
-			n_envs=n_envs
+			subseq_len=subseq_len,
+			n_envs=n_envs,
+			buffer_size=buffer_size,
+			use_all_previous_components=use_all_previous_components
 		)
-		self.subseq_len = subseq_len
-		self.episodes = []  # type: List[SkillContainedEpisode]
-		self.episode_lengths = []
-		self.min_episode_length = None
-		self.max_episode_length = None
 		self.representative_to_indices = defaultdict(list)
-		self.use_all_previous_components = use_all_previous_components
-
-	def __len__(self):
-		return len(self.episodes)
-
-	def get_mask(self, masking_size: int, nonmasking_size: int):
-		raise DeprecationWarning("Obsolete")
-
-	def add(self, episode: SkillContainedEpisode) -> None:
-		assert len(episode) > self.subseq_len, \
-			"Too short episode. Please remove this episode or decrease the subseq len."
-		self.episodes.append(episode)
-		self.pos += 1
 
 	def add_dict_chunk(self, dataset: Dict, representative: str = None, clear_info: bool = False) -> None:
 		"""
-			save d4rl style dataset(dictionary)
+			load from d4rl style dataset(dictionary, pkl file)
 			if clear_info: We clear all the info list. This can save memory in a certain dataset.
 		"""
 		if dataset.get("terminals", None) is not None:
@@ -201,7 +181,6 @@ class SkillEpisodicMaskingBuffer(BaseBuffer):
 		true_subseq_len = []
 		timesteps = []
 
-		# s = time.time()
 		for episode, start_idx in zip(episodes, start_idxs):
 			# for starting_idx in starting_idxs:
 			# start_idx = np.random.randint(0, len(episode) - self.subseq_len)

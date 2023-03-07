@@ -1,11 +1,13 @@
-from typing import Dict
+from typing import Dict, List
 
 import numpy as np
 
 from comde.comde_modules.base import ComdeBaseModule
+from comde.utils.interfaces import ITrainable, IJaxSavable
+from comde.utils.jax_utils.type_aliases import Params
 
 
-class BaseSeqToSeq(ComdeBaseModule):
+class BaseSeqToSeq(ComdeBaseModule, ITrainable, IJaxSavable):
 
 	def __init__(
 		self,
@@ -20,3 +22,25 @@ class BaseSeqToSeq(ComdeBaseModule):
 
 	def predict(self, *args, **kwargs) -> np.ndarray:
 		raise NotImplementedError()
+
+	@property
+	def model(self):
+		return None
+
+	def build_model(self):
+		pass
+
+	def update(self, *args, **kwargs) -> Dict:
+		pass
+
+	def evaluate(self, *args, **kwargs) -> Dict:
+		pass
+
+	def _excluded_save_params(self) -> List:
+		pass
+
+	def _get_save_params(self) -> Dict[str, Params]:
+		pass
+
+	def _get_load_params(self) -> List[str]:
+		pass

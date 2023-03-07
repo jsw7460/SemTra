@@ -1,0 +1,26 @@
+seed: 777
+wandb_entity_name: jsw7460
+
+
+defaults:
+  - low_policy: skill_dt
+  - seq2seq: lstm
+  - termination: mlp
+save_prefix: /home/jsw7460/comde_save/train/
+save_postfix: foo
+modules:
+  - low_policy
+  - seq2seq
+  - termination
+
+env: ???
+act_scale: ???
+observation_dim: ???
+action_dim: ???
+dataset_path: ???
+
+skill_dim: 512
+subseq_len: 20
+batch_size: 377
+max_iter: 500
+step_per_dataset: 30

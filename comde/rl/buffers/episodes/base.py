@@ -34,6 +34,11 @@ class Episode:
 		rtgs = list(self.rtgs[idx].copy())
 		return Episode.from_list(observations, next_observations, actions, rewards, dones, infos, maskings, rtgs)
 
+	@staticmethod
+	def expand_1st_dim(dataset: Dict[str, np.ndarray]):
+		for k in dataset:
+			dataset[k] = np.expand_dims(dataset, axis=0)
+
 	def get_numpy_subtrajectory(self, from_: int, to_: int, batch_mode: bool) -> Dict:
 		assert from_ >= 0 and to_ < len(self)
 		# TODO: We discard the info
@@ -48,8 +53,7 @@ class Episode:
 		}
 
 		if batch_mode:
-			for key, array in data.items():
-				data.update({key: array[np.newaxis, ...]})
+			self.expand_1st_dim(data)
 		return data
 
 	def clear_info(self):

@@ -5,7 +5,6 @@ import jax.numpy as jnp
 import numpy as np
 import optax
 
-from comde.utils.interfaces import IJaxSavable, ITrainable
 from comde.comde_modules.low_policies.algos.forwards import skill_decisiontransformer_forward as fwd
 from comde.comde_modules.low_policies.algos.updates.skill_decision_transformer import skill_dt_updt
 from comde.comde_modules.low_policies.base import BaseLowPolicy
@@ -16,8 +15,7 @@ from comde.utils.jax_utils.type_aliases import Params
 from .architectures.skill_decision_transformer import PrimSkillDecisionTransformer
 
 
-class SkillDecisionTransformer(BaseLowPolicy, IJaxSavable, ITrainable):
-
+class SkillDecisionTransformer(BaseLowPolicy):
 	PARAM_COMPONENTS = ["_SkillDecisionTransformer__model"]
 
 	def __init__(
@@ -68,7 +66,6 @@ class SkillDecisionTransformer(BaseLowPolicy, IJaxSavable, ITrainable):
 		init_skills = np.zeros((1, subseq_len, self.skill_dim))
 		init_timesteps = np.zeros((1, self.cfg["subseq_len"]), dtype="i4")
 		init_masks = np.zeros((1, self.cfg["subseq_len"]))
-		init_rtgs = np.zeros((1, subseq_len, 1))
 
 		tx = optax.chain(
 			optax.clip(1.0),
@@ -84,7 +81,6 @@ class SkillDecisionTransformer(BaseLowPolicy, IJaxSavable, ITrainable):
 				init_skills,
 				init_timesteps,
 				init_masks,
-				init_rtgs,
 			],
 			tx=tx
 		)
@@ -96,7 +92,6 @@ class SkillDecisionTransformer(BaseLowPolicy, IJaxSavable, ITrainable):
 			observations=replay_data.observations,
 			actions=replay_data.actions,
 			skills=replay_data.skills,
-			rtgs=replay_data.rtgs[..., np.newaxis],
 			timesteps=replay_data.timesteps.astype("i4"),
 			maskings=replay_data.maskings,
 			action_targets=jnp.copy(replay_data.actions),
@@ -114,7 +109,6 @@ class SkillDecisionTransformer(BaseLowPolicy, IJaxSavable, ITrainable):
 		skills: jnp.ndarray,
 		timesteps: jnp.ndarray,
 		maskings: Union[jnp.ndarray],
-		rtgs: jnp.ndarray,
 	) -> jnp.ndarray:
 		self.rng, prediction = fwd(
 			rng=self.rng,
@@ -124,7 +118,6 @@ class SkillDecisionTransformer(BaseLowPolicy, IJaxSavable, ITrainable):
 			skills=skills,
 			timesteps=timesteps,
 			maskings=maskings,
-			rtgs=rtgs,
 		)
 		obs_preds, action_preds, return_preds = prediction
 		return action_preds[:, -1]
@@ -138,7 +131,6 @@ class SkillDecisionTransformer(BaseLowPolicy, IJaxSavable, ITrainable):
 		skills = replay_data.skills
 		timesteps = replay_data.timesteps
 		maskings = replay_data.maskings
-		rtgs = replay_data.rtgs
 
 		action_preds = self.predict(
 			observations=observations,
@@ -146,7 +138,6 @@ class SkillDecisionTransformer(BaseLowPolicy, IJaxSavable, ITrainable):
 			skills=skills,
 			timesteps=timesteps,
 			maskings=maskings,
-			rtgs=rtgs
 		)
 		action_preds = action_preds.reshape(-1, self.action_dim) * maskings.reshape(-1, 1)
 		action_targets = actions.reshape(-1, self.action_dim) * maskings.reshape(-1, 1)

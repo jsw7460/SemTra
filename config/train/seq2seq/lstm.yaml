@@ -1,0 +1,22 @@
+inseq_dim: ${skill_dim} # Input sequence = sequence of skills
+embed_dim: 64
+hidden_dim: 128
+dropout: 0.0
+activation_fn: relu
+embed_net_arch:
+  - 64
+  - 128
+  - 256
+  - 512
+  - 256
+  - 128
+  - 64
+lr: 1e-4
+decay_rate: 0.5
+transition_steps: 100_000
+transition_begin: 100_000
+
+coef_skill_loss: 1.0
+coef_decoder_aid: 1.0
+max_iter_len: 20
+skill_dim: ${skill_dim}

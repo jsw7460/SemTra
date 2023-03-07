@@ -10,13 +10,12 @@ from comde.comde_modules.termination.algos.forward import termination_forward
 from comde.comde_modules.termination.algos.updates.mlp import mlp_termination_updt
 from comde.comde_modules.termination.base import BaseTermination
 from comde.rl.buffers.type_aliases import ComDeBufferSample
-from comde.utils.interfaces import IJaxSavable, ITrainable
 from comde.utils.jax_utils.general import get_basic_rngs
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
 
 
-class MLPTermination(BaseTermination, IJaxSavable, ITrainable):
+class MLPTermination(BaseTermination):
 	PARAM_COMPONENTS = ["_MLPTermination__model"]
 
 	def __init__(self, seed: int, cfg: Dict, init_build_model: bool = True):
@@ -38,7 +37,7 @@ class MLPTermination(BaseTermination, IJaxSavable, ITrainable):
 	def build_model(self):
 		mlp = create_mlp(
 			# output_dim=2: Score vector for [not_done, done].
-			output_dim=self.cfg["output_dim"],
+			output_dim=2,
 			net_arch=self.cfg["net_arch"],
 			activation_fn=self.cfg["activation_fn"],
 			dropout=self.cfg["dropout"],

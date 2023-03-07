@@ -34,8 +34,8 @@ class ComDeBufferSample(NamedTuple):
 	# Note: M := The maximum possible number of skills in a trajectory
 	source_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b, M, d]
 	target_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b, M, d]
-	n_source_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b, 1]
-	n_target_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, 1]
+	n_source_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b,]
+	n_target_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b,]
 	language_operators: Union[np.ndarray, th.tensor] = np.empty(0, )	# [b, d]
 
 	skills: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l, d]
@@ -53,23 +53,25 @@ class ComDeBufferSample(NamedTuple):
 	true_subseq_len: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, ]
 
 	def __repr__(self):
-		base = f"observations: {self.observations.shape}\n" \
-			   f"actions: {self.actions.shape}\n" \
-			   f"first_observations: {self.first_observations.shape}\n" \
-			   f"skills: {self.skills.shape}\n" \
-			   f"skills_idxs: {self.skills_idxs.shape}\n" \
-			   f"skills_done: {self.skills_done.shape}\n"
-
-		if self.maskings is None:
-			return base
-		else:
-			return base + f"next_observations: {self.next_observations.shape}\n" \
-						  f"rewards: {self.rewards.shape}\n" \
-						  f"dones: {self.dones.shape}\n" \
-						  f"infos: {len(self.infos)}\n" \
-						  f"maskings: {self.maskings.shape}\n" \
-						  f"timesteps: {self.timesteps.shape}\n" \
-						  f"rtgs: {self.rtgs.shape}"
+		for key in self._fields:
+			print(f"{key} has shape {getattr(key).shape}")
+		# base = f"observations: {self.observations.shape}\n" \
+		# 	   f"actions: {self.actions.shape}\n" \
+		# 	   f"first_observations: {self.first_observations.shape}\n" \
+		# 	   f"skills: {self.skills.shape}\n" \
+		# 	   f"skills_idxs: {self.skills_idxs.shape}\n" \
+		# 	   f"skills_done: {self.skills_done.shape}\n"
+		#
+		# if self.maskings is None:
+		# 	return base
+		# else:
+		# 	return base + f"next_observations: {self.next_observations.shape}\n" \
+		# 				  f"rewards: {self.rewards.shape}\n" \
+		# 				  f"dones: {self.dones.shape}\n" \
+		# 				  f"infos: {len(self.infos)}\n" \
+		# 				  f"maskings: {self.maskings.shape}\n" \
+		# 				  f"timesteps: {self.timesteps.shape}\n" \
+		# 				  f"rtgs: {self.rtgs.shape}"
 
 	def __getitem__(self, idx: Union[slice, int]) -> "ComDeBufferSample":
 		"""Slice for timesteps, not batch"""
