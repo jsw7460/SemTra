@@ -1,7 +1,7 @@
-import inspect
 from abc import ABCMeta, abstractmethod
 from typing import Dict, List, Union
 
+from comde.utils.jax_utils.type_aliases import Params
 from comde.utils.save_utils.common import (
 	recursive_getattr,
 	recursive_setattr
@@ -10,7 +10,6 @@ from comde.utils.save_utils.jax_saves import (
 	save_to_zip_file,
 	load_from_zip_file
 )
-from comde.utils.jax_utils.type_aliases import Params
 
 
 class IJaxSavable(metaclass=ABCMeta):

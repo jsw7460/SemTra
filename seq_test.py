@@ -40,14 +40,7 @@ def program(cfg: DictConfig) -> None:
 	seq2seq = SkillToSkillLSTM(seed=seed, cfg=cfg["seq2seq"].copy())
 	termination = MLPTermination(seed=seed, cfg=cfg["termination"].copy())
 
-	replay_buffer = ComdeBuffer(
-		observation_space=env.observation_space,
-		action_space=env.action_space,
-		subseq_len=cfg["subseq_len"]
-	)
-
 	idx_to_skill = {f"{i}": np.zeros((512,)) for i in range(8)}
-
 
 	trainer = ComdeTrainer(
 		cfg=cfg,
@@ -66,6 +59,11 @@ def program(cfg: DictConfig) -> None:
 		data_dir = data_dirs[n_iter]
 		hdf_files = [join(data_dir, f) for f in os.listdir(data_dir) if isfile(join(data_dir, f))]
 
+		replay_buffer = ComdeBuffer(
+			observation_space=env.observation_space,
+			action_space=env.action_space,
+			subseq_len=cfg["subseq_len"]
+		)
 		replay_buffer.add_episodes_from_h5py(hdf_files)
 		trainer.replay_buffer = replay_buffer	# Set replay buffer
 

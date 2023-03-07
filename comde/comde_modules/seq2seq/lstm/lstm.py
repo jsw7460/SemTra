@@ -89,6 +89,7 @@ class SkillToSkillLSTM(BaseSeqToSeq):
 	def update(
 		self,
 		replay_data: ComDeBufferSample,
+		*,
 		low_policy: Model
 	) -> Dict:
 		new_model, info = skilltoskill_lstm_updt(
@@ -100,7 +101,6 @@ class SkillToSkillLSTM(BaseSeqToSeq):
 			target_skills=replay_data.target_skills,
 			observations=replay_data.observations,
 			actions=replay_data.actions,
-			rtgs=replay_data.rtgs,
 			timesteps=replay_data.timesteps,
 			maskings=replay_data.maskings,
 			skills_order=replay_data.skills_order,

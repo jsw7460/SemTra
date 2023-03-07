@@ -3,11 +3,13 @@ from typing import Dict
 
 import numpy as np
 
+from comde.utils.jax_utils.model import Model
+
 
 class ITrainable(metaclass=ABCMeta):
 	@property
 	@abstractmethod
-	def model(self):
+	def model(self) -> Model:
 		raise NotImplementedError()
 
 	@abstractmethod

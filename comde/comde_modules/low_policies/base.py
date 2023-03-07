@@ -5,6 +5,7 @@ import numpy as np
 from comde.comde_modules.base import ComdeBaseModule
 from comde.utils.interfaces import IJaxSavable, ITrainable
 from comde.utils.jax_utils.type_aliases import Params
+from comde.utils.jax_utils.model import Model
 
 
 class BaseLowPolicy(ComdeBaseModule, IJaxSavable, ITrainable):
@@ -36,8 +37,8 @@ class BaseLowPolicy(ComdeBaseModule, IJaxSavable, ITrainable):
 		pass
 
 	@property
-	def model(self):
-		return None
+	def model(self) -> Model:
+		raise NotImplementedError()
 
 	def build_model(self):
 		pass

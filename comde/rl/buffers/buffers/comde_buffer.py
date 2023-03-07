@@ -181,7 +181,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			n_target_skills=np.array(n_target_skills),
 			language_operators=np.array(language_operators),
 			skills=np.array(skills),
-			skills_order=np.array(skills_order),
+			skills_order=np.array(skills_order).astype("i4"),
 			skills_idxs=np.array(skills_idxs),
 			skills_done=np.array(skills_done),
 			maskings=np.array(maskings),

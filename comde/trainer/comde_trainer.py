@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Union
+from typing import Dict, Union
 
 import numpy as np
 
@@ -37,6 +37,10 @@ class ComdeTrainer(BaseTrainer):
 		self._np_idx_to_skill = np.array(list(self.idx_to_skill.values()))
 		self.replay_buffer: Union[ComdeBuffer] = None
 
+		self.info_records = {
+			"info/suffix": self.cfg["save_suffix"]
+		}
+
 	@property
 	def np_idx_to_skill(self):
 		return self._np_idx_to_skill
@@ -47,16 +51,35 @@ class ComdeTrainer(BaseTrainer):
 
 	def update_skill(self, replay_data: ComDeBufferSample) -> ComDeBufferSample:
 		skills_idxs = replay_data.skills_idxs
-		replay_data._replace(skills=self.np_idx_to_skill[skills_idxs])
+		source_skills = replay_data.source_skills
+		target_skills = replay_data.target_skills
+
+		replay_data = replay_data._replace(
+			skills=self.np_idx_to_skill[skills_idxs],
+			source_skills=self.np_idx_to_skill[source_skills],
+			target_skills=self.np_idx_to_skill[target_skills]
+		)
 
 		return replay_data
 
 	def run(self):
-		replay_data = self.replay_buffer.sample(self.batch_size)	# type: ComDeBufferSample
-		replay_data = self.update_skill(replay_data)
-		self.low_policy.update(replay_data)
-		self.seq2seq.update(replay_data)
-		self.termination.update(replay_data)
+		for _ in range(self.step_per_dataset):
+			replay_data = self.replay_buffer.sample(self.batch_size)  # type: ComDeBufferSample
+			replay_data = self.update_skill(replay_data)
+			info1 = self.low_policy.update(replay_data)
+			info2 = self.seq2seq.update(replay_data, low_policy=self.low_policy.model)
+			info3 = self.termination.update(replay_data)
+
+			self.record_from_dicts(info1, info2, info3, mode="train")
+
+			self.n_update += 1
+
+			if (self.n_update % self.log_interval) == 0:
+				self.dump_logs(step=self.n_update)
+
+	def dump_logs(self, step: int):
+		self.record(self.info_records)
+		super(ComdeTrainer, self).dump_logs(step=step)
 
 	def save(self, *args, **kwargs):
 		raise NotImplementedError()

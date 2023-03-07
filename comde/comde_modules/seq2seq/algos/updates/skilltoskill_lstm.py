@@ -17,7 +17,6 @@ def skilltoskill_lstm_updt(
 	target_skills: jnp.ndarray,  # [b, M, d]
 	observations: jnp.ndarray,  # [b, l, d]
 	actions: jnp.ndarray,  # [b, l, d]
-	rtgs: jnp.ndarray,
 	timesteps: jnp.ndarray,
 	maskings: jnp.ndarray,
 	skills_order: jnp.ndarray,  # [b, l]
@@ -49,11 +48,13 @@ def skilltoskill_lstm_updt(
 			batch_size=batch_size,
 			rngs={"init_carry": carry_key}
 		)
+
 		max_iter_len = lstm_output.shape[1]
 		# The loss function flows only as much as the target skill.
 		lstm_maskings = jnp.arange(max_iter_len)[jnp.newaxis, ...]
 		lstm_maskings = jnp.repeat(lstm_maskings, repeats=batch_size, axis=0)
-		lstm_maskings = jnp.where(lstm_maskings < n_target_skills, 1, 0)[..., jnp.newaxis]  # [b, max_iter_len, 1]
+		# [b, max_iter_len, 1]
+		lstm_maskings = jnp.where(lstm_maskings < n_target_skills.reshape(-1, 1), 1, 0)[..., jnp.newaxis]
 
 		lstm_output = lstm_output * lstm_maskings
 
@@ -62,17 +63,18 @@ def skilltoskill_lstm_updt(
 							 / jnp.sum(n_target_skills)
 
 		# 2. Predicted target skills should aid the skill decoder.
+
 		pred_target_skills = jnp.take_along_axis(lstm_output, skills_order[..., jnp.newaxis], axis=1)	# [b, l, d]
-		pred_actions = low_policy.apply_fn(
+		predictions = low_policy.apply_fn(
 			{"params": low_policy.params},
 			observations=observations,
 			actions=actions,
 			skills=pred_target_skills,
 			timesteps=timesteps,
 			maskings=maskings,
-			rtgs=rtgs,
 			rngs={"dropout": dropout_key}
 		)
+		_, pred_actions, _ = predictions
 		low_policy_loss = jnp.sum((pred_actions - actions) ** 2) / jnp.sum(maskings)
 		low_policy_loss = coef_decoder_aid * low_policy_loss
 

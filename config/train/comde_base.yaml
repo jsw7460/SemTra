@@ -7,7 +7,7 @@ defaults:
   - seq2seq: lstm
   - termination: mlp
 save_prefix: /home/jsw7460/comde_save/train/
-save_postfix: foo
+save_suffix: foo
 modules:
   - low_policy
   - seq2seq
@@ -23,4 +23,5 @@ skill_dim: 512
 subseq_len: 20
 batch_size: 377
 max_iter: 500
-step_per_dataset: 30
+step_per_dataset: 5000
+log_interval: 100
