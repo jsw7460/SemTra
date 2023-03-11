@@ -37,9 +37,9 @@ def skill_decisiontransformer_forward(
 	skills: jnp.ndarray,
 	timesteps: jnp.ndarray,
 	maskings: jnp.ndarray,
-	rtgs: jnp.ndarray
+	deterministic: bool = True
 ):
-	rng, _ = jax.random.split(rng)
+	rng, dropout_key = jax.random.split(rng)
 	prediction = model.apply_fn(
 		{"params": model.params},
 		observations=observations,
@@ -47,8 +47,8 @@ def skill_decisiontransformer_forward(
 		skills=skills,
 		timesteps=timesteps,
 		maskings=maskings,
-		rtgs=rtgs,
-		deterministic=True
+		deterministic=deterministic,
+		rngs={"dropout": dropout_key}
 	)
 
 	return rng, prediction

@@ -1,17 +1,20 @@
-observation_dim: ${observation_dim}
-action_dim: ${action_dim}
-first_observation_dim: ${observation_dim}
-skill_dim: ${skill_dim}
+_target_: comde.comde_modules.termination.MLPTermination
+seed: ${seed}
+cfg:
+  observation_dim: ${observation_dim}
+  action_dim: ${action_dim}
+  first_observation_dim: ${observation_dim}
+  skill_dim: ${skill_dim}
 
-net_arch:
-  - 128
-  - 128
-  - 128
-  - 128
-activation_fn: leaky_relu
-dropout: 0.0
-squash_output: False
-layer_norm: False
-batch_norm: False
-use_bias: True
-lr: 1E-4
+  net_arch:
+    - 128
+    - 128
+    - 128
+    - 128
+  activation_fn: leaky_relu
+  dropout: 0.0
+  squash_output: False
+  layer_norm: False
+  batch_norm: False
+  use_bias: True
+  lr: 1E-4

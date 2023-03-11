@@ -1,3 +1,5 @@
+import pickle
+import random
 from typing import Dict, Optional, Union, Tuple, List
 
 import gym
@@ -36,18 +38,24 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 	def add_dict_chunk(self, dataset: Dict, representative: str = None, clear_info: bool = False) -> None:
 		raise NotImplementedError("This is only for pickle file. ComDe does not support it.")
 
-	def add_episodes_from_h5py(self, paths: List[str]):
+	def add_episodes_from_h5py(self, paths: Dict[str, Union[List, str]]):
 		"""
 			## README ##
 			- Each path in paths corresponds to one trajectory.
 			- "skills" are processed using "skills_idxs" when making minibatch. So we add 'None' skill to buffer.
 		"""
+		trajectory_paths = paths["trajectory"]
+		language_guidance_paths = paths["language_guidance"]
+
+		with open(language_guidance_paths, "rb") as f:
+			language_guidance = pickle.load(f)
+
 		ep: SourceTargetSkillContainedEpisode
 
-		for path in paths:
+		for path in trajectory_paths:
 			episode = SourceTargetSkillContainedEpisode()
 			trajectory = h5py.File(path, "r")
-			dataset = self.preprocess_h5py_trajectory(trajectory)
+			dataset = self.preprocess_h5py_trajectory(trajectory, language_guidance)
 			episode.add_from_dict(dataset)
 
 			self.add(episode)
@@ -64,7 +72,11 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			max_possible_skills=max_possible_skills + 5
 		) for ep in self.episodes]
 
-	def preprocess_h5py_trajectory(self, trajectory: h5py.File) -> Dict:
+	def preprocess_h5py_trajectory(
+		self,
+		trajectory: h5py.File,
+		language_guidance_mapping: Dict[str, Dict[str,  np.ndarray]]
+	) -> Dict:
 		assert self.MUST_LOADED_COMPONENTS <= trajectory.keys(), \
 			f"Under qualified dataset. Please fill {trajectory.keys() - self.MUST_LOADED_COMPONENTS}"
 
@@ -89,6 +101,11 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			for skill in skills_in_demo:
 				source_skills.append(skill)
 
+		language_guidance_vectors = language_guidance_mapping[
+			str(trajectory["operator"][()], "utf-8")	# sequential, parallel, ...
+		].values()
+		language_guidance_vector = random.choice(list(language_guidance_vectors))
+
 		# === Compute first observations ===
 		skills_idxs = np.array(trajectory["skills_idxs"])
 		first_observations = np.zeros_like(observations)
@@ -108,7 +125,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			"infos": infos,
 			"source_skills": source_skills,
 			"target_skills": list(trajectory["target_skills"]),
-			"language_operator": np.zeros((512,)),
+			"language_operator": language_guidance_vector,
 			"first_observations": first_observations,
 			"skills_done": np.array(trajectory["skills_done"]),
 			"skills_order": np.array(trajectory["skills_order"]),

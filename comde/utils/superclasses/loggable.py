@@ -1,5 +1,6 @@
 from typing import Dict
 
+import wandb
 from stable_baselines3.common.logger import configure
 
 from comde.utils.common.strings import mode_str
@@ -7,13 +8,28 @@ from comde.utils.common.strings import mode_str
 
 class Loggable:
 	"""Not an interface"""
+	WANDB_EXCLUDED = {"time/", "info/"}
 
-	def __init__(self):
+	def __init__(self, cfg):
+		self.wandb_logger = wandb.init(
+			project=cfg["wandb"]["project"],
+			entity=cfg["wandb"]["entity"],
+			config=cfg
+		)
+
 		self.terminal_logger = configure(None, format_strings=["stdout"])
 
 	def dump_logs(self, step: int):
 		self.terminal_logger.record("info/step", step)
+		self.wandb_logger.log(
+			data={
+				key: value for key, value in self.terminal_logger.name_to_value.items() \
+				if not any([exc in key for exc in Loggable.WANDB_EXCLUDED])
+			},
+			step=step
+		)
 		self.terminal_logger.dump(step=step)
+		print(f" • Wandb url: {wandb.run.get_url()}")
 
 	def record(self, log_dict: Dict):
 		for key, value in log_dict.items():

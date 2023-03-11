@@ -35,6 +35,7 @@ def skilltoskill_lstm_updt(
 	rng, carry_key, dropout_key = jax.random.split(rng, 3)
 
 	batch_size = observations.shape[0]
+	action_dim = actions.shape[-1]
 	language_operators = language_operators[:, jnp.newaxis, ...]
 	input_seq = jnp.concatenate((source_skills, language_operators), axis=1)
 
@@ -57,14 +58,14 @@ def skilltoskill_lstm_updt(
 		lstm_maskings = jnp.where(lstm_maskings < n_target_skills.reshape(-1, 1), 1, 0)[..., jnp.newaxis]
 
 		lstm_output = lstm_output * lstm_maskings
+		target_skills_loss \
+			= coef_skill_loss * jnp.mean((lstm_output[:, :max_possible_skills, ...] - target_skills) ** 2, axis=-1)
 
-		target_skills_loss = coef_skill_loss \
-							 * jnp.sum((lstm_output[:, :max_possible_skills, ...] - target_skills) ** 2) \
-							 / jnp.sum(n_target_skills)
+		target_skills_loss = jnp.sum(target_skills_loss) / jnp.sum(n_target_skills)
 
 		# 2. Predicted target skills should aid the skill decoder.
-
 		pred_target_skills = jnp.take_along_axis(lstm_output, skills_order[..., jnp.newaxis], axis=1)	# [b, l, d]
+
 		predictions = low_policy.apply_fn(
 			{"params": low_policy.params},
 			observations=observations,
@@ -72,14 +73,23 @@ def skilltoskill_lstm_updt(
 			skills=pred_target_skills,
 			timesteps=timesteps,
 			maskings=maskings,
+			deterministic=False,
 			rngs={"dropout": dropout_key}
 		)
-		_, pred_actions, _ = predictions
-		low_policy_loss = jnp.sum((pred_actions - actions) ** 2) / jnp.sum(maskings)
+		_, action_preds, _ = predictions
+
+		action_preds = action_preds.reshape(-1, action_dim) * maskings.reshape(-1, 1)
+		action_targets = actions.reshape(-1, action_dim) * maskings.reshape(-1, 1)
+
+		low_policy_loss = jnp.sum((action_preds - action_targets) ** 2) / jnp.sum(maskings)
 		low_policy_loss = coef_decoder_aid * low_policy_loss
 
 		lstm_loss = target_skills_loss + low_policy_loss
-		_infos = {"lstm/target_skill_loss": target_skills_loss, "lstm/low_policy_loss": low_policy_loss}
+		_infos = {
+			"lstm_target_skill_loss": target_skills_loss,
+			"lstm_low_policy_loss": low_policy_loss,
+			"__pred_target_skills": pred_target_skills,
+		}
 		return lstm_loss, _infos
 
 	new_lstm, info = lstm.apply_gradient(loss_fn)

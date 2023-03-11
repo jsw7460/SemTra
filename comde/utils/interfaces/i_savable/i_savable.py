@@ -53,9 +53,7 @@ class IJaxSavable(metaclass=ABCMeta):
 	@classmethod
 	def load(cls, path: str):
 		data, params, *_ = load_from_zip_file(path)
-		class_type_name = IJaxSavable.get_class_type_name(cls)
-
-		raise NotImplementedError(f"Undefined Class for ComDe ({class_type_name})")
+		model = cls(seed=data["seed"], cfg=data["cfg"], init_build_model=False)
 
 		# load parameters
 		model.__dict__.update(data)

@@ -55,10 +55,10 @@ class PrimLSTM(nn.Module):
 		rng = self.make_rng("init_carry")
 		carry = self.initialize_carry(rng, batch_dim=batch_size)  # [batch_size, dim]
 		embedded_input = self.embed_net(sequence, deterministic=deterministic)
-		stacked_output = jnp.empty((batch_size, 1, self.hidden_dim))
+		stacked_outputs = []
 		for timestep in range(self.max_iter_len):
 			current_component = embedded_input[:, timestep, :]
 			carry, output = self.lstmcell(carry, current_component)
-			stacked_output = jnp.concatenate((stacked_output, output[:, jnp.newaxis, ...]), axis=1)
-		# stacked_output: [batch_size, subseq_len, dim]
+			stacked_outputs.append(output[:, jnp.newaxis, ...])
+		stacked_output = jnp.concatenate(stacked_outputs, axis=1)	# [b, max_iter_len, d]
 		return stacked_output, carry

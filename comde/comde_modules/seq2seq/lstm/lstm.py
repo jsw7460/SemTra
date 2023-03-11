@@ -16,8 +16,7 @@ from comde.utils.jax_utils.type_aliases import Params
 
 class SkillToSkillLSTM(BaseSeqToSeq):
 	PARAM_COMPONENTS = [
-		"_LSTM__model",
-		"_LSTM__task_decoder"
+		"_SkillToSkillLSTM__model",
 	]
 
 	def __init__(
@@ -34,6 +33,8 @@ class SkillToSkillLSTM(BaseSeqToSeq):
 		self.__model = None
 		self.__task_decoder = None
 		self.max_iter_len = cfg["max_iter_len"]
+		self.coef_skill_loss = cfg["coef_skill_loss"]
+		self.coef_decoder_aid = cfg["coef_decoder_aid"]
 
 		if init_build_model:
 			self.build_model()
@@ -105,22 +106,21 @@ class SkillToSkillLSTM(BaseSeqToSeq):
 			maskings=replay_data.maskings,
 			skills_order=replay_data.skills_order,
 			n_target_skills=replay_data.n_target_skills,
-			coef_skill_loss=self.cfg["coef_skill_loss"],
-			coef_decoder_aid=self.cfg["coef_decoder_aid"]
+			coef_skill_loss=self.coef_skill_loss,
+			coef_decoder_aid=self.coef_decoder_aid
 		)
 		self.model = new_model
 		self.rng, _ = jax.random.split(self.rng)
-
 		return info
 
 	def predict(
 		self,
 		source_skills: np.ndarray,  # [b, M, d]
-		language_operators: np.ndarray,  # [b, d]
+		language_operator: np.ndarray,  # [b, d]
 	) -> np.ndarray:
 		batch_size = source_skills.shape[0]
-		language_operators = language_operators[:, np.newaxis, ...]
-		input_seq = np.concatenate((source_skills, language_operators), axis=1)
+		language_operator = language_operator[:, np.newaxis, ...]
+		input_seq = np.concatenate((source_skills, language_operator), axis=1)
 		self.rng, prediction = fwd(
 			rng=self.rng,
 			model=self.model,
@@ -137,24 +137,26 @@ class SkillToSkillLSTM(BaseSeqToSeq):
 		batch_size = replay_data.source_skills.shape[0]
 		source_skills = replay_data.source_skills
 		target_skills = replay_data.target_skills
-		language_operators = replay_data.language_operators
+		language_operator = replay_data.language_operators
 		n_target_skills = replay_data.n_target_skills
 		max_possible_skills = replay_data.target_skills.shape[1]
 
 		lstm_output = self.predict(
 			source_skills=source_skills,
-			language_operators=language_operators
+			language_operator=language_operator
 		)
 		lstm_maskings = np.arange(self.max_iter_len)[np.newaxis, ...]
 		lstm_maskings = np.repeat(lstm_maskings, repeats=batch_size, axis=0)
-		lstm_maskings = np.where(lstm_maskings < n_target_skills, 1, 0)[..., np.newaxis]  # [b, max_iter_len, 1]
+		# [b, max_iter_len, 1]
+		lstm_maskings = np.where(lstm_maskings < n_target_skills.reshape(-1, 1), 1, 0)[..., np.newaxis]
 
 		lstm_output = lstm_output * lstm_maskings
-		skills_loss = np.sum((lstm_output[:, :max_possible_skills, ...] - target_skills) ** 2) \
-					  / np.sum(n_target_skills)
+		skills_loss \
+			= self.coef_skill_loss * np.mean((lstm_output[:, :max_possible_skills, ...] - target_skills) ** 2, axis=-1)
 
-		eval_info = {"skill_lstm/skill_error": skills_loss}
+		skills_loss = np.sum(skills_loss) / np.sum(n_target_skills)
 
+		eval_info = {"skill_lstm/skill_error": skills_loss, "__seq2seq_output": lstm_output}
 		return eval_info
 
 	def _excluded_save_params(self) -> List:

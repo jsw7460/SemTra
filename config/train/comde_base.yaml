@@ -1,11 +1,12 @@
 seed: 777
-wandb_entity_name: jsw7460
-
 
 defaults:
   - low_policy: skill_dt
   - seq2seq: lstm
   - termination: mlp
+  - wandb: comde_train
+  - env: metaworld
+
 save_prefix: /home/jsw7460/comde_save/train/
 save_suffix: foo
 modules:
@@ -14,9 +15,9 @@ modules:
   - termination
 
 env: ???
-act_scale: ???
-observation_dim: ???
-action_dim: ???
+act_scale: 1.0
+observation_dim: ${env.observation_dim}
+action_dim: ${env.action_dim}
 dataset_path: ???
 
 skill_dim: 512
@@ -24,4 +25,5 @@ subseq_len: 20
 batch_size: 377
 max_iter: 500
 step_per_dataset: 5000
-log_interval: 100
+log_interval: 1000
+language_guidance_path: /home/jsw7460/mnt/comde_datasets/clip_mappings/language_guidance/sequential_clip_mapping

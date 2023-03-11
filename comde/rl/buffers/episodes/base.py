@@ -36,8 +36,9 @@ class Episode:
 
 	@staticmethod
 	def expand_1st_dim(dataset: Dict[str, np.ndarray]):
-		for k in dataset:
-			dataset[k] = np.expand_dims(dataset, axis=0)
+		raise NotImplementedError("Out of date")
+		# for k in dataset:
+		# 	dataset[k] = np.expand_dims(dataset, axis=0)
 
 	def get_numpy_subtrajectory(self, from_: int, to_: int, batch_mode: bool) -> Dict:
 		assert from_ >= 0 and to_ < len(self)

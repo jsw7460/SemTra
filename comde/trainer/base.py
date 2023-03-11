@@ -10,7 +10,7 @@ from comde.utils.superclasses.loggable import Loggable
 
 class BaseTrainer(Loggable):
 	def __init__(self, cfg: Dict):
-		super(BaseTrainer, self).__init__()
+		super(BaseTrainer, self).__init__(cfg=cfg)
 
 		# ==== time ====
 		self.today = None
@@ -28,7 +28,7 @@ class BaseTrainer(Loggable):
 		self.required_total_update = self.max_iter * self.step_per_dataset
 
 	@abstractmethod
-	def run(self):
+	def run(self, *args, **kwargs):
 		"""Training loop"""
 
 	@abstractmethod
@@ -48,7 +48,7 @@ class BaseTrainer(Loggable):
 
 		self.record({
 			"time/fps": fps,
-			"time/elapsed": elapsed,
+			"time/elapsed": str(timedelta(seconds=elapsed)),
 			"time/remain": str(timedelta(seconds=remain)),
 			"time/eta": eta.strftime("%m.%d / %H:%M:%S")
 		})

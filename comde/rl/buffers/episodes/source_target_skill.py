@@ -1,8 +1,8 @@
 from typing import List, Dict
 
-from comde.rl.buffers.episodes.skill import SkillContainedEpisode
-
 import numpy as np
+
+from comde.rl.buffers.episodes.skill import SkillContainedEpisode
 
 
 class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
@@ -17,7 +17,7 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 
 		self.language_operator = None  # E.g., 'do sequentially', ...
 
-		self.skills_orders = []		# Increasing sequence.
+		self.skills_orders = []  # Increasing sequence.
 
 	def __getitem__(self, idx):
 		episode = super(SourceTargetSkillContainedEpisode, self).__getitem__(idx)
@@ -113,9 +113,9 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 	def set_zeropaddings(self, n_padding: int, max_possible_skills: int = None):
 		assert len(self.target_skills) > 0, "We require at least one target skills !"
 		super(SourceTargetSkillContainedEpisode, self).set_zeropaddings(n_padding=n_padding)
-		zero_skill = np.zeros_like(self.target_skills[0])
-		[self.source_skills.append(zero_skill.copy()) for _ in range(max_possible_skills - self.n_source_skills)]
-		[self.target_skills.append(zero_skill.copy()) for _ in range(max_possible_skills - self.n_target_skills)]
+		undefined_skill = np.zeros_like(self.target_skills[0]) - 1
+		[self.source_skills.append(undefined_skill.copy()) for _ in range(max_possible_skills - self.n_source_skills)]
+		[self.target_skills.append(undefined_skill.copy()) for _ in range(max_possible_skills - self.n_target_skills)]
 		[self.skills_orders.append(-1) for _ in range(n_padding)]
 
 	def add(

@@ -1,7 +1,6 @@
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Tuple
 
 import jax
-import jax.numpy as jnp
 import numpy as np
 import optax
 
@@ -43,6 +42,17 @@ class SkillDecisionTransformer(BaseLowPolicy):
 	@model.setter
 	def model(self, value):
 		self.__model = value
+
+	@staticmethod
+	def check_shape(observations: np.ndarray, actions: np.ndarray, skills: np.ndarray, timesteps: np.ndarray):
+		print("What is here timesteps?", timesteps.shape)
+		if len(actions) > 0:
+			assert observations.ndim == actions.ndim == skills.ndim == 3, \
+				[
+					f"{comp} should be 3-dimensional but has {comp.ndim}"
+					for comp in [observations, actions, skills] if comp.ndim != 3
+				]
+			assert timesteps.ndim == 2, f"timestep should be 2-dimensional but has {timesteps.ndim}"
 
 	def str_to_activation(self, activation_fn: str):
 		return activation_fn
@@ -94,7 +104,7 @@ class SkillDecisionTransformer(BaseLowPolicy):
 			skills=replay_data.skills,
 			timesteps=replay_data.timesteps.astype("i4"),
 			maskings=replay_data.maskings,
-			action_targets=jnp.copy(replay_data.actions),
+			action_targets=np.copy(replay_data.actions),
 		)
 
 		self.model = new_model
@@ -102,25 +112,87 @@ class SkillDecisionTransformer(BaseLowPolicy):
 
 		return info
 
-	def predict(
+	def get_padded_components(
 		self,
-		observations: jnp.ndarray,
-		actions: jnp.ndarray,
-		skills: jnp.ndarray,
-		timesteps: jnp.ndarray,
-		maskings: Union[jnp.ndarray],
-	) -> jnp.ndarray:
+		observations: np.ndarray,
+		actions: np.ndarray,
+		skills: np.ndarray,
+		timesteps: np.ndarray,
+	) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+		self.check_shape(observations, actions, skills, timesteps)
+		batch_size = observations.shape[0]
+		subseq_len = self.cfg["subseq_len"]
+
+		history_len = observations.shape[1]
+		observations = np.concatenate(
+			(observations, np.zeros((batch_size, subseq_len - history_len, self.observation_dim))), axis=1
+		)
+		actions = np.concatenate(
+			(actions, np.zeros((batch_size, subseq_len - actions.shape[1], self.action_dim))), axis=1
+		)
+		skills = np.concatenate(
+			(skills, np.zeros((batch_size, subseq_len - skills.shape[1], self.skill_dim))), axis=1
+		)
+		timesteps = np.concatenate(
+			(timesteps, np.zeros((batch_size, subseq_len - timesteps.shape[1]))), axis=1
+		)
+		maskings = np.concatenate(
+			(np.ones((batch_size, history_len)), np.zeros((batch_size, subseq_len - history_len))), axis=1
+		)
+		return observations, actions, skills, timesteps, maskings
+
+	def predict(self, *args, **kwargs) -> np.ndarray:
+		historical_actions = self.predict_and_get_historical_actions(*args, **kwargs)
+		return historical_actions[:, -1]
+
+	def predict_and_get_historical_actions(
+		self,
+		observations: np.ndarray,
+		actions: np.ndarray,
+		skills: np.ndarray,
+		timesteps: np.ndarray,
+		maskings: Union[np.ndarray] = None,
+		to_np: bool = True
+	) -> np.ndarray:
+
+		self.check_shape(observations, actions, skills, timesteps)
+
+		subseq_len = self.cfg["subseq_len"]
+		cur_subseq_len = observations.shape[1]
+
+		# Longer than subseq_len -> Truncate
+		# Shorter than subseq_len -> Set zero paddings and get maskings.
+		if cur_subseq_len < subseq_len:
+			observations, actions, skills, timesteps, maskings = self.get_padded_components(
+				observations=observations,
+				actions=actions,
+				skills=skills,
+				timesteps=timesteps
+			)
+
+		subseq_len = self.cfg["subseq_len"]
+		observations = observations[:, :subseq_len, :]
+		actions = actions[:, :subseq_len, :]
+		skills = skills[:, :subseq_len, :]
+		timesteps = timesteps[:, :subseq_len]
+		if maskings is None:
+			maskings = np.ones((1, subseq_len))
+
 		self.rng, prediction = fwd(
 			rng=self.rng,
 			model=self.model,
 			observations=observations,
 			actions=actions,
 			skills=skills,
-			timesteps=timesteps,
+			timesteps=timesteps.astype("i4"),
 			maskings=maskings,
 		)
 		obs_preds, action_preds, return_preds = prediction
-		return action_preds[:, -1]
+
+		if to_np:
+			return np.array(action_preds)
+		else:
+			return action_preds
 
 	def evaluate(
 		self,
@@ -132,7 +204,7 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		timesteps = replay_data.timesteps
 		maskings = replay_data.maskings
 
-		action_preds = self.predict(
+		action_preds = self.predict_and_get_historical_actions(
 			observations=observations,
 			actions=actions,
 			skills=skills,
@@ -142,11 +214,11 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		action_preds = action_preds.reshape(-1, self.action_dim) * maskings.reshape(-1, 1)
 		action_targets = actions.reshape(-1, self.action_dim) * maskings.reshape(-1, 1)
 
-		mse_error = jnp.sum((action_preds - action_targets)) / jnp.sum(maskings)
+		mse_error = np.sum((action_preds - action_targets) ** 2) / np.sum(maskings)
 
 		eval_info = {
-			"decoder/mse_error": mse_error,
-			"decoder/mse_error_scaled(x100)": mse_error * 100
+			"skill_decoder/mse_error": mse_error,
+			"skill_decoder/mse_error_scaled(x100)": mse_error * 100
 		}
 
 		return eval_info
