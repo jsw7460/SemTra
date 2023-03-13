@@ -70,9 +70,25 @@ class MLPTermination(BaseTermination):
 		self.rng, _ = jax.random.split(self.rng)
 		return info
 
-	def predict(self, observations: np.ndarray, first_observations: np.ndarray, skills: np.ndarray) -> np.ndarray:
+	def predict(
+		self,
+		observations: np.ndarray,
+		first_observations: np.ndarray,
+		skills: np.ndarray,
+		binary: bool = False
+	) -> np.ndarray:
+		"""
+		:param observations:
+		:param first_observations:
+		:param skills:
+		:param binary: If true -> return only 0 or 1. If false -> return array of predicted probability
+		:return:
+		"""
 		self.rng, prediction = termination_forward(self.rng, self.model, observations, first_observations, skills)
-		return prediction
+		if binary:
+			return np.argmax(prediction, axis=-1)
+		else:
+			return prediction
 
 	def evaluate(
 		self,

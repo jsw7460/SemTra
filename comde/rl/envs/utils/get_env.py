@@ -3,10 +3,10 @@ from pathlib import Path
 from typing import Dict
 
 from comde.rl.envs.metaworld.metaworld import DimFixedMetaWorld
-from comde.rl.envs.utils.idx_to_skills import IdxToSkill
+from comde.rl.envs.utils.skill_to_vec import SkillToVec
 
 
-def get_dummy_env(cfg: Dict) -> IdxToSkill:
+def get_dummy_env(cfg: Dict) -> SkillToVec:
 	"""
 	Note: This is not responsible for evaluate the env.
 	"""
@@ -18,9 +18,9 @@ def get_dummy_env(cfg: Dict) -> IdxToSkill:
 	else:
 		raise NotImplementedError(f"Not supported: {env_name}")
 
-	with open(Path(cfg["idx_to_skills_path"]), "rb") as f:
-		idx_to_skills = pickle.load(f)
+	with open(Path(cfg["skill_to_vec_path"]), "rb") as f:
+		skill_to_vec = pickle.load(f)
 
-	env = IdxToSkill(env=env, idx_to_skills=idx_to_skills)
+	env = SkillToVec(env=env, skill_to_vec=skill_to_vec)
 
 	return env

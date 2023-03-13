@@ -45,7 +45,6 @@ class SkillDecisionTransformer(BaseLowPolicy):
 
 	@staticmethod
 	def check_shape(observations: np.ndarray, actions: np.ndarray, skills: np.ndarray, timesteps: np.ndarray):
-		print("What is here timesteps?", timesteps.shape)
 		if len(actions) > 0:
 			assert observations.ndim == actions.ndim == skills.ndim == 3, \
 				[

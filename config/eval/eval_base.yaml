@@ -3,7 +3,8 @@ defaults:
 
 seed: 0
 pretrained_prefix: /home/jsw7460/comde_save/train
-date: 2023-03-09  # yyyy-mm-dd. Date for trained model
+date: 2023-03-12  # yyyy-mm-dd. Date for trained model
 pretrained_suffix: ???
 
 pretrained_path: ${pretrained_prefix}/${date}/cfg/cfg_${pretrained_suffix}
+language_guidance: sequential

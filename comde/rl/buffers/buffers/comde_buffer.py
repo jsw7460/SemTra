@@ -69,7 +69,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 
 		[ep.set_zeropaddings(
 			n_padding=self.subseq_len,
-			max_possible_skills=max_possible_skills + 5
+			max_possible_skills=max_possible_skills
 		) for ep in self.episodes]
 
 	def preprocess_h5py_trajectory(
@@ -116,6 +116,13 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 				first_obs_pos = i
 			first_observations[i] = observations[first_obs_pos]
 
+		# === Augment skill done by 4 ===
+		n_aug = 4
+		done_times = np.where(trajectory["skills_done"] == 1)[0]
+		augmented_skills_done = np.array(trajectory["skills_done"]).copy()
+		for timestep in done_times.astype("i4"):
+			augmented_skills_done[timestep - n_aug: timestep + n_aug + 1] = 1
+
 		dataset = {
 			"observations": observations,
 			"next_observations": next_observations,
@@ -127,7 +134,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			"target_skills": list(trajectory["target_skills"]),
 			"language_operator": language_guidance_vector,
 			"first_observations": first_observations,
-			"skills_done": np.array(trajectory["skills_done"]),
+			"skills_done": augmented_skills_done,
 			"skills_order": np.array(trajectory["skills_order"]),
 			"skills_idxs": skills_idxs,
 			"rtgs": rtgs

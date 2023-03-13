@@ -13,6 +13,8 @@ from comde.utils.jax_utils.general import get_basic_rngs
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
 
+EPS = 1e-9
+
 
 class SkillToSkillLSTM(BaseSeqToSeq):
 	PARAM_COMPONENTS = [
@@ -76,7 +78,7 @@ class SkillToSkillLSTM(BaseSeqToSeq):
 		)
 		encoder_tx = optax.chain(
 			optax.clip(1.0),
-			optax.adamw(learning_rate=encoder_scheduler)
+			optax.adam(learning_rate=encoder_scheduler)
 		)
 		rngs.update(
 			{"init_carry": self.rng, "sampling": self.rng + 1}
@@ -93,6 +95,7 @@ class SkillToSkillLSTM(BaseSeqToSeq):
 		*,
 		low_policy: Model
 	) -> Dict:
+
 		new_model, info = skilltoskill_lstm_updt(
 			rng=self.rng,
 			lstm=self.model,
@@ -132,7 +135,8 @@ class SkillToSkillLSTM(BaseSeqToSeq):
 
 	def evaluate(
 		self,
-		replay_data: ComDeBufferSample
+		replay_data: ComDeBufferSample,
+		np_idx_to_skills: np.ndarray = None
 	) -> Dict:
 		batch_size = replay_data.source_skills.shape[0]
 		source_skills = replay_data.source_skills
@@ -144,7 +148,7 @@ class SkillToSkillLSTM(BaseSeqToSeq):
 		lstm_output = self.predict(
 			source_skills=source_skills,
 			language_operator=language_operator
-		)
+		)  # [b, max_iter_len, d]
 		lstm_maskings = np.arange(self.max_iter_len)[np.newaxis, ...]
 		lstm_maskings = np.repeat(lstm_maskings, repeats=batch_size, axis=0)
 		# [b, max_iter_len, 1]
@@ -157,6 +161,32 @@ class SkillToSkillLSTM(BaseSeqToSeq):
 		skills_loss = np.sum(skills_loss) / np.sum(n_target_skills)
 
 		eval_info = {"skill_lstm/skill_error": skills_loss, "__seq2seq_output": lstm_output}
+
+		if np_idx_to_skills is not None:
+			if batch_size > 1:
+				return eval_info
+			n_target_skills = np.squeeze(n_target_skills, axis=0)
+			trunc_lstm_output = lstm_output[:, :n_target_skills, ...]  # [1, 4, d]
+			idx_to_skills = np_idx_to_skills[:, np.newaxis, ...]  # [9, 1, d]
+
+			distances = (trunc_lstm_output - idx_to_skills) ** 2  # [9, 4, d]
+			distances = np.sum(distances, axis=-1)  # [9, 4]
+
+			nearest_idx = np.argmin(distances, axis=0)
+			pred_target_skills = np_idx_to_skills[nearest_idx]  # [4, d]
+
+			distance_to_gt = np.sum(
+				(pred_target_skills - target_skills.squeeze(axis=0)[:n_target_skills]) ** 2,
+				axis=-1
+			)
+			correct_pred = np.sum(distance_to_gt < EPS)
+
+			# print("Distances shape", distances.shape)
+			eval_info.update({
+				"skill_lstm/distance_to_target": np.mean(distance_to_gt),
+				"skill_lstm/accuracy": correct_pred / n_target_skills
+			})
+
 		return eval_info
 
 	def _excluded_save_params(self) -> List:

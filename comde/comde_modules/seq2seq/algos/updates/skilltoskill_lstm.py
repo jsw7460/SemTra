@@ -32,6 +32,7 @@ def skilltoskill_lstm_updt(
 			1. Output of LSTM ~ target skills (via similarity? or MSE?)
 			2. Output of LSTM is conditioned on low policy. Then LSTM is tuned to minimize the BC loss.
 	"""
+
 	rng, carry_key, dropout_key = jax.random.split(rng, 3)
 
 	batch_size = observations.shape[0]
@@ -51,20 +52,22 @@ def skilltoskill_lstm_updt(
 		)
 
 		max_iter_len = lstm_output.shape[1]
+
 		# The loss function flows only as much as the target skill.
 		lstm_maskings = jnp.arange(max_iter_len)[jnp.newaxis, ...]
 		lstm_maskings = jnp.repeat(lstm_maskings, repeats=batch_size, axis=0)
+
 		# [b, max_iter_len, 1]
 		lstm_maskings = jnp.where(lstm_maskings < n_target_skills.reshape(-1, 1), 1, 0)[..., jnp.newaxis]
-
 		lstm_output = lstm_output * lstm_maskings
 		target_skills_loss \
 			= coef_skill_loss * jnp.mean((lstm_output[:, :max_possible_skills, ...] - target_skills) ** 2, axis=-1)
 
-		target_skills_loss = jnp.sum(target_skills_loss) / jnp.sum(n_target_skills)
+		target_skills_loss = jnp.sum(target_skills_loss, axis=1) / n_target_skills
+		target_skills_loss = jnp.mean(target_skills_loss)
 
 		# 2. Predicted target skills should aid the skill decoder.
-		pred_target_skills = jnp.take_along_axis(lstm_output, skills_order[..., jnp.newaxis], axis=1)	# [b, l, d]
+		pred_target_skills = jnp.take_along_axis(lstm_output, skills_order[..., jnp.newaxis], axis=1)  # [b, l, d]
 
 		predictions = low_policy.apply_fn(
 			{"params": low_policy.params},

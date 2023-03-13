@@ -17,7 +17,7 @@ class ComdeTrainer(BaseTrainer):
 		low_policy: BaseLowPolicy,  # "skill decoder" == "low policy"
 		seq2seq: BaseSeqToSeq,
 		termination: BaseTermination,
-		idx_to_skill: Dict[str, np.ndarray]
+		skill_to_vec: Dict[str, np.ndarray]
 	):
 		"""
 		This trainer consist of three modules
@@ -32,7 +32,7 @@ class ComdeTrainer(BaseTrainer):
 		self.low_policy = low_policy
 		self.seq2seq = seq2seq
 		self.termination = termination
-		self.idx_to_skill = idx_to_skill
+		self.idx_to_skill = skill_to_vec
 
 		np_idx_to_skill = np.array(list(self.idx_to_skill.values()))
 
@@ -85,10 +85,11 @@ class ComdeTrainer(BaseTrainer):
 				self.dump_logs(step=self.n_update)
 
 	def evaluate(self, replay_buffer: ComdeBuffer):
-		eval_data = replay_buffer.sample(len(replay_buffer))  # type: ComDeBufferSample
+		eval_data = replay_buffer.sample(128)  # type: ComDeBufferSample
+
 		eval_data = self.get_skill_from_idxs(eval_data)
 
-		info1 = self.seq2seq.evaluate(eval_data)
+		info1 = self.seq2seq.evaluate(replay_data=eval_data, np_idx_to_skills=self.np_idx_to_skill.copy())
 		seq2seq_output = info1["__seq2seq_output"]
 		pred_target_skills = np.take_along_axis(seq2seq_output, eval_data.skills_order[..., np.newaxis], axis=1)
 

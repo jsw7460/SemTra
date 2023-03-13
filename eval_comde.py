@@ -1,24 +1,18 @@
 import pickle
+import random
 
 import hydra
-import numpy as np
 from hydra.utils import get_class
 from omegaconf import DictConfig
 
-from comde.rl.envs.utils import BatchEnv, TimeLimitEnv
 from comde.evaluations.comde_eval import evaluate_comde
+from comde.rl.envs.utils import BatchEnv, TimeLimitEnv, get_source_skills
 
 
 @hydra.main(version_base=None, config_path="config/eval", config_name="eval_base.yaml")
 def program(cfg: DictConfig) -> None:
 	with open(cfg.pretrained_path, "rb") as f:
 		pretrained_cfg = pickle.load(f)
-
-	# source_skills = tasks_for_eval["source_skills"]
-	# language_guidence = tasks_for_eval["language_guidence"]
-
-	source_skills = np.zeros((1, 7, 512))
-	language_guidence = np.zeros((1, 512))
 
 	low_policy = get_class(pretrained_cfg["low_policy"]["_target_"])
 	low_policy = low_policy.load(pretrained_cfg["save_paths"]["low_policy"])
@@ -30,13 +24,32 @@ def program(cfg: DictConfig) -> None:
 	termination = termination.load(pretrained_cfg["save_paths"]["termination"])
 
 	with open(cfg.env.eval_tasks_path, "rb") as f:
-		tasks_for_eval = pickle.load(f)
+		tasks_for_eval = pickle.load(f)		# Target tasks
+
+	with open(cfg.env.source_skills_path, "rb") as f:
+		task_to_source_skills = pickle.load(f)	# Task -> Predicted source skills
+
+	with open(pretrained_cfg["env"]["skill_to_vec_path"], "rb") as f:
+		skill_to_vec = pickle.load(f)	# skill to vector
+
+	with open(pretrained_cfg["language_guidance_path"], "rb") as f:
+		language_guidances = pickle.load(f)
+		language_guidances = language_guidances[cfg["language_guidance"]]	# Dict of vectors
 
 	for task in tasks_for_eval:
+
 		env = get_class(cfg.env.path)
 		env = env(seed=cfg.seed, task=task)  # Set task
 		env = TimeLimitEnv(env=env, limit=cfg.env.timelimit)
 		env = BatchEnv(env)
+
+		source_skills = get_source_skills(
+			task_to_source_skills=task_to_source_skills[cfg["language_guidance"]],
+			skill_to_vec=skill_to_vec,
+			task=task
+		)
+		language_guidance = random.choice(list(language_guidances.values()))
+
 		with env.batch_mode():  # expand first dimension
 			evaluate_comde(
 				env=env,
@@ -44,8 +57,9 @@ def program(cfg: DictConfig) -> None:
 				seq2seq=seq2seq,
 				termination=termination,
 				source_skills=source_skills,
-				language_guidence=language_guidence
+				language_guidance=language_guidance
 			)
+
 
 if __name__ == "__main__":
 	program()

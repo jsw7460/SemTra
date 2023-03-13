@@ -19,7 +19,7 @@ from comde.rl.envs import get_dummy_env
 def program(cfg: DictConfig) -> None:
 	cfg = OmegaConf.to_container(cfg, resolve=True)
 
-	env = get_dummy_env(cfg["env"])
+	env = get_dummy_env(cfg["env"])	# Dummy env for obtain an observation and action space.
 	low_policy = instantiate(cfg["low_policy"])
 	seq2seq = instantiate(cfg["seq2seq"])
 	termination = instantiate(cfg["termination"])
@@ -29,7 +29,7 @@ def program(cfg: DictConfig) -> None:
 		low_policy=low_policy,
 		seq2seq=seq2seq,
 		termination=termination,
-		idx_to_skill=env.idx_to_skills
+		skill_to_vec=env.skill_to_vec
 	)
 
 	data_dirs = [
