@@ -15,7 +15,8 @@ def evaluate_comde(
 	termination: BaseTermination,
 	source_skills: np.ndarray,	# [1, M, d]
 	language_guidance: np.ndarray,	# [1, d]
-	termination_pred_interval: int = 5,
+	termination_pred_interval: int = 10,
+	use_optimal_next_skill: bool = True
 ):
 
 	observation_dim = env.observation_space.shape[-1]	# type: int
@@ -34,7 +35,9 @@ def evaluate_comde(
 	target_skills = seq2seq.predict(
 		source_skills=source_skills,
 		language_operator=language_guidance
-	)  # [b, max_iter_len, d]
+	)  # [1, max_iter_len, d]
+
+	target_skills = source_skills	# Debugging
 	n_max_skills = target_skills.shape[1]
 
 	ep_observations = []
@@ -64,16 +67,25 @@ def evaluate_comde(
 		input_actions = np.concatenate((np.concatenate(ep_actions, axis=0), np.zeros((1, action_dim))), axis=0)
 		input_skills = np.concatenate((np.concatenate(ep_skills, axis=0), np.zeros((1, skill_dim))), axis=0)
 
-		if ((timestep - 1) % termination_pred_interval) == 0:
-			maybe_skill_done = termination.predict(
-				observations=observation.reshape(1, -1, observation_dim),
-				first_observations=first_obs_of_skill.reshape(1, -1, observation_dim),
-				skills=skill.reshape(1, -1, skill_dim),
-				binary=True
-			)
+
+		if use_optimal_next_skill:
+			maybe_skill_done = len(ep_rewards) > 0 and ep_rewards[-1] > 0
 			if maybe_skill_done:
-				cur_skill_pos = max(cur_skill_pos + 1, n_max_skills - 1)
+				print("Maybe skill done")
+				cur_skill_pos = min(cur_skill_pos + 1, n_max_skills - 1)
 				skill = target_skills[:, cur_skill_pos].copy()
+
+		else:
+			if ((timestep - 1) % termination_pred_interval) == 0:
+				maybe_skill_done = termination.predict(
+					observations=observation.reshape(1, -1, observation_dim),
+					first_observations=first_obs_of_skill.reshape(1, -1, observation_dim),
+					skills=skill.reshape(1, -1, skill_dim),
+					binary=True
+				)
+				if maybe_skill_done:
+					cur_skill_pos = min(cur_skill_pos + 1, n_max_skills - 1)
+					skill = target_skills[:, cur_skill_pos].copy()
 
 		action = low_policy.predict(
 			observations=input_observations.reshape(1, -1, observation_dim),
@@ -83,7 +95,6 @@ def evaluate_comde(
 			to_np=True
 		)
 		observation, reward, done, info = env.step(action.reshape(-1,).copy())
-
 		timestep += 1
 
 		ep_observations.append(observation.copy())
@@ -95,7 +106,6 @@ def evaluate_comde(
 		ep_dones.append(done)
 		ep_infos.append(info)
 
-	print("???????????", np.sum(ep_rewards))
 	return {
 		"ep_observations": ep_observations,
 		"ep_actions": ep_actions,
@@ -103,5 +113,6 @@ def evaluate_comde(
 		"ep_timesteps": ep_timesteps,
 		"ep_rewards": ep_rewards,
 		"ep_dones": ep_dones,
-		"ep_infos": ep_infos
+		"ep_infos": ep_infos,
+		"return": sum(ep_rewards)
 	}

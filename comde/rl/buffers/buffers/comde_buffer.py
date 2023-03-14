@@ -118,8 +118,9 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 
 		# === Augment skill done by 4 ===
 		n_aug = 4
-		done_times = np.where(trajectory["skills_done"] == 1)[0]
+		done_times = np.where(np.array(trajectory["skills_done"]) == 1)[0]
 		augmented_skills_done = np.array(trajectory["skills_done"]).copy()
+
 		for timestep in done_times.astype("i4"):
 			augmented_skills_done[timestep - n_aug: timestep + n_aug + 1] = 1
 

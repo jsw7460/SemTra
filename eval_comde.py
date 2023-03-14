@@ -4,6 +4,7 @@ import random
 import hydra
 from hydra.utils import get_class
 from omegaconf import DictConfig
+from pathlib import Path
 
 from comde.evaluations.comde_eval import evaluate_comde
 from comde.rl.envs.utils import BatchEnv, TimeLimitEnv, get_source_skills
@@ -51,7 +52,7 @@ def program(cfg: DictConfig) -> None:
 		language_guidance = random.choice(list(language_guidances.values()))
 
 		with env.batch_mode():  # expand first dimension
-			evaluate_comde(
+			info = evaluate_comde(
 				env=env,
 				low_policy=low_policy,
 				seq2seq=seq2seq,
@@ -59,6 +60,12 @@ def program(cfg: DictConfig) -> None:
 				source_skills=source_skills,
 				language_guidance=language_guidance
 			)
+
+		if cfg.save_results:
+			save_path = Path(cfg.save_prefix) / Path(cfg.date) / Path(cfg.pretrained_suffix)
+			save_path.mkdir(parents=True, exist_ok=True)
+			with open(save_path / Path(env.get_short_str_for_save() + str(info["return"])), "wb") as f:
+				pickle.dump(info, f)
 
 
 if __name__ == "__main__":
