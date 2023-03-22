@@ -1,0 +1,28 @@
+#low_policy:
+_target_: comde.comde_modules.low_policies.SkillMLP
+seed: ${seed}
+cfg:
+  net_arch:
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+  
+  activation_fn: relu
+  dropout: 0.0
+  squash_output: True
+  layer_norm: False
+  batch_norm: False
+  use_bias: True
+  act_scale: ${act_scale}
+
+  lr: 1e-4
+  max_ep_len: 1024
+
+  observation_dim: ${observation_dim}
+  action_dim: ${action_dim}
+  skill_dim: ${skill_dim}
+  subseq_len: ${subseq_len}

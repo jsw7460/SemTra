@@ -52,3 +52,34 @@ def skill_decisiontransformer_forward(
 	)
 
 	return rng, prediction
+
+
+@jax.jit
+def skill_mlp_forward(
+	rng: jnp.ndarray,
+	model: Model,
+	observations: jnp.ndarray,
+	actions: jnp.ndarray,
+	skills: jnp.ndarray,
+	timesteps: jnp.ndarray,
+	maskings: jnp.ndarray,
+	deterministic: bool = True
+):
+	# fixed: originally obs-skill concatenation was done here, 
+	# 	     moved to forward function in PrimSkillMLP
+	rng, dropout_key = jax.random.split(rng)
+	prediction = model.apply_fn(
+		{"params": model.params},
+		observations=observations,
+		actions=actions,
+		skills=skills,
+		timesteps=timesteps,
+		maskings=maskings,
+		# model_input,
+		rngs={"dropout": dropout_key},
+		deterministic=deterministic,
+		training=False
+	)
+	_,act_pred,_ = prediction
+	return rng, act_pred
+
