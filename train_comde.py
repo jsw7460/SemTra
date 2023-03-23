@@ -21,6 +21,10 @@ def program(cfg: DictConfig) -> None:
 
 	env = get_dummy_env(cfg["env"])	# Dummy env for obtain an observation and action space.
 	low_policy = instantiate(cfg["low_policy"])
+
+	"""
+	low_policy = SkillDecisionTransformer(cfg)
+	"""
 	seq2seq = instantiate(cfg["seq2seq"])
 	termination = instantiate(cfg["termination"])
 
@@ -63,7 +67,6 @@ def program(cfg: DictConfig) -> None:
 			"language_guidance": cfg["language_guidance_path"]
 		})
 		trainer.evaluate(eval_buffer)
-
 		trainer.save()
 
 

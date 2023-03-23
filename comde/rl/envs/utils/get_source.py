@@ -19,3 +19,12 @@ def get_source_skills(
 
 	source_skills = np.array(skill_vectors)
 	return source_skills
+
+
+def get_batch_source_skills(		# Evaluation on batch environment
+	task_to_source_skills: Dict[str, List[str]],
+	skill_to_vec: Dict[str, np.ndarray],
+	tasks: Union[str, list]
+) -> List[np.ndarray]:
+	ret = [get_source_skills(task_to_source_skills, skill_to_vec, task) for task in tasks]
+	return ret

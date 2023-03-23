@@ -52,6 +52,7 @@ def program(cfg: DictConfig) -> None:
 		language_guidance = random.choice(list(language_guidances.values()))
 
 		with env.batch_mode():  # expand first dimension
+
 			info = evaluate_comde(
 				env=env,
 				low_policy=low_policy,

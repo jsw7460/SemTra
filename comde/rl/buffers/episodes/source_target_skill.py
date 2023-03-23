@@ -6,6 +6,7 @@ from comde.rl.buffers.episodes.skill import SkillContainedEpisode
 
 
 class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
+
 	def __init__(self):
 		super(SourceTargetSkillContainedEpisode, self).__init__()
 
@@ -92,7 +93,7 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 			"source_skills": self.source_skills.copy(),
 			"language_operator": self.language_operator.copy(),
 			"target_skills": self.target_skills.copy(),
-			"skills_order": np.array(self.skills_orders[from_: to_]),
+			"skills_order": np.array(self.skills_orders[from_: to_], dtype="i4"),
 			"n_source_skills": self.n_source_skills,
 			"n_target_skills": self.n_target_skills
 		}
@@ -149,6 +150,10 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 			timestep=timestep
 		)
 		self.skills_orders.append(skill_order.copy())
+
+	@staticmethod
+	def expand_1st_dim(dataset: Dict[str, np.ndarray]):
+		pass
 
 	def add_from_dict(self, dataset: Dict):
 		traj_len = len(dataset["observations"])

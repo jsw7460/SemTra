@@ -9,5 +9,7 @@ pretrained_suffix: ???
 pretrained_path: ${pretrained_prefix}/${date}/cfg/cfg_${pretrained_suffix}
 language_guidance: sequential
 
+use_optimal_next_skill: False
+
 save_results: False
 save_prefix: /home/jsw7460/comde_save/eval

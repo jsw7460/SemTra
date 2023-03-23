@@ -16,5 +16,5 @@ cfg:
 
   coef_skill_loss: 1.0
   coef_decoder_aid: 1.0
-  max_iter_len: 5
+  max_iter_len: 4
   skill_dim: ${skill_dim}

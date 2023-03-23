@@ -1,3 +1,4 @@
+from jax.tree_util import tree_map
 import pickle
 import random
 from typing import Dict, Optional, Union, Tuple, List
@@ -75,7 +76,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 	def preprocess_h5py_trajectory(
 		self,
 		trajectory: h5py.File,
-		language_guidance_mapping: Dict[str, Dict[str,  np.ndarray]]
+		language_guidance_mapping: Dict[str, Dict[str, np.ndarray]]
 	) -> Dict:
 		assert self.MUST_LOADED_COMPONENTS <= trajectory.keys(), \
 			f"Under qualified dataset. Please fill {trajectory.keys() - self.MUST_LOADED_COMPONENTS}"
@@ -102,7 +103,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 				source_skills.append(skill)
 
 		language_guidance_vectors = language_guidance_mapping[
-			str(trajectory["operator"][()], "utf-8")	# sequential, parallel, ...
+			str(trajectory["operator"][()], "utf-8")  # sequential, parallel, ...
 		].values()
 		language_guidance_vector = random.choice(list(language_guidance_vectors))
 
@@ -154,63 +155,34 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		threshes = np.array([len(episode) - self.subseq_len for episode in episodes])
 		start_idxs = np.random.randint(0, threshes)
 
-		# === Task Agnostic Data ===
-		observations = []
-		actions = []
-		next_observations = []
-
-		# === ComDe ===
-		first_observations = []
+		# === ComDe Components ===
 		source_skills = []
 		target_skills = []
 		n_source_skills = []
 		n_target_skills = []
 		language_operators = []
-		skills = []
-		skills_order = []
-		skills_idxs = []
-		skills_done = []
-
-		# === Transformer, ... ===
-		maskings = []
-		timesteps = []
+		subtrajectories = []
 
 		for ep, start_idx in zip(episodes, start_idxs):
 			subtraj = ep.get_numpy_subtrajectory(from_=start_idx, to_=start_idx + self.subseq_len, batch_mode=False)
-			observations.append(subtraj["observations"])
-			actions.append(subtraj["actions"])
-			next_observations.append(subtraj["next_observations"])
+			subtraj.pop("rtgs")
 
-			first_observations.append(subtraj["first_observations"])
-			source_skills.append(subtraj["source_skills"])
-			target_skills.append(subtraj["target_skills"])
-			n_source_skills.append(subtraj["n_source_skills"])
-			n_target_skills.append(subtraj["n_target_skills"])
-			language_operators.append(subtraj["language_operator"])
-			skills.append(subtraj["skills"])
-			skills_order.append(subtraj["skills_order"])
-			skills_idxs.append(subtraj["skills_idxs"])
+			subtrajectories.append(subtraj)
+			source_skills.append(subtraj.pop("source_skills"))
+			target_skills.append(subtraj.pop("target_skills"))
+			language_operators.append(subtraj.pop("language_operator"))
+			n_source_skills.append(subtraj.pop("n_source_skills"))
+			n_target_skills.append(subtraj.pop("n_target_skills"))
 
-			skills_done.append(subtraj["skills_done"])
-			maskings.append(subtraj["maskings"])
-			timesteps.append(np.arange(start_idx, start_idx + self.subseq_len))
+		subtraj_dict = tree_map(lambda *args: np.stack(args, axis=0), *subtrajectories)
+		subtraj_dict["skills_order"] = subtraj_dict["skills_order"].astype("i4")
 
 		buffer_sample = ComDeBufferSample(
-			observations=np.array(observations),
-			actions=np.array(actions),
-			next_observations=np.array(next_observations),
-			first_observations=np.array(first_observations),
+			**subtraj_dict,
 			source_skills=np.array(source_skills),
 			target_skills=np.array(target_skills),
 			n_source_skills=np.array(n_source_skills),
 			n_target_skills=np.array(n_target_skills),
 			language_operators=np.array(language_operators),
-			skills=np.array(skills),
-			skills_order=np.array(skills_order).astype("i4"),
-			skills_idxs=np.array(skills_idxs),
-			skills_done=np.array(skills_done),
-			maskings=np.array(maskings),
-			timesteps=np.array(timesteps)
 		)
-
 		return buffer_sample

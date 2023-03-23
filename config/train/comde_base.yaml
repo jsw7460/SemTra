@@ -22,7 +22,7 @@ dataset_path: ???
 
 skill_dim: 512
 subseq_len: 20
-batch_size: 377
+batch_size: 512
 max_iter: 500
 step_per_dataset: 5000
 log_interval: 1000

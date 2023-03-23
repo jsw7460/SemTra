@@ -73,10 +73,7 @@ class ComdeTrainer(BaseTrainer):
 
 			# NOTE: Do not change the training order of modules.
 			info1 = self.seq2seq.update(replay_data=replay_data, low_policy=self.low_policy.model)
-			# info2 = self.low_policy.update(
-			# 	replay_data._replace(skills=np.array(info1.pop("__pred_target_skills")))
-			# )
-			info2 = self.low_policy.update(replay_data)	# Debugging
+			info2 = self.low_policy.update(replay_data._replace(skills=np.array(info1.pop("__pred_target_skills"))))
 			info3 = self.termination.update(replay_data)
 
 			self.record_from_dicts(info1, info2, info3, mode="train")
