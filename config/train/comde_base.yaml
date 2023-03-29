@@ -1,14 +1,9 @@
 seed: 777
 
 defaults:
-<<<<<<< HEAD
   - low_policy: skill_dt
   - seq2seq: mlp
   - intent_emb: vq
-=======
-  - low_policy: skill_dt # skill_mlp/skill_dt
-  - seq2seq: lstm
->>>>>>> be19079ebe55ea9a065abe791c5f0f5aa5467473
   - termination: mlp
   - wandb: comde_train
   - env: metaworld
@@ -19,25 +14,15 @@ save_suffix: foo
 modules: ${mode.modules}
 trainer: ${mode.trainer}
 
-<<<<<<< HEAD
 act_scale: 1.05
-=======
-# env: metaworld
-act_scale: 1.0
->>>>>>> be19079ebe55ea9a065abe791c5f0f5aa5467473
 observation_dim: ${env.observation_dim}
 action_dim: ${env.action_dim}
 dataset_path: /home/andykim0723/comde_datasets/v0.0.1/
 
 skill_dim: 512
-<<<<<<< HEAD
 intent_dim: ${mode.intent_dim}
 subseq_len: 20
 batch_size: 1024
-=======
-subseq_len: 20 # 1 for mlp, 20 for dt
-batch_size: 128
->>>>>>> be19079ebe55ea9a065abe791c5f0f5aa5467473
 max_iter: 500
 step_per_dataset: 5000
 log_interval: 1000

@@ -2,26 +2,15 @@ defaults:
   - env: metaworld
 
 seed: 0
-<<<<<<< HEAD
 pretrained_prefix: /home/jsw7460/comde_save/train
 date: 2023-03-28  # yyyy-mm-dd. Date for trained model
 pretrained_suffix: ???
-=======
-pretrained_prefix: /home/andykim0723/comde_save/train
-date: 2023-03-19  # yyyy-mm-dd. Date for trained model
-pretrained_suffix: foo
->>>>>>> be19079ebe55ea9a065abe791c5f0f5aa5467473
 
 pretrained_path: ${pretrained_prefix}/${date}/cfg/cfg_${pretrained_suffix}
 language_guidance: sequential
 
-<<<<<<< HEAD
 use_optimal_next_skill: False
 
 save_results: False
 save_prefix: /home/jsw7460/comde_save/eval
 save_suffix: foo
-=======
-save_results: True
-save_prefix: /home/andykim0723/comde_save/eval
->>>>>>> be19079ebe55ea9a065abe791c5f0f5aa5467473
