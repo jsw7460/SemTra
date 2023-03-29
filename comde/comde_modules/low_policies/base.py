@@ -6,6 +6,7 @@ from comde.comde_modules.base import ComdeBaseModule
 from comde.utils.interfaces import IJaxSavable, ITrainable
 from comde.utils.jax_utils.type_aliases import Params
 from comde.utils.jax_utils.model import Model
+from comde.rl.buffers.type_aliases import ComDeBufferSample
 
 
 class BaseLowPolicy(ComdeBaseModule, IJaxSavable, ITrainable):
@@ -23,6 +24,24 @@ class BaseLowPolicy(ComdeBaseModule, IJaxSavable, ITrainable):
 
 		self.observation_dim = cfg["observation_dim"]
 		self.action_dim = cfg["action_dim"]
+
+		self.skill_dim = cfg["skill_dim"]
+		self.intent_dim = cfg["intent_dim"]
+
+	@staticmethod
+	def get_intent_conditioned_skill(replay_data: ComDeBufferSample) -> np.ndarray:
+		"""
+			Concatenate intent and skill
+		"""
+		skills = replay_data.skills
+		intents = replay_data.intents
+		if intents is None:
+			intents = np.expand_dims(replay_data.language_operators, axis=1)
+			intents = np.repeat(intents, repeats=replay_data.skills.shape[1], axis=1)
+
+		skills = np.concatenate((skills, intents), axis=-1)
+
+		return skills
 
 	def predict(self, *args, **kwargs) -> np.ndarray:
 		raise NotImplementedError()

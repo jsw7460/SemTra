@@ -4,8 +4,8 @@ import jax.random
 import numpy as np
 import optax
 
-from comde.comde_modules.seq2seq.algos.forward import skilltoskill_lstm_forward as fwd
-from comde.comde_modules.seq2seq.algos.updates.skilltoskill_lstm import skilltoskill_lstm_updt
+from comde.comde_modules.seq2seq.algos.forward import skilltoskill_model_forward as fwd
+from comde.comde_modules.seq2seq.algos.updates.skilltoskill_lstm import skilltoskill_model_updt
 from comde.comde_modules.seq2seq.base import BaseSeqToSeq
 from comde.comde_modules.seq2seq.lstm.architectures.rnn.lstm import PrimLSTM
 from comde.rl.buffers.type_aliases import ComDeBufferSample
@@ -36,7 +36,6 @@ class SkillToSkillLSTM(BaseSeqToSeq):
 		self.__task_decoder = None
 		self.max_iter_len = cfg["max_iter_len"]
 		self.coef_skill_loss = cfg["coef_skill_loss"]
-		self.coef_decoder_aid = cfg["coef_decoder_aid"]
 
 		if init_build_model:
 			self.build_model()
@@ -89,28 +88,16 @@ class SkillToSkillLSTM(BaseSeqToSeq):
 			tx=encoder_tx
 		)
 
-	def update(
-		self,
-		replay_data: ComDeBufferSample,
-		*,
-		low_policy: Model
-	) -> Dict:
-
-		new_model, info = skilltoskill_lstm_updt(
+	def update(self, replay_data: ComDeBufferSample) -> Dict:
+		new_model, info = skilltoskill_model_updt(
 			rng=self.rng,
-			lstm=self.model,
-			low_policy=low_policy,
+			model=self.model,
 			source_skills=replay_data.source_skills,
 			language_operators=replay_data.language_operators,
 			target_skills=replay_data.target_skills,
 			observations=replay_data.observations,
-			actions=replay_data.actions,
-			timesteps=replay_data.timesteps,
-			maskings=replay_data.maskings,
-			skills_order=replay_data.skills_order,
 			n_target_skills=replay_data.n_target_skills,
 			coef_skill_loss=self.coef_skill_loss,
-			coef_decoder_aid=self.coef_decoder_aid
 		)
 		self.model = new_model
 		self.rng, _ = jax.random.split(self.rng)
@@ -129,7 +116,6 @@ class SkillToSkillLSTM(BaseSeqToSeq):
 			model=self.model,
 			sequence=input_seq,
 			batch_size=batch_size,
-			deterministic=True
 		)
 		return prediction
 
@@ -181,7 +167,6 @@ class SkillToSkillLSTM(BaseSeqToSeq):
 			)
 			correct_pred = np.sum(distance_to_gt < EPS)
 
-			# print("Distances shape", distances.shape)
 			eval_info.update({
 				"skill_lstm/distance_to_target": np.mean(distance_to_gt),
 				"skill_lstm/accuracy": correct_pred / n_target_skills

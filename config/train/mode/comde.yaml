@@ -1,0 +1,7 @@
+trainer: comde.trainer.bc_trainer.ComdeTrainer
+modules:
+  - low_policy
+  - seq2seq
+  - termination
+  - intent_emb
+intent_dim: 16

@@ -1,0 +1,32 @@
+_target_: comde.comde_modules.intent_emb.IntentEmbeddingVQ
+seed: ${seed}
+cfg:
+  coef_reconstruction: 1.0
+  coef_decoder_aid: 0.8
+  coef_commitment: 0.25
+  coef_moving_avg: 0.98
+
+  # Encoder
+  net_arch:
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+  n_codebook: 20
+  codebook_dim: ${intent_dim}
+  subseq_len: ${subseq_len}
+  skill_dim: ${skill_dim}
+  lang_dim: ${skill_dim}
+  lr: 1e-4
+
+  # Decoder
+  vq_decoder_net_arch:
+    - 256
+    - 256
+    - 256
+    - 256
+    - 256
+  vq_decoder_activation_fn: relu
+  vq_decoder_lr: 1e-4

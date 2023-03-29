@@ -2,27 +2,27 @@ seed: 777
 
 defaults:
   - low_policy: skill_dt
-  - seq2seq: lstm
+  - seq2seq: mlp
+  - intent_emb: vq
   - termination: mlp
   - wandb: comde_train
   - env: metaworld
+  - mode: comde
 
 save_prefix: /home/jsw7460/comde_save/train/
 save_suffix: foo
-modules:
-  - low_policy
-  - seq2seq
-  - termination
+modules: ${mode.modules}
+trainer: ${mode.trainer}
 
-env: ???
-act_scale: 1.0
+act_scale: 1.05
 observation_dim: ${env.observation_dim}
 action_dim: ${env.action_dim}
 dataset_path: ???
 
 skill_dim: 512
+intent_dim: ${mode.intent_dim}
 subseq_len: 20
-batch_size: 512
+batch_size: 1024
 max_iter: 500
 step_per_dataset: 5000
 log_interval: 1000

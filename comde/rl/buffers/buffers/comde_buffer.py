@@ -86,6 +86,9 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		next_observations[: -1] = observations[1:]
 		actions = np.array(trajectory["actions"])
 
+		# print("MAX", np.max(actions))
+		# print("MIN", np.max(actions))
+
 		traj_len = len(observations)
 		rewards = np.zeros((traj_len,))
 		rtgs = np.zeros((traj_len,))
@@ -99,8 +102,11 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 
 		source_skills = []
 		for skills_in_demo in trajectory["source_skills"].values():
-			for skill in skills_in_demo:
+			for skill in np.array(skills_in_demo):
 				source_skills.append(skill)
+
+		target_skills = [trajectory["target_skills"][()].tolist()]	# TODO
+		# target_skills = trajectory["target_skills"]
 
 		language_guidance_vectors = language_guidance_mapping[
 			str(trajectory["operator"][()], "utf-8")  # sequential, parallel, ...
@@ -133,7 +139,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			"dones": dones,
 			"infos": infos,
 			"source_skills": source_skills,
-			"target_skills": list(trajectory["target_skills"]),
+			"target_skills": target_skills,
 			"language_operator": language_guidance_vector,
 			"first_observations": first_observations,
 			"skills_done": augmented_skills_done,

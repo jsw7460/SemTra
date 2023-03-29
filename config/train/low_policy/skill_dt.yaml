@@ -7,7 +7,7 @@ cfg:
     n_positions: 1024
     n_layer: 4
     n_head: 8
-    activation_function: gelu_new
+    activation_function: relu
     resid_pdrop: 0.1
     embd_pdropo: 0.1
     attn_pdrop: 0.1
@@ -22,3 +22,4 @@ cfg:
   observation_dim: ${observation_dim}
   action_dim: ${action_dim}
   skill_dim: ${skill_dim}
+  intent_dim: ${intent_dim}

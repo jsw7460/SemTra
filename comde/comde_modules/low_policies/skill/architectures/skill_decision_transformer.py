@@ -5,9 +5,9 @@ import flax.linen as nn
 import jax.numpy as jnp
 import transformers
 
-from comde.comde_modules.low_policies.naive.architectures.customed.gpt_modules import FlaxGPT2ModuleWoTimePosEmb
 from comde.comde_modules.common.scaler import Scaler
 from comde.comde_modules.common.utils import create_mlp
+from comde.comde_modules.low_policies.naive.architectures.customed.gpt_modules import FlaxGPT2ModuleWoTimePosEmb
 
 
 class PrimSkillDecisionTransformer(nn.Module):
@@ -55,11 +55,16 @@ class PrimSkillDecisionTransformer(nn.Module):
 	def __call__(self, *args, **kwargs):
 		return self.forward(*args, **kwargs)
 
-	def forward(
+	def forward(self, *args, **kwargs):
+		""" Predict only action """
+		predictions = self.forward_with_all_components(*args, **kwargs)
+		return predictions[0]
+
+	def forward_with_all_components(
 		self,
 		observations: jnp.ndarray,  # [b, l, d]
 		actions: jnp.ndarray,  # [b, l, d]
-		skills: jnp.ndarray, 	# [b, l, d]
+		skills: jnp.ndarray,  # [b, l, d]
 		timesteps: jnp.ndarray,  # [b, l]
 		maskings: jnp.ndarray,  # [b, l]
 		deterministic: bool = True
@@ -86,11 +91,6 @@ class PrimSkillDecisionTransformer(nn.Module):
 		stacked_masks = jnp.stack((maskings, maskings, maskings), axis=1)  # [b, 3, l]
 		stacked_masks = einops.rearrange(stacked_masks, "b c l -> b l c")
 		stacked_masks = stacked_masks.reshape(batch_size, 3 * subseq_len)
-
-		# print("Stacked inputs", stacked_inputs.shape)
-		# print("Stacked masks", stacked_masks.shape)
-		# exit()
-
 		transformer_outputs = self.transformer(
 			hidden_states=stacked_inputs,
 			attention_mask=stacked_masks,
@@ -106,4 +106,4 @@ class PrimSkillDecisionTransformer(nn.Module):
 		obs_preds = self.pred_obs(x[:, 2])
 		action_preds = self.pred_act(x[:, 1])
 
-		return obs_preds, action_preds, None
+		return action_preds, obs_preds, None

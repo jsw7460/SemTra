@@ -13,8 +13,10 @@ class ComdeBaseModule:
 		self.seed = seed
 		self.rng = jax.random.PRNGKey(seed)
 		if init_build_model:
-			if isinstance(cfg.get("activation_fn", None), str):
-				cfg["activation_fn"] = self.str_to_activation(cfg["activation_fn"])
+			for k in cfg.keys():
+				if "activation_fn" in k:
+					if isinstance(cfg.get(k, None), str):
+						cfg[k] = self.str_to_activation(cfg[k])
 
 		self.cfg = MappingProxyType(cfg)  # Freeze
 

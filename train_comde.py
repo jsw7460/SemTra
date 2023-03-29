@@ -1,3 +1,7 @@
+from jax.config import config
+
+config.update("jax_debug_nans", True)
+
 import random
 
 random.seed(0)
@@ -7,10 +11,9 @@ from os.path import join, isfile
 from pathlib import Path
 
 import hydra
-from hydra.utils import instantiate
+from hydra.utils import instantiate, get_class
 from omegaconf import DictConfig, OmegaConf
 
-from comde.trainer.comde_trainer import ComdeTrainer
 from comde.rl.buffers import ComdeBuffer
 from comde.rl.envs import get_dummy_env
 
@@ -19,21 +22,15 @@ from comde.rl.envs import get_dummy_env
 def program(cfg: DictConfig) -> None:
 	cfg = OmegaConf.to_container(cfg, resolve=True)
 
-	env = get_dummy_env(cfg["env"])	# Dummy env for obtain an observation and action space.
-	low_policy = instantiate(cfg["low_policy"])
+	env = get_dummy_env(cfg["env"])  # Dummy env for obtain an observation and action space.
 
-	"""
-	low_policy = SkillDecisionTransformer(cfg)
-	"""
-	seq2seq = instantiate(cfg["seq2seq"])
-	termination = instantiate(cfg["termination"])
+	modules_dict = {module: instantiate(cfg[module]) for module in cfg["modules"]}
+	trainer_cls = get_class(cfg["trainer"])
 
-	trainer = ComdeTrainer(
+	trainer = trainer_cls(
 		cfg=cfg,
-		low_policy=low_policy,
-		seq2seq=seq2seq,
-		termination=termination,
-		skill_to_vec=env.skill_to_vec
+		skill_to_vec=env.skill_to_vec,
+		**modules_dict
 	)
 
 	data_dirs = [

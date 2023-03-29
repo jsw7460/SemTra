@@ -43,6 +43,8 @@ class ComDeBufferSample(NamedTuple):
 	skills_idxs: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
 	skills_done: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
 
+	intents: Union[np.ndarray, th.Tensor] = None  # [b, l, d]
+
 	# === Transformer, ... ===
 	rewards: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
 	dones: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]

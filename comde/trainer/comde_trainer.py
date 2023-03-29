@@ -4,6 +4,7 @@ import numpy as np
 
 from comde.comde_modules.low_policies.base import BaseLowPolicy
 from comde.comde_modules.seq2seq.base import BaseSeqToSeq
+from comde.comde_modules.intent_emb.base import BaseIntentEmbedding
 from comde.comde_modules.termination.base import BaseTermination
 from comde.rl.buffers import ComdeBuffer
 from comde.rl.buffers.type_aliases import ComDeBufferSample
@@ -16,6 +17,7 @@ class ComdeTrainer(BaseTrainer):
 		cfg: Dict,
 		low_policy: BaseLowPolicy,  # "skill decoder" == "low policy"
 		seq2seq: BaseSeqToSeq,
+		intent_emb: BaseIntentEmbedding,
 		termination: BaseTermination,
 		skill_to_vec: Dict[str, np.ndarray]
 	):
@@ -31,6 +33,7 @@ class ComdeTrainer(BaseTrainer):
 		super(ComdeTrainer, self).__init__(cfg)
 		self.low_policy = low_policy
 		self.seq2seq = seq2seq
+		self.intent_emb = intent_emb
 		self.termination = termination
 		self.idx_to_skill = skill_to_vec
 
@@ -72,11 +75,13 @@ class ComdeTrainer(BaseTrainer):
 			replay_data = self.get_skill_from_idxs(replay_data)
 
 			# NOTE: Do not change the training order of modules.
-			info1 = self.seq2seq.update(replay_data=replay_data, low_policy=self.low_policy.model)
-			info2 = self.low_policy.update(replay_data._replace(skills=np.array(info1.pop("__pred_target_skills"))))
-			info3 = self.termination.update(replay_data)
+			info = self.seq2seq.update(replay_data=replay_data)
+			info.update(self.intent_emb.update(replay_data=replay_data, low_policy=self.low_policy.model))
+			replay_data._replace(skills=info.pop("__parameterized_skills"))
+			info.update(self.low_policy.update(replay_data))
+			info.update(self.termination.update(replay_data))
 
-			self.record_from_dicts(info1, info2, info3, mode="train")
+			self.record_from_dicts(info, mode="train")
 			self.n_update += 1
 
 			if (self.n_update % self.log_interval) == 0:
@@ -91,9 +96,7 @@ class ComdeTrainer(BaseTrainer):
 		seq2seq_output = info1["__seq2seq_output"]
 		pred_target_skills = np.take_along_axis(seq2seq_output, eval_data.skills_order[..., np.newaxis], axis=1)
 
-		info2 = self.low_policy.evaluate(
-			eval_data._replace(skills=pred_target_skills)
-		)
+		info2 = self.low_policy.evaluate(eval_data._replace(skills=pred_target_skills))
 		info3 = self.termination.evaluate(eval_data)
 
 		self.record_from_dicts(info1, info2, info3, mode="eval")

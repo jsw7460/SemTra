@@ -23,7 +23,7 @@ def skill_dt_updt(
 	action_dim = actions.shape[-1]
 
 	def loss_fn(params: Params) -> Tuple[jnp.ndarray, Dict]:
-		predictions = dt.apply_fn(
+		action_preds = dt.apply_fn(
 			{"params": params},
 			observations=observations,
 			actions=actions,
@@ -33,7 +33,6 @@ def skill_dt_updt(
 			deterministic=False,
 			rngs={"dropout": dropout_key},
 		)
-		observation_preds, action_preds, ret_preds = predictions
 
 		action_preds = action_preds.reshape(-1, action_dim) * maskings.reshape(-1, 1)
 		target = action_targets.reshape(-1, action_dim) * maskings.reshape(-1, 1)

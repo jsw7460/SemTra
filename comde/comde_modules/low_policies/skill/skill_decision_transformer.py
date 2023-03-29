@@ -1,4 +1,5 @@
 from typing import Dict, List, Union, Tuple
+from comde.utils.common.timeit import timeit
 
 import jax
 import numpy as np
@@ -29,7 +30,6 @@ class SkillDecisionTransformer(BaseLowPolicy):
 			init_build_model=init_build_model
 		)
 		self.__model = None
-		self.skill_dim = cfg["skill_dim"]
 		self.max_ep_len = cfg["max_ep_len"]
 
 		if init_build_model:
@@ -70,17 +70,15 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		self.rng, transformer_dropout = jax.random.split(self.rng)
 		rngs.update({"transformer_dropout": transformer_dropout})
 		subseq_len = self.cfg["subseq_len"]
-		init_observations = np.zeros((1, subseq_len, self.observation_dim))
-		init_actions = np.zeros((1, subseq_len, self.action_dim))
-		init_skills = np.zeros((1, subseq_len, self.skill_dim))
+		init_observations = np.random.normal(size=(1, subseq_len, self.observation_dim))
+		init_actions = np.random.normal(size=(1, subseq_len, self.action_dim))
+		init_skills = np.random.normal(size=(1, subseq_len, self.skill_dim + self.intent_dim))
 		init_timesteps = np.zeros((1, self.cfg["subseq_len"]), dtype="i4")
-		init_masks = np.zeros((1, self.cfg["subseq_len"]))
-
+		init_masks = np.ones((1, self.cfg["subseq_len"]))
 		tx = optax.chain(
 			optax.clip(1.0),
-			optax.adamw(learning_rate=self.cfg["lr"])
+			optax.adam(learning_rate=self.cfg["lr"])
 		)
-
 		self.model = Model.create(
 			model_def=transformer,
 			inputs=[
@@ -95,12 +93,13 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		)
 
 	def update(self, replay_data: ComDeBufferSample) -> Dict:
+		skills = BaseLowPolicy.get_intent_conditioned_skill(replay_data)
 		new_model, info = skill_dt_updt(
 			rng=self.rng,
 			dt=self.model,
 			observations=replay_data.observations,
 			actions=replay_data.actions,
-			skills=replay_data.skills,
+			skills=skills,
 			timesteps=replay_data.timesteps.astype("i4"),
 			maskings=replay_data.maskings,
 			action_targets=np.copy(replay_data.actions),
@@ -177,7 +176,7 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		if maskings is None:
 			maskings = np.ones((1, subseq_len))
 
-		self.rng, prediction = fwd(
+		self.rng, action_preds = fwd(
 			rng=self.rng,
 			model=self.model,
 			observations=observations,
@@ -186,7 +185,6 @@ class SkillDecisionTransformer(BaseLowPolicy):
 			timesteps=timesteps.astype("i4"),
 			maskings=maskings,
 		)
-		obs_preds, action_preds, return_preds = prediction
 
 		if to_np:
 			return np.array(action_preds)
@@ -199,7 +197,7 @@ class SkillDecisionTransformer(BaseLowPolicy):
 	) -> Dict:
 		observations = replay_data.observations
 		actions = replay_data.actions
-		skills = replay_data.skills
+		skills = BaseLowPolicy.get_intent_conditioned_skill(replay_data)
 		timesteps = replay_data.timesteps
 		maskings = replay_data.maskings
 
