@@ -64,6 +64,7 @@ def skill_mlp_forward(
 	observations: jnp.ndarray,
 	skills: jnp.ndarray,
 ) -> Tuple[PRNGKey, jnp.ndarray]:
+
 	rng, dropout_key = jax.random.split(rng)
 	prediction = model.apply_fn(
 		{"params": model.params},

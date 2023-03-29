@@ -1,6 +1,7 @@
 from typing import Dict, List
 
 import jax
+
 import numpy as np
 import optax
 
@@ -13,6 +14,7 @@ from comde.utils.jax_utils.general import get_basic_rngs
 from comde.utils.jax_utils.general import str_to_flax_activation
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
+
 
 """
 majority of the code is from:
@@ -71,6 +73,7 @@ class SkillMLP(BaseLowPolicy):
 
 	def update(self, replay_data: ComDeBufferSample) -> Dict:
 		skills = BaseLowPolicy.get_intent_conditioned_skill(replay_data)
+
 		new_model, info = skill_mlp_updt(
 			rng=self.rng,
 			mlp=self.model,

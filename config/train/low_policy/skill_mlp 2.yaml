@@ -10,11 +10,7 @@ cfg:
     - 128
     - 128
     - 128
-<<<<<<< HEAD
 
-=======
-  
->>>>>>> be19079ebe55ea9a065abe791c5f0f5aa5467473
   activation_fn: relu
   dropout: 0.0
   squash_output: True
@@ -24,16 +20,8 @@ cfg:
   act_scale: ${act_scale}
 
   lr: 1e-4
-<<<<<<< HEAD
-=======
-  max_ep_len: 1024
->>>>>>> be19079ebe55ea9a065abe791c5f0f5aa5467473
 
   observation_dim: ${observation_dim}
   action_dim: ${action_dim}
   skill_dim: ${skill_dim}
-<<<<<<< HEAD
   intent_dim: ${intent_dim}
-=======
-  subseq_len: ${subseq_len}
->>>>>>> be19079ebe55ea9a065abe791c5f0f5aa5467473
