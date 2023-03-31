@@ -1,0 +1,36 @@
+_target_: comde.comde_modules.seq2seq.SklToSklIntTransformer
+
+seed: ${seed}
+
+cfg:
+  inseq_dim: ${skill_dim} # Input sequence = sequence of skills
+  lr: 1e-4
+  coef_skill: 1.0
+  coef_intent: 1.0
+  token_path: /home/jsw7460/mnt/comde_datasets/clip_mappings/tokens/start_end_tokens
+  skill_intent_transformer_cfg:
+    input_dropout_prob: 0.1
+    skill_dropout_prob: 0.1
+    intent_dropout_prob: 0.1
+    skill_dim: ${skill_dim}
+    intent_dim: ${intent_dim}
+
+    encoder_cfg:
+      num_layers: 1
+      input_dim: 4
+      num_heads: 1
+      ff_dim: 8
+      dropout_prob: 0.1
+      use_bias: True
+      max_len: ${max_source_skills}
+      activation_fn: relu
+
+    decoder_cfg:
+      num_layers: 1
+      input_dim: 4
+      num_heads: 1
+      ff_dim: 8
+      dropout_prob: 0.1
+      use_bias: True
+      max_len: ${max_target_skills}
+      activation_fn: relu

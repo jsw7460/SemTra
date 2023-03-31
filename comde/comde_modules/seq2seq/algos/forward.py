@@ -23,3 +23,11 @@ def skilltoskill_model_forward(
 		rngs={"dropout": dropout_key, "init_carry": carry_key},
 	)
 	return rng, stacked_output
+
+
+@jax.jit
+def skilltoskill_transformer_forward(
+	rng: jnp.ndarray,
+	model: Model,
+	start_token: jnp.ndarray
+):

@@ -37,7 +37,11 @@ def skill_mlp_updt(
 		pred_actions = pred_actions.reshape(-1, action_dim) * maskings
 		mse_loss = jnp.sum(jnp.mean((pred_actions - target_actions) ** 2, axis=-1)) / jnp.sum(maskings)
 
-		_infos = {"decoder/mse_loss": mse_loss}
+		_infos = {
+			"skill_decoder/mse_loss": mse_loss,
+			"__decoder/pred_actions": pred_actions,
+			"__decoder/target_actions": target_actions
+		}
 		return mse_loss, _infos
 
 	new_mlp, infos = mlp.apply_gradient(loss_fn)

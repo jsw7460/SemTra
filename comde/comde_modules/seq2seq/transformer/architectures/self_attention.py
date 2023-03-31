@@ -23,9 +23,10 @@ class SelfAttention(nn.Module):
 
 	def forward(
 		self,
-		x: jnp.ndarray,	# [b, l, d]
-		mask: jnp.ndarray,	# [b, l]
+		x: jnp.ndarray,  # [b, l, d]
+		mask: jnp.ndarray,  # [b, l]
 		deterministic: bool
 	):
 		mask = jnp.expand_dims(mask, axis=(-3, -2))
-		return self.mha(input_q=x, input_k=x, input_v=x, mask=mask, deterministic=deterministic)
+		ret = self.mha(input_q=x, input_k=x, input_v=x, mask=mask, deterministic=deterministic)
+		return ret

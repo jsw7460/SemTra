@@ -37,7 +37,7 @@ def skill_dt_updt(
 		action_preds = action_preds.reshape(-1, action_dim) * maskings.reshape(-1, 1)
 		target = action_targets.reshape(-1, action_dim) * maskings.reshape(-1, 1)
 
-		action_loss = jnp.sum((action_preds - target) ** 2) / jnp.sum(maskings)
+		action_loss = jnp.sum(jnp.mean((action_preds - target) ** 2, axis=-1)) / jnp.sum(maskings)
 
 		loss = action_loss
 

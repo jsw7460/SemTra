@@ -1,7 +1,7 @@
 from typing import Dict, List
 
 import numpy as np
-
+from collections import defaultdict
 from comde.comde_modules.base import ComdeBaseModule
 from comde.utils.interfaces import ITrainable, IJaxSavable
 from comde.utils.jax_utils.type_aliases import Params
@@ -34,7 +34,7 @@ class BaseSeqToSeq(ComdeBaseModule, ITrainable, IJaxSavable):
 		pass
 
 	def evaluate(self, *args, **kwargs) -> Dict:
-		pass
+		return defaultdict()
 
 	def _excluded_save_params(self) -> List:
 		pass

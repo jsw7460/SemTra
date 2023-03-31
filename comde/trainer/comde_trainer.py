@@ -2,9 +2,9 @@ from typing import Dict
 
 import numpy as np
 
+from comde.comde_modules.intent_emb.base import BaseIntentEmbedding
 from comde.comde_modules.low_policies.base import BaseLowPolicy
 from comde.comde_modules.seq2seq.base import BaseSeqToSeq
-from comde.comde_modules.intent_emb.base import BaseIntentEmbedding
 from comde.comde_modules.termination.base import BaseTermination
 from comde.rl.buffers import ComdeBuffer
 from comde.rl.buffers.type_aliases import ComDeBufferSample
@@ -75,9 +75,9 @@ class ComdeTrainer(BaseTrainer):
 			replay_data = self.get_skill_from_idxs(replay_data)
 
 			# NOTE: Do not change the training order of modules.
-			info = self.seq2seq.update(replay_data=replay_data)
-			info.update(self.intent_emb.update(replay_data=replay_data, low_policy=self.low_policy.model))
-			replay_data._replace(skills=info.pop("__parameterized_skills"))
+			info = self.seq2seq.update(replay_data=replay_data, low_policy=self.low_policy.model)
+			# info.update(self.intent_emb.update(replay_data=replay_data, low_policy=self.low_policy.model))
+			replay_data = replay_data._replace(intents=info.pop("__intent_for_skill"))
 			info.update(self.low_policy.update(replay_data))
 			info.update(self.termination.update(replay_data))
 
@@ -109,8 +109,6 @@ class ComdeTrainer(BaseTrainer):
 	def save(self):
 		for key, save_path in self.cfg["save_paths"].items():
 			getattr(self, key).save(save_path)
-
-	# self.low_policy.save()
 
 	def load(self, *args, **kwargs):
 		raise NotImplementedError()

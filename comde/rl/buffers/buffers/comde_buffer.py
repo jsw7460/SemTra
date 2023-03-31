@@ -39,7 +39,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 	def add_dict_chunk(self, dataset: Dict, representative: str = None, clear_info: bool = False) -> None:
 		raise NotImplementedError("This is only for pickle file. ComDe does not support it.")
 
-	def add_episodes_from_h5py(self, paths: Dict[str, Union[List, str]]):
+	def add_episodes_from_h5py(self, paths: Dict[str, Union[List, str]], cfg: Dict):
 		"""
 			## README ##
 			- Each path in paths corresponds to one trajectory.
@@ -64,13 +64,13 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 
 		self.min_episode_length = min(self.episode_lengths)
 		self.max_episode_length = max(self.episode_lengths)
-		max_source = max([ep.n_source_skills for ep in self.episodes])
-		max_target = max([ep.n_target_skills for ep in self.episodes])
-		max_possible_skills = max(max_source, max_target)
+		max_source_skills = cfg["max_source_skills"]
+		max_target_skills = cfg["max_target_skills"]
 
 		[ep.set_zeropaddings(
 			n_padding=self.subseq_len,
-			max_possible_skills=max_possible_skills
+			max_source_skills=max_source_skills,
+			max_target_skills=max_target_skills
 		) for ep in self.episodes]
 
 	def preprocess_h5py_trajectory(
@@ -85,9 +85,6 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		next_observations = np.zeros_like(observations)
 		next_observations[: -1] = observations[1:]
 		actions = np.array(trajectory["actions"])
-
-		# print("MAX", np.max(actions))
-		# print("MIN", np.max(actions))
 
 		traj_len = len(observations)
 		rewards = np.zeros((traj_len,))

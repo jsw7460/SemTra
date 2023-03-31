@@ -148,4 +148,3 @@ class Episode:
 			self.infos.append([])
 			self.maskings.append(np.array(0))
 			self.rtgs.append(0)
-

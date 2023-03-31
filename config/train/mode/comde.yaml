@@ -1,4 +1,4 @@
-trainer: comde.trainer.bc_trainer.ComdeTrainer
+trainer: comde.trainer.comde_trainer.ComdeTrainer
 modules:
   - low_policy
   - seq2seq

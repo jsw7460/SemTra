@@ -1,5 +1,4 @@
 from jax.config import config
-
 config.update("jax_debug_nans", True)
 
 import random
@@ -23,8 +22,8 @@ def program(cfg: DictConfig) -> None:
 	cfg = OmegaConf.to_container(cfg, resolve=True)
 
 	env = get_dummy_env(cfg["env"])  # Dummy env for obtain an observation and action space.
-
 	modules_dict = {module: instantiate(cfg[module]) for module in cfg["modules"]}
+
 	trainer_cls = get_class(cfg["trainer"])
 
 	trainer = trainer_cls(
@@ -48,10 +47,11 @@ def program(cfg: DictConfig) -> None:
 			action_space=env.action_space,
 			subseq_len=cfg["subseq_len"]
 		)
-		replay_buffer.add_episodes_from_h5py({
-			"trajectory": hdf_files[: -1],
-			"language_guidance": cfg["language_guidance_path"]
-		})
+		replay_buffer.add_episodes_from_h5py(
+			paths={"trajectory": hdf_files[: -1], "language_guidance": cfg["language_guidance_path"]},
+			cfg=cfg["dataset"]
+		)
+
 		trainer.run(replay_buffer)
 
 		eval_buffer = ComdeBuffer(
@@ -59,10 +59,10 @@ def program(cfg: DictConfig) -> None:
 			action_space=env.action_space,
 			subseq_len=cfg["subseq_len"]
 		)
-		eval_buffer.add_episodes_from_h5py({
-			"trajectory": hdf_files[-1:],
-			"language_guidance": cfg["language_guidance_path"]
-		})
+		eval_buffer.add_episodes_from_h5py(
+			paths={"trajectory": hdf_files[-1:], "language_guidance": cfg["language_guidance_path"]},
+			cfg=cfg["dataset"]
+		)
 		trainer.evaluate(eval_buffer)
 		trainer.save()
 
