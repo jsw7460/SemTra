@@ -67,7 +67,7 @@ class PrimSklToSklIntTransformer(nn.Module):
 		context = self.encoder(context, mask, deterministic=deterministic)
 		x = self.decoder(x, context, mask, deterministic=deterministic)
 
-		pred_skills = self.pred_skills(x)
-		pred_intent = self.pred_intents(x)
+		pred_skills = self.pred_skills(x)	# [b, l, d]
+		pred_intents = self.pred_intents(x)	# [b, l, d]
 
-		return {"pred_skills": pred_skills, "pred_intent": pred_intent}
+		return {"pred_skills": pred_skills, "pred_intents": pred_intents}

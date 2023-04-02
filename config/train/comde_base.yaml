@@ -2,7 +2,7 @@ seed: 777
 
 defaults:
   - low_policy: skill_dt
-  - seq2seq: mlp
+  - seq2seq: transformer
   - intent_emb: vq
   - termination: mlp
   - wandb: comde_train
@@ -20,12 +20,12 @@ observation_dim: ${env.observation_dim}
 action_dim: ${env.action_dim}
 dataset_path: ???
 
-max_source_skills: 8
-max_target_skills: 12
+max_source_skills: 3
+max_target_skills: 3
 
 skill_dim: 512
 intent_dim: ${mode.intent_dim}
-subseq_len: 20
+subseq_len: 5
 batch_size: 1024
 max_iter: 500
 step_per_dataset: 5000

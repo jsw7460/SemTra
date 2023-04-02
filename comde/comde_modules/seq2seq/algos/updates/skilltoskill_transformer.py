@@ -31,8 +31,16 @@ def skilltoskill_transformer_updt(
 	# Note: Target skill을 한 칸 밀어줘야 함 (Due to start token)
 
 	action_dim = actions.shape[-1]
+	skill_dim = skills.shape[-1]
 	batch_size = n_source_skills.shape[0]
 	context_maxlen = context.shape[1]
+
+	start_token = jnp.broadcast_to(start_token, shape=(batch_size, 1, skill_dim))
+	end_token = jnp.broadcast_to(end_token, shape=(batch_size, 1, skill_dim))
+
+	input_skills = jnp.concatenate((start_token, target_skills), axis=1)
+	target_skills = jnp.concatenate((target_skills, end_token), axis=1)
+
 	target_max = target_skills.shape[1]
 
 	# NOTE !!!! Since context vector contains language operator as well as source skills,
@@ -47,13 +55,13 @@ def skilltoskill_transformer_updt(
 		# 1. Intent is trained by behavior cloning of lower policy
 		model_output = tr.apply_fn(
 			{"params": params},
-			x=target_skills,
+			x=input_skills,
 			context=context,
-			mask=ctx_padding_mask,	# This mask is padding mask, not a causal mask.
+			mask=ctx_padding_mask,	# This is padding mask, not a causal mask.
 			rngs={"dropout": dropout_key}
 		)
 		pred_skills = model_output["pred_skills"]
-		pred_intent = model_output["pred_intent"]  # [b, M, d]
+		pred_intent = model_output["pred_intents"]  # [b, M, d]
 
 		intent_for_skill = jnp.take_along_axis(pred_intent, indices=skills_order[..., jnp.newaxis], axis=1)
 		intent_cond_skill = jnp.concatenate((skills, intent_for_skill), axis=-1)
@@ -75,10 +83,11 @@ def skilltoskill_transformer_updt(
 		# 2. Learn target skills.
 		tgt_mask = jnp.arange(target_max)
 		tgt_mask = jnp.broadcast_to(tgt_mask, (batch_size, target_max))  # [b, M]
-		tgt_mask = jnp.where(tgt_mask < n_target_skills[..., jnp.newaxis], 1, 0)[..., jnp.newaxis]
+		tgt_mask = jnp.where(tgt_mask <= n_target_skills[..., jnp.newaxis], 1, 0)[..., jnp.newaxis]
 
 		pred_skills = pred_skills * tgt_mask
 		tgt_skills = target_skills * tgt_mask
+		# TODO: Replace MSE with CE (?)
 		skills_loss = coef_skill * jnp.sum(jnp.mean((pred_skills - tgt_skills) ** 2, axis=-1)) / jnp.sum(tgt_mask)
 
 		loss = action_loss + skills_loss

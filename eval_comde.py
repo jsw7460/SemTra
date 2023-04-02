@@ -1,17 +1,16 @@
 import pickle
 import random
-from typing import Type, Union
 from pathlib import Path
+from typing import Type, Union
 
 import gym
 import hydra
 from hydra.utils import get_class
 from omegaconf import DictConfig
 
-from comde.evaluations import evaluate_bc_batch
+from comde.evaluations import evaluate_comde_batch
 from comde.rl.envs import get_batch_env
 from comde.rl.envs.utils import get_batch_source_skills
-
 from comde.utils.interfaces.i_savable.i_savable import IJaxSavable
 
 
@@ -22,13 +21,13 @@ def program(cfg: DictConfig) -> None:
 
 	pretrained_models = dict()
 	for module in pretrained_cfg["modules"]:
-		module_cls = get_class(pretrained_cfg[module]["_target_"])	# type: Union[type, Type[IJaxSavable]]
+		module_cls = get_class(pretrained_cfg[module]["_target_"])  # type: Union[type, Type[IJaxSavable]]
 		module_instance = module_cls.load(pretrained_cfg["save_paths"][module])
 		pretrained_models[module] = module_instance
 
 	with open(cfg.env.eval_tasks_path, "rb") as f:
 		tasks_for_eval = pickle.load(f)  # Target tasks
-		tasks_for_eval = [t for t in tasks_for_eval if t[0] == "door"]	# 잠시
+		tasks_for_eval = [t for t in tasks_for_eval if t[0] == "door"]  # 잠시
 
 	with open(cfg.env.source_skills_path, "rb") as f:
 		task_to_source_skills = pickle.load(f)  # Task -> Predicted source skills (; Output of Semantic skill encoder)
@@ -61,9 +60,12 @@ def program(cfg: DictConfig) -> None:
 	# Note: Among language variations (e.g, ["Do sequentially", "In order", ...], select one randomly)
 	language_guidance = random.choices(list(language_guidances.values()), k=len(source_skills))
 
-	info = evaluate_bc_batch(
+	n_source_skills = [1 for _ in range(len(tasks_for_eval))]
+
+	info = evaluate_comde_batch(
 		envs=envs,
-		target_skills=source_skills,
+		source_skills=source_skills,
+		n_source_skills=n_source_skills,
 		save_results=cfg.save_results,
 		use_optimal_next_skill=cfg.use_optimal_next_skill,
 		language_guidance=language_guidance,

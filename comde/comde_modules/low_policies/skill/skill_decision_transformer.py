@@ -56,6 +56,7 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		return activation_fn
 
 	def build_model(self):
+
 		transformer = PrimSkillDecisionTransformer(
 			gpt2_config=self.cfg["gpt2_config"],
 			obs_dim=self.observation_dim,
@@ -76,7 +77,7 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		init_masks = np.ones((1, self.cfg["subseq_len"]))
 		tx = optax.chain(
 			optax.clip(1.0),
-			optax.adam(learning_rate=self.cfg["lr"])
+			optax.adamw(learning_rate=self.cfg["lr"])
 		)
 		self.model = Model.create(
 			model_def=transformer,
@@ -116,6 +117,7 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		skills: np.ndarray,
 		timesteps: np.ndarray,
 	) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+
 		self.check_shape(observations, actions, skills, timesteps)
 		batch_size = observations.shape[0]
 		subseq_len = self.cfg["subseq_len"]

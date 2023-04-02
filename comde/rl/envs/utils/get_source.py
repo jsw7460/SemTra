@@ -14,7 +14,6 @@ def get_source_skills(
 
 	skill_vectors = []
 	for skill in source_skills:
-
 		skill_vectors.append(skill_to_vec[skill])
 
 	source_skills = np.array(skill_vectors)

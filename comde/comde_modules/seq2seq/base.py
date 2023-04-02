@@ -1,8 +1,10 @@
+from collections import defaultdict
 from typing import Dict, List
 
 import numpy as np
-from collections import defaultdict
+
 from comde.comde_modules.base import ComdeBaseModule
+from comde.utils.common.lang_representation import LanguageRepresentation
 from comde.utils.interfaces import ITrainable, IJaxSavable
 from comde.utils.jax_utils.type_aliases import Params
 
@@ -19,6 +21,11 @@ class BaseSeqToSeq(ComdeBaseModule, ITrainable, IJaxSavable):
 		self.seed = seed
 		self.cfg = cfg
 		self.inseq_dim = cfg["inseq_dim"]  # Input sequence's dim
+
+		self.tokens = dict()  # type: Dict[str, LanguageRepresentation]
+
+	def update_tokens(self, new_tokens: Dict):
+		pass
 
 	def predict(self, *args, **kwargs) -> np.ndarray:
 		raise NotImplementedError()

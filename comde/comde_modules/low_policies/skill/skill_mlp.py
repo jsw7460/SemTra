@@ -122,15 +122,15 @@ class SkillMLP(BaseLowPolicy):
 		replay_data: ComDeBufferSample
 	) -> Dict:
 		observations = replay_data.observations
-		actions = replay_data.actions
+		actions = replay_data.actions[:, -1, ...]
 		skills = BaseLowPolicy.get_intent_conditioned_skill(replay_data)
-		timesteps = replay_data.timesteps
-		maskings = replay_data.maskings
+		maskings = replay_data.maskings[:, -1]
 
 		if maskings is None:
+			raise NotImplementedError("No mask")
 			batch_size = observations.shape[0]
 			maskings = np.ones((batch_size, 1))
-
+		
 		maskings = maskings.reshape(-1, 1)
 		pred_actions = self.predict(observations=observations, skills=skills)
 

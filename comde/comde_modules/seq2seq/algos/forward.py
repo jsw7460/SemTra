@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Dict
 from functools import partial
 
 import jax
@@ -29,5 +29,19 @@ def skilltoskill_model_forward(
 def skilltoskill_transformer_forward(
 	rng: jnp.ndarray,
 	model: Model,
-	start_token: jnp.ndarray
-):
+	x: jnp.ndarray,
+	context: jnp.ndarray,	# [b, l, d], Concatenation of source-skill
+	mask: jnp.ndarray,	# Padding mask. Not a causal
+	deterministic: bool = True
+) -> Tuple[PRNGKey, Dict[str, jnp.ndarray]]:
+	rng, dropout_key = jax.random.split(rng)
+	prediction = model.apply_fn(
+		{"params": model.params},
+		x=x,
+		context=context,
+		mask=mask,
+		deterministic=deterministic,
+		rngs={"dropout": dropout_key}
+	)
+	# prediction is of the form {"pred_skills": ..., "pred_intent": ...}.
+	return rng, prediction

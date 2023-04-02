@@ -26,7 +26,7 @@ class TransformerDecoder(nn.Module):
 	def setup(self) -> None:
 		self.input_dropout = nn.Dropout(self.dropout_prob)
 		self.input_layer = create_mlp(self.input_dim, [])
-		self.pos_encoding = PositionalEncoding(d_model=self.input_dim, max_len=self.max_len)
+		self.pos_encoding = PositionalEncoding(d_model=self.input_dim, max_len=self.max_len + 1)
 		self.decoder_blocks = [
 			DecoderBlock(
 				input_dim=self.input_dim,

@@ -2,7 +2,6 @@ from typing import Dict
 
 import numpy as np
 
-from comde.comde_modules.intent_emb.base import BaseIntentEmbedding
 from comde.comde_modules.low_policies.base import BaseLowPolicy
 from comde.comde_modules.seq2seq.base import BaseSeqToSeq
 from comde.comde_modules.termination.base import BaseTermination
@@ -17,7 +16,7 @@ class ComdeTrainer(BaseTrainer):
 		cfg: Dict,
 		low_policy: BaseLowPolicy,  # "skill decoder" == "low policy"
 		seq2seq: BaseSeqToSeq,
-		intent_emb: BaseIntentEmbedding,
+		# intent_emb: BaseIntentEmbedding,
 		termination: BaseTermination,
 		skill_to_vec: Dict[str, np.ndarray]
 	):
@@ -33,9 +32,11 @@ class ComdeTrainer(BaseTrainer):
 		super(ComdeTrainer, self).__init__(cfg)
 		self.low_policy = low_policy
 		self.seq2seq = seq2seq
-		self.intent_emb = intent_emb
+		# self.intent_emb = intent_emb
 		self.termination = termination
 		self.idx_to_skill = skill_to_vec
+
+		self.seq2seq.update_tokens(self.idx_to_skill)
 
 		np_idx_to_skill = np.array(list(self.idx_to_skill.values()))
 
@@ -92,12 +93,11 @@ class ComdeTrainer(BaseTrainer):
 
 		eval_data = self.get_skill_from_idxs(eval_data)
 
-		info1 = self.seq2seq.evaluate(replay_data=eval_data, np_idx_to_skills=self.np_idx_to_skill.copy())
-		seq2seq_output = info1["__seq2seq_output"]
-		pred_target_skills = np.take_along_axis(seq2seq_output, eval_data.skills_order[..., np.newaxis], axis=1)
+		info1 = self.seq2seq.evaluate(replay_data=eval_data)
+		intents = info1["__intents"]
 
-		info2 = self.low_policy.evaluate(eval_data._replace(skills=pred_target_skills))
-		info3 = self.termination.evaluate(eval_data)
+		info2 = self.low_policy.evaluate(replay_data=eval_data._replace(intents=intents))
+		info3 = self.termination.evaluate(replay_data=eval_data)
 
 		self.record_from_dicts(info1, info2, info3, mode="eval")
 		self.dump_logs(step=self.n_update)

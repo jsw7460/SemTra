@@ -86,7 +86,7 @@ def evaluate_bc_batch(
 			actions=history_actions,
 			skills=history_skills,
 			maskings=history_maskings,
-			timesteps=timesteps,  # Note: In Comde, we dont use timesteps.
+			timesteps=timesteps,
 			to_np=True
 		)
 

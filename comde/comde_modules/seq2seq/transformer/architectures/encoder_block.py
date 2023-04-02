@@ -45,6 +45,7 @@ class EncoderBlock(nn.Module):
 	def forward(self, x: jnp.ndarray, mask: jnp.ndarray, deterministic: bool):
 		attn_out, _ = self.self_attention(x=x, mask=mask, deterministic=deterministic)
 		x = x + self.dropout(attn_out, deterministic=deterministic)
+
 		x = self.ln1(x)
 
 		linear_out = self.linear(x, deterministic=deterministic)

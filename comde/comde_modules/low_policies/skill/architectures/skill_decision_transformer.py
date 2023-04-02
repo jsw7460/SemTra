@@ -36,7 +36,6 @@ class PrimSkillDecisionTransformer(nn.Module):
 	def setup(self) -> None:
 		gpt2_config = transformers.GPT2Config(**self.gpt2_config, n_embd=self.hidden_size)
 		self.transformer = FlaxGPT2ModuleWoTimePosEmb(gpt2_config, dtype=jnp.float32)
-
 		self.emb_time = nn.Embed(self.max_ep_len, self.hidden_size)
 		self.emb_obs = nn.Dense(self.hidden_size)
 		self.emb_skill = nn.Dense(self.hidden_size)

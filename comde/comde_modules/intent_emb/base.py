@@ -17,6 +17,7 @@ class BaseIntentEmbedding(ComdeBaseModule, ITrainable, IJaxSavable):
 		init_build_model: bool
 	):
 		super(BaseIntentEmbedding, self).__init__(seed=seed, cfg=cfg, init_build_model=init_build_model)
+		raise NotImplementedError("Obsolete")
 		self.seed = seed
 		self.cfg = cfg
 		self.lang_dim = self.cfg["lang_dim"]		# Input

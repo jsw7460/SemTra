@@ -19,31 +19,56 @@ def evaluate_comde_batch(
 	low_policy: BaseLowPolicy,
 	seq2seq: BaseSeqToSeq,
 	termination: BaseTermination,
-	source_skills: List[np.ndarray],  # Length = n (# of envs), each has shame [M, d]
-	language_guidance: List[np.ndarray],  # Length = n (# of envs), each has shame [d,]
+	source_skills: List[np.ndarray],
+	n_source_skills: List[int],
+	language_guidance: List[np.ndarray],
 	termination_pred_interval: int = 10,
 	save_results: bool = False,
 	use_optimal_next_skill: bool = True,
 ):
+	"""
+	:param envs:
+	:param low_policy:
+	:param seq2seq:
+	:param termination:
+	:param source_skills: Length = n (# of envs), each has shape [M, d]
+	:param n_source_skills: Length = n (# of envs), Indicate the number of skills wo/ zero padding
+	:param language_guidance: Length = n (# of envs), each has shape [d,]
+	:param termination_pred_interval:
+	:param save_results:
+	:param use_optimal_next_skill:
+	:return:
+	"""
 	# Some variables
 	n_envs = len(envs)
 	n_possible_skills = len(source_skills)
+
+	subseq_len = envs[0].num_stack_frames
+
+	# Get: Target skills
+	source_skills = np.array(source_skills)  # [n, M, d]
+	source_skills = source_skills[:, :3, ...]
+	n_source_skills = np.array(n_source_skills)
+	language_guidances = np.array(language_guidance)  # [n, d]
+	predictions = seq2seq.predict(
+		source_skills=source_skills,
+		language_operator=language_guidances,
+		n_source_skills=n_source_skills
+	)  # [n, max_iter_len, d]
+
+	target_skills = predictions["pred_skills_quantized"]
+	intents = predictions["pred_intents"]
+	semantic_skill_dim = target_skills.shape[-1]
+
+	target_skills = np.concatenate((target_skills, intents), axis=-1)
+
+	cur_skill_pos = np.array([0 for _ in range(n_envs)])  # [8, ]
+	max_skills = np.array([n_possible_skills - 1 for _ in range(n_envs)])
 
 	# Prepare save
 	eval_infos = {
 		f"env_{k}": defaultdict(list, env_name=envs[k].get_short_str_for_save()) for k in range(n_envs)
 	}
-
-	# Get: Target skills
-	source_skills = np.array(source_skills)  # [n, M, d]
-	language_guidances = np.array(language_guidance)  # [n, d]
-	# target_skills = seq2seq.predict(
-	# 	source_skills=source_skills,
-	# 	language_operator=language_guidances
-	# )  # [n, max_iter_len, d]
-	target_skills = source_skills
-	cur_skill_pos = np.array([0 for _ in range(n_envs)])  # [8, ]
-	max_skills = np.array([n_possible_skills - 1 for _ in range(n_envs)])
 
 	# Prepare env
 	timestep = 0
@@ -71,19 +96,20 @@ def evaluate_comde_batch(
 				maybe_skill_done = termination.predict(
 					observations=history_observations[:, -1, ...],  # Current observations
 					first_observations=first_observations,
-					skills=history_skills[:, -1, ...],
+					skills=history_skills[:, -1, :semantic_skill_dim],
 					binary=True
 				)
 				cur_skill_pos = np.max([cur_skill_pos + maybe_skill_done, max_skills], axis=0)
 
 		cur_skills = target_skills[np.arange(n_envs), cur_skill_pos, ...]
-
+		timesteps = np.arange(timestep - subseq_len, timestep)[np.newaxis, ...]
+		timesteps = np.repeat(timesteps, axis=0, repeats=n_envs)
 		actions = low_policy.predict(
 			observations=history_observations,
 			actions=history_actions,
 			skills=history_skills,
 			maskings=history_maskings,
-			timesteps=np.zeros_like(history_rewards),  # Note: In Comde, we dont use timesteps. (??)
+			timesteps=timesteps,
 			to_np=True
 		)
 
