@@ -1,10 +1,11 @@
+import pickle
 from collections import defaultdict
 from typing import Dict, List
 
 import numpy as np
 
 from comde.comde_modules.base import ComdeBaseModule
-from comde.utils.common.lang_representation import LanguageRepresentation
+from comde.utils.common.lang_representation import SkillRepresentation
 from comde.utils.interfaces import ITrainable, IJaxSavable
 from comde.utils.jax_utils.type_aliases import Params
 
@@ -22,7 +23,26 @@ class BaseSeqToSeq(ComdeBaseModule, ITrainable, IJaxSavable):
 		self.cfg = cfg
 		self.inseq_dim = cfg["inseq_dim"]  # Input sequence's dim
 
-		self.tokens = dict()  # type: Dict[str, LanguageRepresentation]
+		if init_build_model:
+			with open(self.cfg["skill_infos_path"], "rb") as f:
+				self.tokens = pickle.load(f)	# type: Dict[str, List[SkillRepresentation]]
+
+			with open(self.cfg["startend_token_path"], "rb") as f:
+				token_dict = pickle.load(f)
+
+			assert len(token_dict["start"]) == len(token_dict["end"]) == 1
+			start_token = token_dict["start"][0]	# type: SkillRepresentation
+			end_token = token_dict["end"][0]	# type: SkillRepresentation
+
+			max_skill_index = max([token[0].index for token in self.tokens.values()])
+			self.start_token = start_token._replace(index=max_skill_index + 1)
+			self.end_token = end_token._replace(index=max_skill_index + 2)
+
+			# Why 'example'?: each skill can have language variations. But we use only one.
+			example_vocabulary = [sk[0] for sk in list(self.tokens.values())]
+			example_vocabulary.extend([self.start_token, self.end_token])
+			example_vocabulary.sort(key=lambda sk: sk.index)
+			self._example_vocabulary = example_vocabulary
 
 	def update_tokens(self, new_tokens: Dict):
 		pass

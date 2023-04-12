@@ -111,12 +111,11 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 		})
 		return ret
 
-	def set_zeropaddings(self, n_padding: int, max_source_skills: int, max_target_skills: int):
+	def set_zeropaddings(self, n_padding: int, max_source_skills: int = None, max_target_skills: int = None):
 		assert len(self.target_skills) > 0, "We require at least one target skills !"
 		super(SourceTargetSkillContainedEpisode, self).set_zeropaddings(n_padding=n_padding)
-		undefined_skill = np.zeros_like(self.target_skills[0]) - 1	# -1th skill
-		[self.source_skills.append(undefined_skill.copy()) for _ in range(max_source_skills - self.n_source_skills)]
-		[self.target_skills.append(undefined_skill.copy()) for _ in range(max_target_skills - self.n_target_skills)]
+		[self.source_skills.append(-1) for _ in range(max_source_skills - self.n_source_skills)]
+		[self.target_skills.append(-1) for _ in range(max_target_skills - self.n_target_skills)]
 		[self.skills_orders.append(-1) for _ in range(n_padding)]
 
 	def add(
@@ -157,10 +156,10 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 
 	def add_from_dict(self, dataset: Dict):
 		traj_len = len(dataset["observations"])
-		self.source_skills = dataset["source_skills"]
+		self.source_skills = dataset["source_skills_idxs"]
 		self.n_source_skills = len(self.source_skills)
 
-		self.target_skills = dataset["target_skills"]
+		self.target_skills = dataset["target_skills_idxs"]
 		self.n_target_skills = len(self.target_skills)
 		self.language_operator = dataset["language_operator"]
 

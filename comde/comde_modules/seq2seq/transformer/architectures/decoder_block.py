@@ -62,7 +62,6 @@ class DecoderBlock(nn.Module):
 		x = q + self.dropout(x, deterministic=deterministic)
 		x = self.ln1(x)
 
-		# Note: 여기 mask가 causal이 아니어도 괜찮은지?
 		x2, _ = self.cross_attention(q=x, kv=kv, mask=mask, deterministic=deterministic)
 		x2 = x + self.dropout(x2, deterministic=deterministic)
 		x2 = self.ln2(x2)

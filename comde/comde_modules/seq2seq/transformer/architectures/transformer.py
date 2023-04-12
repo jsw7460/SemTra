@@ -15,7 +15,7 @@ class PrimSklToSklIntTransformer(nn.Module):
 	input_dropout_prob: float
 	skill_dropout_prob: float
 	intent_dropout_prob: float
-	skill_dim: int
+	skill_pred_dim: int
 	intent_dim: int
 
 	input_dropout = None
@@ -41,10 +41,11 @@ class PrimSklToSklIntTransformer(nn.Module):
 		self.decoder = TransformerDecoder(**self.decoder_cfg)
 
 		self.pred_skills = create_mlp(
-			output_dim=self.skill_dim,
-			net_arch=[16, 16],
+			output_dim=self.skill_pred_dim,
+			net_arch=[],
 			layer_norm=True,
-			dropout=self.skill_dropout_prob
+			dropout=self.skill_dropout_prob,
+			squash_output=False
 		)
 		self.pred_intents = create_mlp(
 			output_dim=self.intent_dim,
@@ -58,16 +59,16 @@ class PrimSklToSklIntTransformer(nn.Module):
 
 	def forward(
 		self,
-		x: jnp.ndarray,	# [b, l, d]
-		context: jnp.ndarray,	# [b, l, d]
-		mask: jnp.ndarray,	# [b, l]
+		x: jnp.ndarray,  # [b, l, d]
+		context: jnp.ndarray,  # [b, l, d]
+		mask: jnp.ndarray,  # [b, l]
 		deterministic: bool = False,
 		*args, **kwargs  # Do not remove this
 	) -> Dict[str, jnp.ndarray]:
 		context = self.encoder(context, mask, deterministic=deterministic)
 		x = self.decoder(x, context, mask, deterministic=deterministic)
 
-		pred_skills = self.pred_skills(x)	# [b, l, d]
-		pred_intents = self.pred_intents(x)	# [b, l, d]
+		pred_skills = self.pred_skills(x)  # [b, l, d]
+		pred_intents = self.pred_intents(x)  # [b, l, d]
 
 		return {"pred_skills": pred_skills, "pred_intents": pred_intents}

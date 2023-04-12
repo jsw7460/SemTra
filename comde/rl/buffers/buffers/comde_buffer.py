@@ -1,4 +1,3 @@
-from jax.tree_util import tree_map
 import pickle
 import random
 from typing import Dict, Optional, Union, Tuple, List
@@ -6,6 +5,7 @@ from typing import Dict, Optional, Union, Tuple, List
 import gym
 import h5py
 import numpy as np
+from jax.tree_util import tree_map
 from stable_baselines3.common.vec_env import VecNormalize
 
 from comde.rl.buffers.buffers.episodic import EpisodicMaskingBuffer
@@ -39,7 +39,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 	def add_dict_chunk(self, dataset: Dict, representative: str = None, clear_info: bool = False) -> None:
 		raise NotImplementedError("This is only for pickle file. ComDe does not support it.")
 
-	def add_episodes_from_h5py(self, paths: Dict[str, Union[List, str]], cfg: Dict):
+	def add_episodes_from_h5py(self, paths: Dict[str, Union[List, str]], cfg: Dict, mode: str = "train"):
 		"""
 			## README ##
 			- Each path in paths corresponds to one trajectory.
@@ -48,15 +48,31 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		trajectory_paths = paths["trajectory"]
 		language_guidance_paths = paths["language_guidance"]
 
+		task_maskings = cfg["task_masking"]
+		if task_maskings is not None:
+			with open(task_maskings, "rb") as f:
+				task_maskings = pickle.load(f)
+		else:
+			task_maskings = []
+
+		language_masking = cfg["language_masking"]
+
 		with open(language_guidance_paths, "rb") as f:
-			language_guidance = pickle.load(f)
+			language_guidance_mapping = pickle.load(f)
 
 		ep: SourceTargetSkillContainedEpisode
 
 		for path in trajectory_paths:
 			episode = SourceTargetSkillContainedEpisode()
 			trajectory = h5py.File(path, "r")
-			dataset = self.preprocess_h5py_trajectory(trajectory, language_guidance)
+
+			target_skills = list(trajectory["target_skills"])
+			language_guidance = str(trajectory["operator"][()], "utf-8")
+
+			if (target_skills in task_maskings) or (language_guidance in language_masking):
+				continue
+
+			dataset = self.preprocess_h5py_trajectory(trajectory, language_guidance_mapping, mode=mode)
 			episode.add_from_dict(dataset)
 
 			self.add(episode)
@@ -76,7 +92,8 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 	def preprocess_h5py_trajectory(
 		self,
 		trajectory: h5py.File,
-		language_guidance_mapping: Dict[str, Dict[str, np.ndarray]]
+		language_guidance_mapping: Dict[str, Dict[str, np.ndarray]],
+		mode: str = "train"
 	) -> Dict:
 		assert self.MUST_LOADED_COMPONENTS <= trajectory.keys(), \
 			f"Under qualified dataset. Please fill {trajectory.keys() - self.MUST_LOADED_COMPONENTS}"
@@ -101,13 +118,18 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		for skills_in_demo in trajectory["source_skills"].values():
 			for skill in np.array(skills_in_demo):
 				source_skills.append(skill)
+		target_skills = list(trajectory["target_skills"])
+		language_guidance = str(trajectory["operator"][()], "utf-8")  # sequential, parallel, ...
 
-		target_skills = [trajectory["target_skills"][()].tolist()]	# TODO
-		# target_skills = trajectory["target_skills"]
+		language_guidance_vectors = list(language_guidance_mapping[language_guidance].values())
 
-		language_guidance_vectors = language_guidance_mapping[
-			str(trajectory["operator"][()], "utf-8")  # sequential, parallel, ...
-		].values()
+		# if mode == "train":
+		# 	language_guidance_vectors = language_guidance_vectors[:-5]
+		# elif mode == "eval":
+		# 	language_guidance_vectors = language_guidance_vectors[-5:]
+		# else:
+		# 	raise NotImplementedError("Undefined mode")
+
 		language_guidance_vector = random.choice(list(language_guidance_vectors))
 
 		# === Compute first observations ===
@@ -135,8 +157,8 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			"rewards": rewards,
 			"dones": dones,
 			"infos": infos,
-			"source_skills": source_skills,
-			"target_skills": target_skills,
+			"source_skills_idxs": source_skills,
+			"target_skills_idxs": target_skills,
 			"language_operator": language_guidance_vector,
 			"first_observations": first_observations,
 			"skills_done": augmented_skills_done,
@@ -182,8 +204,8 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 
 		buffer_sample = ComDeBufferSample(
 			**subtraj_dict,
-			source_skills=np.array(source_skills),
-			target_skills=np.array(target_skills),
+			source_skills_idxs=np.array(source_skills),  # This is index. Not dense vector
+			target_skills_idxs=np.array(target_skills),  # This is index. Not dense vector
 			n_source_skills=np.array(n_source_skills),
 			n_target_skills=np.array(n_target_skills),
 			language_operators=np.array(language_operators),

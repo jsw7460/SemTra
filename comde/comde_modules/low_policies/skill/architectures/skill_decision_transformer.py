@@ -22,6 +22,9 @@ class PrimSkillDecisionTransformer(nn.Module):
 	act_scale: float
 	max_ep_len: int
 
+	normalization_mean: float = 0.0
+	normalization_std: float = 1.0
+
 	emb_time = None
 	emb_obs = None
 	emb_act = None
@@ -68,6 +71,8 @@ class PrimSkillDecisionTransformer(nn.Module):
 		maskings: jnp.ndarray,  # [b, l]
 		deterministic: bool = True
 	):
+		observations = (observations - self.normalization_mean) / (self.normalization_std + 1E-12)
+
 		batch_size = observations.shape[0]
 		subseq_len = observations.shape[1]
 
@@ -105,4 +110,4 @@ class PrimSkillDecisionTransformer(nn.Module):
 		obs_preds = self.pred_obs(x[:, 2])
 		action_preds = self.pred_act(x[:, 1])
 
-		return action_preds, obs_preds, None
+		return action_preds, obs_preds, observations

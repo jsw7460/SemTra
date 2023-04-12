@@ -25,3 +25,9 @@ cfg:
   action_dim: ${action_dim}
   skill_dim: ${skill_dim}
   intent_dim: ${intent_dim}
+  use_optimal_lang: True
+
+  obs_mean: 0.0
+  obs_std: 1.0
+
+

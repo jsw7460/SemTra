@@ -8,6 +8,8 @@ from comde.utils.jax_utils.type_aliases import Params
 from comde.utils.jax_utils.model import Model
 from comde.rl.buffers.type_aliases import ComDeBufferSample
 
+EPS = 1E-12
+
 
 class BaseLowPolicy(ComdeBaseModule, IJaxSavable, ITrainable):
 
@@ -27,6 +29,10 @@ class BaseLowPolicy(ComdeBaseModule, IJaxSavable, ITrainable):
 
 		self.skill_dim = cfg["skill_dim"]
 		self.intent_dim = cfg["intent_dim"]
+
+		if init_build_model:
+			self.normalization_mean = cfg["obs_mean"]
+			self.normalization_std = cfg["obs_std"]
 
 	@staticmethod
 	def get_intent_conditioned_skill(replay_data: ComDeBufferSample) -> np.ndarray:

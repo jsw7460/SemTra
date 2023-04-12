@@ -65,6 +65,8 @@ class SkillDecisionTransformer(BaseLowPolicy):
 			hidden_size=self.cfg["hidden_size"],
 			act_scale=self.cfg["act_scale"],
 			max_ep_len=self.max_ep_len,
+			normalization_mean=self.normalization_mean,
+			normalization_std=self.normalization_std
 		)
 		self.rng, rngs = get_basic_rngs(self.rng)
 		self.rng, transformer_dropout = jax.random.split(self.rng)
@@ -93,6 +95,7 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		)
 
 	def update(self, replay_data: ComDeBufferSample) -> Dict:
+
 		skills = BaseLowPolicy.get_intent_conditioned_skill(replay_data)
 		new_model, info = skill_dt_updt(
 			rng=self.rng,
@@ -162,6 +165,7 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		# Longer than subseq_len -> Truncate
 		# Shorter than subseq_len -> Set zero paddings and get maskings.
 		if cur_subseq_len < subseq_len:
+			raise NotImplementedError("Are you sure this if loop required?")
 			observations, actions, skills, timesteps, maskings = self.get_padded_components(
 				observations=observations,
 				actions=actions,
@@ -177,6 +181,7 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		if maskings is None:
 			maskings = np.ones((1, subseq_len))
 
+		# print("Observation Prediction Mean", np.mean(observations, axis=(0, 1)))
 		self.rng, action_preds = fwd(
 			rng=self.rng,
 			model=self.model,
@@ -212,7 +217,7 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		action_preds = action_preds.reshape(-1, self.action_dim) * maskings.reshape(-1, 1)
 		action_targets = actions.reshape(-1, self.action_dim) * maskings.reshape(-1, 1)
 
-		mse_error = np.sum((action_preds - action_targets) ** 2) / np.sum(maskings)
+		mse_error = np.sum(np.mean((action_preds - action_targets) ** 2, axis=-1)) / np.sum(maskings)
 
 		eval_info = {
 			"skill_decoder/mse_error": mse_error,

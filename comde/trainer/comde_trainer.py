@@ -1,4 +1,5 @@
-from typing import Dict
+import random
+from typing import Dict, List
 
 import numpy as np
 
@@ -8,6 +9,7 @@ from comde.comde_modules.termination.base import BaseTermination
 from comde.rl.buffers import ComdeBuffer
 from comde.rl.buffers.type_aliases import ComDeBufferSample
 from comde.trainer.base import BaseTrainer
+from comde.utils.common.lang_representation import SkillRepresentation
 
 
 class ComdeTrainer(BaseTrainer):
@@ -16,9 +18,8 @@ class ComdeTrainer(BaseTrainer):
 		cfg: Dict,
 		low_policy: BaseLowPolicy,  # "skill decoder" == "low policy"
 		seq2seq: BaseSeqToSeq,
-		# intent_emb: BaseIntentEmbedding,
 		termination: BaseTermination,
-		skill_to_vec: Dict[str, np.ndarray]
+		skill_infos: Dict[str, List[SkillRepresentation]]
 	):
 		"""
 		This trainer consist of three modules
@@ -32,42 +33,30 @@ class ComdeTrainer(BaseTrainer):
 		super(ComdeTrainer, self).__init__(cfg)
 		self.low_policy = low_policy
 		self.seq2seq = seq2seq
-		# self.intent_emb = intent_emb
 		self.termination = termination
-		self.idx_to_skill = skill_to_vec
+		self.skill_infos = skill_infos  # type: Dict[str, List[SkillRepresentation]]
 
-		self.seq2seq.update_tokens(self.idx_to_skill)
+		self.info_records = {"info/suffix": self.cfg["save_suffix"]}
 
-		np_idx_to_skill = np.array(list(self.idx_to_skill.values()))
-
-		if "-1" not in self.idx_to_skill.keys():
-			zero_skill = np.zeros_like(list(self.idx_to_skill.values())[0])
-			np_idx_to_skill = np.concatenate((np_idx_to_skill, zero_skill[np.newaxis, ...]), axis=0)
-
-		self._np_idx_to_skill = np_idx_to_skill
-
-		self.info_records = {
-			"info/suffix": self.cfg["save_suffix"]
-		}
-
-	@property
-	def np_idx_to_skill(self):
-		return self._np_idx_to_skill
-
-	@np_idx_to_skill.setter
-	def np_idx_to_skill(self, *args, **kwargs):
-		raise NotImplementedError("This is fixed")
+		self.__last_onehot_skills = None
 
 	def get_skill_from_idxs(self, replay_data: ComDeBufferSample) -> ComDeBufferSample:
+
+		if self.__last_onehot_skills is None:
+			skills = [random.choice(sk) for sk in list(self.skill_infos.values())]
+			skills.sort(key=lambda sk: sk.index)
+			self.__last_onehot_skills = np.array([sk.vec for sk in skills])
+
 		skills_idxs = replay_data.skills_idxs
-		source_skills = replay_data.source_skills
-		target_skills = replay_data.target_skills
+		source_skills_idxs = replay_data.source_skills_idxs
+		target_skills_idxs = replay_data.target_skills_idxs
 
 		replay_data = replay_data._replace(
-			skills=self.np_idx_to_skill[skills_idxs],
-			source_skills=self.np_idx_to_skill[source_skills],
-			target_skills=self.np_idx_to_skill[target_skills]
+			skills=self.__last_onehot_skills[skills_idxs],
+			source_skills=self.__last_onehot_skills[source_skills_idxs],
+			target_skills=self.__last_onehot_skills[target_skills_idxs]
 		)
+
 		return replay_data
 
 	def run(self, replay_buffer: ComdeBuffer):
@@ -76,7 +65,7 @@ class ComdeTrainer(BaseTrainer):
 			replay_data = self.get_skill_from_idxs(replay_data)
 
 			# NOTE: Do not change the training order of modules.
-			info = self.seq2seq.update(replay_data=replay_data, low_policy=self.low_policy.model)
+			info = self.seq2seq.update(replay_data=replay_data, low_policy=self.low_policy)
 			# info.update(self.intent_emb.update(replay_data=replay_data, low_policy=self.low_policy.model))
 			replay_data = replay_data._replace(intents=info.pop("__intent_for_skill"))
 			info.update(self.low_policy.update(replay_data))

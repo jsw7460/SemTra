@@ -72,8 +72,9 @@ class SkillMLP(BaseLowPolicy):
 		self.model = Model.create(model_def=mlp, inputs=[rngs, init_obs, init_skills], tx=tx)
 
 	def update(self, replay_data: ComDeBufferSample) -> Dict:
+		if self.cfg["use_optimal_lang"]:
+			replay_data = replay_data._replace(intents=None)
 		skills = BaseLowPolicy.get_intent_conditioned_skill(replay_data)
-
 		new_model, info = skill_mlp_updt(
 			rng=self.rng,
 			mlp=self.model,
@@ -123,6 +124,8 @@ class SkillMLP(BaseLowPolicy):
 	) -> Dict:
 		observations = replay_data.observations
 		actions = replay_data.actions[:, -1, ...]
+		if self.cfg["use_optimal_lang"]:
+			replay_data = replay_data._replace(intents=None)
 		skills = BaseLowPolicy.get_intent_conditioned_skill(replay_data)
 		maskings = replay_data.maskings[:, -1]
 

@@ -1,15 +1,15 @@
 import pickle
+from itertools import permutations
 from pathlib import Path
 from typing import Dict, List, Type
 
 import gym
 
 from comde.rl.envs.metaworld.dimfix import DimFixedMetaWorld
-from comde.rl.envs.utils import TimeLimitEnv, SkillHistoryEnv
-from comde.rl.envs.utils.skill_to_vec import SkillToVec
+from comde.rl.envs.utils import TimeLimitEnv, SkillHistoryEnv, SkillInfoEnv
 
 
-def get_dummy_env(cfg: Dict) -> SkillToVec:
+def get_dummy_env(cfg: Dict) -> SkillInfoEnv:
 	"""
 	Note: This is not responsible for evaluate the env.
 	"""
@@ -20,11 +20,10 @@ def get_dummy_env(cfg: Dict) -> SkillToVec:
 	else:
 		raise NotImplementedError(f"Not supported: {env_name}")
 
-	with open(Path(cfg["skill_to_vec_path"]), "rb") as f:
-		skill_to_vec = pickle.load(f)
+	with open(Path(cfg["skill_infos_path"]), "rb") as f:
+		skill_infos = pickle.load(f)
 
-	env = SkillToVec(env=env, skill_to_vec=skill_to_vec)
-
+	env = SkillInfoEnv(env=env, skill_infos=skill_infos)
 	return env
 
 
@@ -34,12 +33,24 @@ def get_batch_env(
 	skill_dim: int,
 	time_limit: int = 1000,
 	history_len: int = 1,
-	seed: int = 0
+	seed: int = 0,
+	cfg: Dict = None,
 ) -> List[SkillHistoryEnv]:
-	envs = []
+	envs = []	# type: List[SkillHistoryEnv]
+
+	with open(Path(cfg["skill_infos_path"]), "rb") as f:
+	# with open("/home/jsw7460/mnt/comde_datasets/language_embeddings/clip_mappings/metaworld/clip_mapping", "rb") as f:
+		skill_infos = pickle.load(f)
+
+	tasks = list(permutations([1, 3, 4, 6], r=4))
+	for i in range(len(tasks)):
+		tasks[i] = list(tasks[i])
+
 	for task in tasks:
-		env = env_class(seed=seed, task=task)  # type: gym.Env
-		env = TimeLimitEnv(env=env, limit=time_limit)  # type: gym.Env
+		env = env_class(seed=seed, task=task, cfg=cfg)
+		env = SkillInfoEnv(env, skill_infos=skill_infos)
+		env.availability_check()
+		env = TimeLimitEnv(env=env, limit=time_limit)
 		env = SkillHistoryEnv(env=env, skill_dim=skill_dim, num_stack_frames=history_len)
 		envs.append(env)
 	return envs

@@ -27,7 +27,7 @@ class CausalSelfAttention(nn.Module):
 	) -> jnp.ndarray:
 		batch_size = x.shape[0]
 		seq_len = x.shape[1]
-		tril = 1 - jnp.tril(jnp.ones((seq_len, seq_len))).reshape(-1, seq_len, seq_len)
+		tril = jnp.tril(jnp.ones((seq_len, seq_len))).reshape(-1, seq_len, seq_len)
 		tril = jnp.repeat(tril, axis=0, repeats=batch_size)
 		return tril	# [b, l, l]
 

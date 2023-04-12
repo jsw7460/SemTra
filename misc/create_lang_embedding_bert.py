@@ -1,23 +1,13 @@
 import pickle
 from pathlib import Path
 
-import clip
-import torch
-
-AVAILABLE_MODELS = ['RN50',
-					'RN101',
-					'RN50x4',
-					'RN50x16',
-					'RN50x64',
-					'ViT-B/32',
-					'ViT-B/16',
-					'ViT-L/14',
-					'ViT-L/14@336px']
+from transformers import BertTokenizer, BertModel
+import torch as th
 
 if __name__ == "__main__":
 
 	# === Hyper parameters
-	save_dir = "/home/jsw7460/mnt/comde_datasets/clip_mappings/language_guidance/"
+	save_dir = "/home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/language_guidance/"
 	topic = "sequential_reverse_replace_50var"
 	main_texts = [
 		"sequential", "reverse", "replace 3 with 1", "replace 6 with 1", "replace 4 with 1",
@@ -80,13 +70,17 @@ if __name__ == "__main__":
 					"Carry out these in the inverted order.", "Execute these in an opposite sequence.",
 					"Perform these in the opposite manner."],
 		"replace 3 with 1": ["Substitute using a drawer with sliding a puck.",
-							 "Exchange the drawer for a sliding puck.", "Swap out the drawer for a sliding puck.",
-							 "Replace the drawer with a sliding puck.", "Trade the drawer for a sliding puck.",
+							 "Exchange the drawer for a sliding puck.",
+							 "Swap out the drawer for a sliding puck.",
+							 "Replace the drawer with a sliding puck.",
+							 "Trade the drawer for a sliding puck.",
 							 "Use a sliding puck instead of a drawer.",
 							 "Make the switch from a drawer to a sliding puck.",
 							 "Transition from using a drawer to sliding a puck.",
-							 "Choose a sliding puck over a drawer.", "Opt for a sliding puck in lieu of a drawer.",
-							 "Ditch the drawer and go for a sliding puck.", "Convert from a drawer to a sliding puck.",
+							 "Choose a sliding puck over a drawer.",
+							 "Opt for a sliding puck in lieu of a drawer.",
+							 "Ditch the drawer and go for a sliding puck.",
+							 "Convert from a drawer to a sliding puck.",
 							 "Transform the drawer into a sliding puck.",
 							 "Make the substitution from drawer to sliding puck.",
 							 "Implement a sliding puck instead of a drawer.",
@@ -680,33 +674,28 @@ if __name__ == "__main__":
 			"Prefer opening the door to pressing the button",
 			"Opt for opening the door over pressing the button",
 			"Trade pressing the button for opening the door"
-		],
+		]
 	}
 
 	assert main_texts == list(texts_variations.keys())
 
 	# === Hyper parameters
 
-	text_tokens = {
-		k: clip.tokenize(v).cuda() for k, v in texts_variations.items()
-	}
-
-	model_name = "ViT-B/32"	# Bert
-	assert model_name in AVAILABLE_MODELS, "See above avilable models"
-	model, preprocess = clip.load(model_name)
-	model.cuda().eval()
-
-	with torch.no_grad():
-		text_features = {
-			k: model.encode_text(v).float() for k, v in text_tokens.items()
-		}
-
+	tokenizer = BertTokenizer.from_pretrained('bert-large-uncased')
+	model = BertModel.from_pretrained("bert-large-uncased").cuda()
 
 	save_dict = {main_text: dict() for main_text in main_texts}
-	for k, tensors in text_features.items():
-		# k: moderate
-		for i, tensor in enumerate(tensors):
-			save_dict[k][texts_variations[k][i]] = tensor.cpu().numpy()
 
-	with open(Path(save_dir) / Path(f"{topic}_clip_mapping_{model_name.replace('/', '_')}"), "wb") as f:
+	time = 0
+	with th.no_grad():
+		for key, variations in texts_variations.items():
+			for text in variations:
+				time += 1
+				encoded_input = tokenizer(text, return_tensors='pt').to("cuda:0")
+				output = model(**encoded_input)["last_hidden_state"]
+				sentence_vector = th.mean(output, dim=1).squeeze()
+				sentence_vector = sentence_vector.cpu().numpy()
+				save_dict[key][text] = sentence_vector
+
+	with open(Path(save_dir) / Path(f"{topic}_bert_mapping"), "wb") as f:
 		pickle.dump(save_dict, f)

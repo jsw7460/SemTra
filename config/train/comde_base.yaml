@@ -3,7 +3,7 @@ seed: 777
 defaults:
   - low_policy: skill_dt
   - seq2seq: transformer
-  - intent_emb: vq
+#  - intent_emb: vq
   - termination: mlp
   - wandb: comde_train
   - env: metaworld
@@ -15,19 +15,20 @@ save_suffix: foo
 modules: ${mode.modules}
 trainer: ${mode.trainer}
 
-act_scale: 1.05
+act_scale: 1.35
 observation_dim: ${env.observation_dim}
 action_dim: ${env.action_dim}
 dataset_path: ???
 
-max_source_skills: 3
-max_target_skills: 3
+max_source_skills: 6
+max_target_skills: 6
 
-skill_dim: 512
+state_normalization: False
+skill_dim: 1024 # 512 for clip, 1024 for bert.
 intent_dim: ${mode.intent_dim}
 subseq_len: 5
-batch_size: 1024
+batch_size: 256
 max_iter: 500
 step_per_dataset: 5000
 log_interval: 1000
-language_guidance_path: /home/jsw7460/mnt/comde_datasets/clip_mappings/language_guidance/sequential_clip_mapping
+language_guidance_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/language_guidance/sequential_reverse_replace_50var_bert_mapping

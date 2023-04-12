@@ -21,14 +21,17 @@ def scaled_dot_product(
 	v: jnp.ndarray,  # [b, h, len(v), d]	(h: Num head)
 	mask: jnp.ndarray  # [b, 1, 1, len(k)]	# Should be broadcasted to [b, h, l(q), l(k)]
 ):
+	"""
+		l(k) and l(v) are the same
+	"""
 	d_k = q.shape[-1]
 
 	attn_logits = jnp.matmul(q, einops.rearrange(k, "b h l d -> b h d l"))	# [b, h, l(q), l(k)]
 	attn_logits = attn_logits / jnp.sqrt(d_k)  # [b, h, l(q), l(k)]
 
 	attn_logits = jnp.where(mask == 0, -INFTY, attn_logits)	# [b, h, l(q), l(k)]
-	attention = jax.nn.softmax(attn_logits, axis=-1)  # [b, h, l, l]
-	values = jnp.matmul(attention, v)  # [b, h, l, d]
+	attention = jax.nn.softmax(attn_logits, axis=-1)  # [b, h, l(q), l(k)]
+	values = jnp.matmul(attention, v)  # [b, h, l(q), d]
 
 	return values, attention
 

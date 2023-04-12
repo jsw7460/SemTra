@@ -5,8 +5,8 @@ cfg:
   gpt2_config:
     vocab_size: 1
     n_positions: 1024
-    n_layer: 4
-    n_head: 8
+    n_layer: 2
+    n_head: 4
     activation_function: relu
     resid_pdrop: 0.1
     embd_pdropo: 0.1
@@ -23,3 +23,6 @@ cfg:
   action_dim: ${action_dim}
   skill_dim: ${skill_dim}
   intent_dim: ${intent_dim}
+
+  obs_mean: 0.0
+  obs_std: 1.0

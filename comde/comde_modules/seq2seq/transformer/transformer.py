@@ -1,12 +1,17 @@
-import pickle
 from typing import Dict, List
+
+import einops
 
 import jax.random
 import numpy as np
 import optax
 
+from comde.comde_modules.low_policies.base import BaseLowPolicy
 from comde.comde_modules.seq2seq.algos.forward import skilltoskill_transformer_forward as fwd
-from comde.comde_modules.seq2seq.algos.updates.skilltoskill_transformer import skilltoskill_transformer_updt
+from comde.comde_modules.seq2seq.algos.updates.skilltoskill_transformer import (
+	skilltoskill_transformer_updt as continuous_update,
+	skilltoskill_transformer_ce_updt as discrete_update
+)
 from comde.comde_modules.seq2seq.base import BaseSeqToSeq
 from comde.comde_modules.seq2seq.transformer.architectures.transformer import PrimSklToSklIntTransformer
 from comde.rl.buffers.type_aliases import ComDeBufferSample
@@ -28,6 +33,11 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		self.__model = None
 
 		self.decoder_max_len = self.cfg["skill_intent_transformer_cfg"]["decoder_cfg"]["max_len"]
+		self.skill_pred_type = "continuous"
+
+		# self.start_token = None	# type: SkillRepresentation
+		# self.end_token = None # type: SkillRepresentation
+
 		if init_build_model:
 			self.build_model()
 
@@ -39,11 +49,23 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 	def model(self, model):
 		self.__model = model
 
-	def update_tokens(self, new_tokens: Dict):
-		self.tokens = {**self.tokens, **new_tokens}
-
 	def build_model(self):
 		transformer_cfg = self.cfg["skill_intent_transformer_cfg"]
+
+		if self.cfg["skill_pred_type"] == "continuous":
+			raise NotImplementedError("Are you sure that skill matching is done via MSE?")
+			# pred_dim = self.inseq_dim	# CLIP dim
+			transformer_cfg.update({"skill_pred_dim": self.inseq_dim})
+			self.skill_pred_type = "continuous"
+
+		elif self.cfg["skill_pred_type"] == "discrete":
+			# Predict discrete token. +2 for start-end tokens.
+			transformer_cfg.update({"skill_pred_dim": transformer_cfg["decoder_cfg"]["max_len"] + 2})
+			self.skill_pred_type = "discrete"
+
+		else:
+			raise NotImplementedError("Undefined skill prediction type")
+
 		transformer = PrimSklToSklIntTransformer(**transformer_cfg)
 		init_x = np.zeros((1, transformer_cfg["decoder_cfg"]["max_len"], self.inseq_dim))  # 512 dim
 		init_context = np.zeros((1, transformer_cfg["encoder_cfg"]["max_len"], self.inseq_dim))  # 512 dim
@@ -56,11 +78,6 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 			inputs=[rngs, init_x, init_context, init_mask],
 			tx=tx
 		)
-		with open(self.cfg["token_path"], "rb") as f:
-			token_dict = pickle.load(f)
-
-		token_dict = {k: v.vec for k, v in token_dict.items()}
-		self.update_tokens(token_dict)
 
 	@staticmethod
 	def concat_skill_language(source_skills: np.ndarray, n_source_skills: np.ndarray, language_operators: np.ndarray):
@@ -87,7 +104,7 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 
 		return padded_source_skills + residue
 
-	def update(self, replay_data: ComDeBufferSample, *, low_policy: Model) -> Dict:
+	def update(self, replay_data: ComDeBufferSample, *, low_policy: BaseLowPolicy) -> Dict:
 		# Concatenate source skills and language first
 		src_skill_language_concat = self.concat_skill_language(
 			source_skills=replay_data.source_skills,
@@ -95,27 +112,38 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 			language_operators=replay_data.language_operators
 		)
 
-		new_model, info = skilltoskill_transformer_updt(
-			rng=self.rng,
-			tr=self.model,
-			low_policy=low_policy,
-			context=src_skill_language_concat,
-			target_skills=replay_data.target_skills,
-			observations=replay_data.observations,
-			actions=replay_data.actions,
-			skills=replay_data.skills,
-			skills_order=replay_data.skills_order,
-			timesteps=replay_data.timesteps,
-			maskings=replay_data.maskings,
-			n_source_skills=replay_data.n_source_skills,
-			n_target_skills=replay_data.n_target_skills,
-			start_token=self.tokens["start_token"],
-			end_token=self.tokens["end_token"],
-			coef_intent=self.cfg["coef_intent"],
-			coef_skill=self.cfg["coef_skill"]
-		)
-		self.maybe_done(pred_skills=info["__pred_skills"][:, 0, ...])
+		update_fn_inputs = {
+			"rng": self.rng,
+			"tr": self.model,
+			"low_policy": low_policy.model,
+			"context": src_skill_language_concat,
+			"target_skills": replay_data.target_skills,
+			"observations": replay_data.observations,
+			"actions": replay_data.actions,
+			"skills": replay_data.skills,
+			"skills_order": replay_data.skills_order,
+			"timesteps": replay_data.timesteps,
+			"maskings": replay_data.maskings,
+			"n_source_skills": replay_data.n_source_skills,
+			"n_target_skills": replay_data.n_target_skills,
+			"start_token": self.start_token.vec,
+			"end_token": self.end_token.vec,
+			"coef_intent": self.cfg["coef_intent"],
+			"coef_skill": self.cfg["coef_skill"]
+		}
 
+		if self.skill_pred_type == "continuous":
+			update_fn = continuous_update
+
+		elif self.skill_pred_type == "discrete":
+			update_fn = discrete_update
+			update_fn_inputs.update({"target_skills_idxs": replay_data.target_skills_idxs})
+
+		else:
+			raise NotImplementedError(f"Undefined skill prediction type: {self.skill_pred_type}")
+
+		new_model, info = update_fn(**update_fn_inputs)
+		# print("match_ratio", info["s2s/match_ratio"])
 		self.model = new_model
 		self.rng, _ = jax.random.split(self.rng)
 
@@ -126,24 +154,24 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		pred_skills: np.ndarray,  # [b, d]
 		get_nearest_token: bool = True
 	):
-		distance_dict = {k: None for k in self.tokens.keys()}
-
-		end_idx = list(distance_dict.keys()).index("end_token")
-
-		tokens_vec = np.array(list(self.tokens.values()))  # [M, d]
+		tokens_vec = np.array([vocab.vec for vocab in self._example_vocabulary])
 
 		_tokens_vec = tokens_vec[np.newaxis, ...]  # [1, M, d]
 		pred_skills = pred_skills[:, np.newaxis, ...]  # [b, 1, d]
+
+		if self.skill_pred_type == "discrete":
+			pred_skills = np.argmax(pred_skills, axis=-1, keepdims=True)	# [b, 1, n_skills]
+			pred_skills = np.take_along_axis(_tokens_vec, pred_skills, axis=1)	# [b, 1, d]
 
 		distance = np.mean((pred_skills - _tokens_vec) ** 2, axis=-1)  # [b, M]
 
 		min_distance_idx = np.argmin(distance, axis=-1)  # [b, ]
 
-		maybe_done = np.where(min_distance_idx == end_idx, 1, 0)  # [b, ]
+		maybe_done = np.where(min_distance_idx == self.end_token.index, 1, 0)  # [b, ]
 
 		if get_nearest_token:
 			nearest_tokens = tokens_vec[min_distance_idx]  # [b, d]
-			return maybe_done, nearest_tokens
+			return maybe_done, nearest_tokens, min_distance_idx
 
 		return maybe_done
 
@@ -159,7 +187,7 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		"""
 		batch_size = source_skills.shape[0]
 		skill_dim = source_skills.shape[-1]
-		x = self.tokens["start_token"]
+		x = self.start_token.vec
 		x = np.broadcast_to(x, (batch_size, 1, skill_dim))  # [b, 1, d]
 
 		done = False
@@ -170,10 +198,6 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 			language_operators=language_operator
 		)
 
-		# print("=" * 100)
-		# for i in range(batch_size):
-		# 	print(f"context {i}", np.mean(context[i], axis=-1))
-
 		context_maxlen = context.shape[1]
 		ctx_padding_mask = np.arange(context_maxlen)
 		ctx_padding_mask = np.broadcast_to(ctx_padding_mask, (batch_size, context_maxlen))  # [b, l]
@@ -182,12 +206,11 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		pred_skills_seq_raw = []
 		pred_skills_seq_quantized = []
 		pred_intents_seq = []
+		pred_nearest_idxs_seq = []
 
 		t = 0
 
 		while not done:  # Autoregression
-
-			# print("Timestep", t)
 
 			self.rng, predictions = fwd(
 				rng=self.rng,
@@ -197,13 +220,14 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 				mask=ctx_padding_mask,
 			)
 			pred_skills = predictions["pred_skills"][:, -1, ...]  # [b, d]
-			maybe_done, nearest_tokens = self.maybe_done(pred_skills, get_nearest_token=True)
+			maybe_done, nearest_tokens, nearest_idxs = self.maybe_done(pred_skills, get_nearest_token=True)
 
 			pred_intents = predictions["pred_intents"][:, -1, ...]
 
 			pred_skills_seq_raw.append(pred_skills)
 			pred_skills_seq_quantized.append(nearest_tokens)
 			pred_intents_seq.append(pred_intents)
+			pred_nearest_idxs_seq.append(nearest_idxs)
 
 			nearest_tokens = nearest_tokens.reshape(batch_size, 1, skill_dim)
 			x = np.concatenate((x, nearest_tokens), axis=1)
@@ -218,7 +242,8 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		ret = {
 			"pred_skills_raw": pred_skills_raw,
 			"pred_skills_quantized": pred_skills_quantized,
-			"pred_intents": pred_intents_seq
+			"pred_intents": pred_intents_seq,
+			"pred_nearest_idxs": pred_nearest_idxs_seq
 		}
 		return ret
 
@@ -249,8 +274,7 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		)
 		return predictions
 
-	def evaluate(self, replay_data: ComDeBufferSample) -> Dict:
-
+	def _evaluate_continuous(self, replay_data: ComDeBufferSample) -> Dict:
 		prediction = self.predict(
 			source_skills=replay_data.source_skills,
 			language_operator=replay_data.language_operators,
@@ -283,6 +307,47 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		pred_intents = pred_w_target["pred_intents"]
 		pred_intents = np.take_along_axis(pred_intents, indices=replay_data.skills_order[..., np.newaxis], axis=1)
 		return {"s2s/skill_loss": skills_mse, "__intents": pred_intents}
+
+	def _evaluate_discrete(self, replay_data: ComDeBufferSample) -> Dict:
+		prediction = self.predict(
+			source_skills=replay_data.source_skills,
+			language_operator=replay_data.language_operators,
+			n_source_skills=replay_data.n_source_skills
+		)
+
+		pred_nearest_idxs = np.array(prediction["pred_nearest_idxs"])
+		pred_nearest_idxs = einops.rearrange(pred_nearest_idxs, "l b -> b l")	# [b, M]
+
+		target_skills_idxs = replay_data.target_skills_idxs  # [b, M, d]
+		n_target_skills = replay_data.n_target_skills  # [b, M]
+
+		batch_size = target_skills_idxs.shape[0]
+
+		tgt_mask = np.arange(self.decoder_max_len)
+		tgt_mask = np.broadcast_to(tgt_mask, (batch_size, self.decoder_max_len))  # [b, M]
+		tgt_mask = np.where(tgt_mask < n_target_skills[..., np.newaxis], 1, 0)  # [b, M]
+
+		pred_nearest_idxs = np.where(tgt_mask == 1, pred_nearest_idxs, -1)
+		target_skills_idxs = np.where(tgt_mask == 1, target_skills_idxs, -2)
+
+		match_ratio = np.sum(pred_nearest_idxs == target_skills_idxs) / np.sum(tgt_mask)
+
+		pred_w_target = self.predict_w_teacher_forcing(
+			source_skills=replay_data.source_skills,
+			language_operator=replay_data.language_operators,
+			n_source_skills=replay_data.n_source_skills,
+			target=replay_data.target_skills
+		)
+		pred_intents = pred_w_target["pred_intents"]
+		pred_intents = np.take_along_axis(pred_intents, indices=replay_data.skills_order[..., np.newaxis], axis=1)
+		return {"s2s/skill_match_ratio": match_ratio, "__intents": pred_intents}
+
+	def evaluate(self, replay_data: ComDeBufferSample) -> Dict:
+		if self.skill_pred_type == "continuous":
+			return self._evaluate_continuous(replay_data=replay_data)
+
+		elif self.skill_pred_type == "discrete":
+			return self._evaluate_discrete(replay_data=replay_data)
 
 	def _excluded_save_params(self) -> List:
 		return SklToSklIntTransformer.PARAM_COMPONENTS

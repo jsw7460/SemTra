@@ -5,6 +5,7 @@ from jax import numpy as jnp
 
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
+from comde.comde_modules.low_policies.skill.architectures.skill_decision_transformer import PrimSkillDecisionTransformer
 
 
 @jax.jit
@@ -32,6 +33,7 @@ def skill_dt_updt(
 			maskings=maskings,
 			deterministic=False,
 			rngs={"dropout": dropout_key},
+			# method=PrimSkillDecisionTransformer.forward_with_all_components
 		)
 
 		action_preds = action_preds.reshape(-1, action_dim) * maskings.reshape(-1, 1)

@@ -2,6 +2,9 @@ import pickle
 
 import numpy as np
 
+from comde.utils.common.lang_representation import SkillRepresentation
+from collections import defaultdict
+
 import clip
 import torch
 
@@ -20,34 +23,59 @@ if __name__ == "__main__":
 
 	# === Hyper parameters
 	save_dir = "/home/jsw7460/mnt/comde_datasets/clip_mappings/language_guidance/"
+	# NOTE: """order matters""". it mapped to one-hot representation.
 	main_texts = [
-		"close box",
-		"slide puck",
-		"close drawer",
-		"pull handle",
-		"press button",
-		"pull lever",
-		"open door",
-		"insert stick"
+		"box",
+		"puck",
+		"handle",
+		"drawer",
+		"button",
+		"lever",
+		"door",
+		"stick"
 	]
+	variations = {
+		"box": ["close box"],
+		"puck": ["slide puck"],
+		"handle": ["pull handle"],
+		"drawer": ["close drawer"],
+		"button": ["press button"],
+		"lever": ["pull lever"],
+		"door": ["open door"],
+		"stick": ["insert stick"]
+	}
 	# === Hyper parameters
 
-	text_tokens = [clip.tokenize(v).cuda() for v in main_texts]
+	# text_tokens = [clip.tokenize(v) for v in variations]
 
 	model_name = "ViT-B/32"
 	assert model_name in AVAILABLE_MODELS, "See above avilable models"
 	model, preprocess = clip.load(model_name)
-	model.cuda().eval()
+	model.eval()
 
-	with torch.no_grad():
-		text_features = [model.encode_text(v).float() for v in text_tokens]
+	text_features = defaultdict(dict)
 
-	save_dict = dict()
-	for k, tensor in zip(main_texts, text_features):
-		save_dict[k] = np.squeeze(tensor.cpu().numpy(), axis=0)
+	for skill in main_texts:
+		for variation in variations[skill]:
+			with torch.no_grad():
+				text_features[skill][variation] = model.encode_text(clip.tokenize(variation)).float()
 
-	for k, v in save_dict.items():
-		print(k, v.shape)
+	save_dict = defaultdict(list)
+
+	for idx, title in enumerate(main_texts):
+		# print(idx, title, variation, tensor.mean())
+		vectors_variations = text_features[title]
+
+		for variation, tensor in vectors_variations.items():
+
+			skill_representation = SkillRepresentation(
+				title=title,
+				variation=variation,
+				vec=np.squeeze(tensor.numpy(), axis=0),
+				index=idx
+			)
+			save_dict[title].append(skill_representation)
+
 
 	with open("/home/jsw7460/mnt/comde_datasets/clip_mappings/metaworld/clip_mapping", "wb") as f:
 		pickle.dump(save_dict, f)
