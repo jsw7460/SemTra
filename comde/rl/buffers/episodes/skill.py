@@ -12,8 +12,14 @@ class SkillContainedEpisode(Episode):
 		self.skills = []
 		self.skills_done = []
 		self.skills_idxs = []
+		self.params_for_skills = []
 		self.rtgs = []
 		self.timesteps = []
+
+	@property
+	# Note: These will raise an error if buffer is empty
+	def param_dim(self):
+		return self.params_for_skills[0].shape[-1]
 
 	def __getitem__(self, idx):
 		episode = super(SkillContainedEpisode, self).__getitem__(idx)
@@ -23,6 +29,7 @@ class SkillContainedEpisode(Episode):
 		skills = list(self.skills[idx].copy())
 		skills_done = list(self.skills_done[idx].copy())
 		skills_idxs = list(self.skills_idxs[idx].copy())
+		params_for_skills = list(self.params_for_skills[idx].copy())
 		rtgs = list(self.rtgs[idx].copy())
 		maskings = list(self.maskings[idx].copy())
 		timesteps = list(self.timesteps[idx].copy())
@@ -38,6 +45,7 @@ class SkillContainedEpisode(Episode):
 			skills=skills,
 			skills_done=skills_done,
 			skills_idxs=skills_idxs,
+			params_for_skills=params_for_skills,
 			rtgs=rtgs,
 			maskings=maskings,
 			timesteps=timesteps
@@ -50,6 +58,7 @@ class SkillContainedEpisode(Episode):
 			"skills": np.array(self.skills[from_: to_]),
 			"skills_done": np.array(self.skills_done[from_: to_]),
 			"skills_idxs": np.array(self.skills_idxs[from_: to_]),
+			"params_for_skills": np.array(self.params_for_skills[from_: to_]),
 			"rtgs": np.array(self.rtgs[from_: to_]),
 			"timesteps": np.array(self.timesteps[from_: to_]),
 		}
@@ -82,6 +91,7 @@ class SkillContainedEpisode(Episode):
 		skills: List = None,
 		skills_done: List = None,
 		skills_idxs: List = None,
+		params_for_skills: List = None,
 		rtgs: List = None,
 		maskings: List = None,
 		timesteps: List = None
@@ -108,6 +118,7 @@ class SkillContainedEpisode(Episode):
 		ret.skills = skills.copy()
 		ret.skills_done = skills_done.copy()
 		ret.skills_idxs = skills_idxs.copy()
+		ret.params_for_skills = params_for_skills.copy()
 		ret.rtgs = rtgs.copy()
 		ret.maskings = maskings.copy()
 		ret.timesteps = timesteps.copy()
@@ -128,6 +139,7 @@ class SkillContainedEpisode(Episode):
 		skill: np.ndarray = None,
 		skill_done: np.ndarray = None,
 		skill_idx: float = None,
+		param_for_skill: np.ndarray = None,
 		timestep: int = None,
 	):
 		super(SkillContainedEpisode, self).add(
@@ -138,11 +150,11 @@ class SkillContainedEpisode(Episode):
 			done=done,
 			info=info
 		)
-
 		self.first_observations.append(first_observation.copy())
 		self.skills.append(skill.copy())
 		self.skills_done.append(skill_done.copy())
 		self.skills_idxs.append(skill_idx)
+		self.params_for_skills.append(param_for_skill)
 		self.timesteps.append(np.array(timestep))
 
 	def to_numpydict(self) -> Dict:
@@ -157,6 +169,7 @@ class SkillContainedEpisode(Episode):
 			"skills": np.array(self.skills.copy()),
 			"skills_done": np.array(self.skills_done.copy()),
 			"skills_idxs": np.array(self.skills_idxs.copy()),
+			"params_for_skills": np.array(self.params_for_skills.copy()),
 			"rtgs": np.array(self.rtgs.copy()),
 			"maskings": np.array(self.maskings.copy()),
 			"timesteps": np.array(self.timesteps.copy())
@@ -170,5 +183,6 @@ class SkillContainedEpisode(Episode):
 			self.skills.append(np.zeros(self.skill_dim, ))
 			self.skills_done.append(np.array(False))
 			self.skills_idxs.append(np.array(-1))
+			self.params_for_skills.append(np.zeros(self.param_dim, ))
 			self.rtgs.append(np.array(0))
 			self.timesteps.append(np.array(-1))

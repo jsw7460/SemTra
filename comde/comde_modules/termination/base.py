@@ -21,6 +21,7 @@ class BaseTermination(ComdeBaseModule, ITrainable, IJaxSavable):
 		self.observation_dim = self.cfg["observation_dim"]
 		self.first_observation_dim = self.cfg["first_observation_dim"]
 		self.action_dim = cfg["action_dim"]
+		self.skill_dim = cfg["skill_dim"]
 
 	def predict(self, *args, **kwargs) -> np.ndarray:
 		raise NotImplementedError()

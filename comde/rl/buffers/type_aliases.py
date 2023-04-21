@@ -38,14 +38,17 @@ class ComDeBufferSample(NamedTuple):
 	target_skills_idxs: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b, M]
 	n_source_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b,]
 	n_target_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b,]
-	language_operators: Union[np.ndarray, th.tensor] = np.empty(0, )	# [b, d]
+	sequential_requirement: Union[np.ndarray, th.tensor] = np.empty(0, )	# [b, d]
+	non_functionality: Union[np.ndarray, th.tensor] = np.empty(0, )	# [b, d]
 
 	skills: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l, d]
 	skills_order: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b, l]
 	skills_idxs: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
 	skills_done: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
 
-	intents: Union[np.ndarray, th.Tensor] = None  # [b, l, d]
+	# intents: Union[np.ndarray, th.Tensor] = None  # [b, l, d]
+	params_for_skills: Union[np.ndarray, th.Tensor] = None  # [b, l, d]
+	parameterized_skills: Union[np.ndarray, th.Tensor] = None  # [b, l, d], d = skill + non_functionality + param
 
 	# === Transformer, ... ===
 	rewards: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
@@ -78,6 +81,7 @@ class ComDeBufferSample(NamedTuple):
 		# 				  f"rtgs: {self.rtgs.shape}"
 
 	def __getitem__(self, idx: Union[slice, int]) -> "ComDeBufferSample":
+		raise NotImplementedError("Obsolete")
 		"""Slice for timesteps, not batch"""
 		observations = self.observations[:, idx, ...]
 		actions = self.actions[:, idx, ...]

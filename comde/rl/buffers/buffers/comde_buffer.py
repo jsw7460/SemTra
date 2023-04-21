@@ -1,6 +1,7 @@
+import ast
 import pickle
 import random
-from typing import Dict, Optional, Union, Tuple, List
+from typing import Dict, Optional, Union, Tuple, List, Any
 
 import gym
 import h5py
@@ -46,7 +47,10 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			- "skills" are processed using "skills_idxs" when making minibatch. So we add 'None' skill to buffer.
 		"""
 		trajectory_paths = paths["trajectory"]
-		language_guidance_paths = paths["language_guidance"]
+		sequential_requirements_path = paths["sequential_requirements"]
+		non_functionalities_path = paths["non_functionalities"]
+
+		num_skills_done_relabel = cfg["num_skills_done_relabel"]
 
 		task_maskings = cfg["task_masking"]
 		if task_maskings is not None:
@@ -56,9 +60,11 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			task_maskings = []
 
 		language_masking = cfg["language_masking"]
+		with open(sequential_requirements_path, "rb") as f:
+			sequential_requirements_mapping = pickle.load(f)
 
-		with open(language_guidance_paths, "rb") as f:
-			language_guidance_mapping = pickle.load(f)
+		with open(non_functionalities_path, "rb") as f:
+			non_functionalities_mapping = pickle.load(f)
 
 		ep: SourceTargetSkillContainedEpisode
 
@@ -66,13 +72,21 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			episode = SourceTargetSkillContainedEpisode()
 			trajectory = h5py.File(path, "r")
 
-			target_skills = list(trajectory["target_skills"])
-			language_guidance = str(trajectory["operator"][()], "utf-8")
+			# target_skills = list(trajectory["target_skills"])
+			# print(trajectory.keys())
+			# exit()
+			# language_guidance = str(trajectory["operator"][()], "utf-8")
+			#
+			# if (target_skills in task_maskings) or (language_guidance in language_masking):
+			# 	continue
 
-			if (target_skills in task_maskings) or (language_guidance in language_masking):
-				continue
-
-			dataset = self.preprocess_h5py_trajectory(trajectory, language_guidance_mapping, mode=mode)
+			dataset = self.preprocess_h5py_trajectory(
+				trajectory,
+				sequential_requirements_mapping,
+				non_functionalities_mapping,
+				mode=mode,
+				num_skills_done_relabel=num_skills_done_relabel
+			)
 			episode.add_from_dict(dataset)
 
 			self.add(episode)
@@ -92,8 +106,10 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 	def preprocess_h5py_trajectory(
 		self,
 		trajectory: h5py.File,
-		language_guidance_mapping: Dict[str, Dict[str, np.ndarray]],
-		mode: str = "train"
+		sequential_requirements_mapping: Dict[str, Dict[str, np.ndarray]],
+		non_functionalities_mapping: Dict[str, Dict[str, np.ndarray]],
+		num_skills_done_relabel: int,
+		mode: str = "train",
 	) -> Dict:
 		assert self.MUST_LOADED_COMPONENTS <= trajectory.keys(), \
 			f"Under qualified dataset. Please fill {trajectory.keys() - self.MUST_LOADED_COMPONENTS}"
@@ -119,21 +135,25 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			for skill in np.array(skills_in_demo):
 				source_skills.append(skill)
 		target_skills = list(trajectory["target_skills"])
-		language_guidance = str(trajectory["operator"][()], "utf-8")  # sequential, parallel, ...
 
-		language_guidance_vectors = list(language_guidance_mapping[language_guidance].values())
+		sequential_requirement = str(trajectory["sequential_requirement"][()], "utf-8")
+		non_functionality = str(trajectory["non_functionality"][()], "utf-8")
+		skills_idxs = np.array(trajectory["skills_idxs"])
+		parameter = str(trajectory["parameter"][()], "utf-8")
+		parameter = ast.literal_eval(parameter)
 
-		# if mode == "train":
-		# 	language_guidance_vectors = language_guidance_vectors[:-5]
-		# elif mode == "eval":
-		# 	language_guidance_vectors = language_guidance_vectors[-5:]
-		# else:
-		# 	raise NotImplementedError("Undefined mode")
+		for key, value in parameter.items():	# Make into float value (because hdf5 save string).
+			parameter[key] = float(value)
 
-		language_guidance_vector = random.choice(list(language_guidance_vectors))
+		params_for_skills = self.get_skills_parameter(
+			skills_idxs=skills_idxs,
+			non_functionality=non_functionality,
+			parameter=parameter
+		)
+		sequential_requirement_vector = sequential_requirements_mapping[sequential_requirement]
+		non_functionality_vector = non_functionalities_mapping[non_functionality]
 
 		# === Compute first observations ===
-		skills_idxs = np.array(trajectory["skills_idxs"])
 		first_observations = np.zeros_like(observations)
 		first_observations[0] = observations[0]
 		first_obs_pos = 0
@@ -143,12 +163,15 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			first_observations[i] = observations[first_obs_pos]
 
 		# === Augment skill done by 4 ===
-		n_aug = 4
 		done_times = np.where(np.array(trajectory["skills_done"]) == 1)[0]
 		augmented_skills_done = np.array(trajectory["skills_done"]).copy()
 
 		for timestep in done_times.astype("i4"):
-			augmented_skills_done[timestep - n_aug: timestep + n_aug + 1] = 1
+			augmented_skills_done[timestep - num_skills_done_relabel: timestep + num_skills_done_relabel + 1] = 1
+
+		# print("Target skills", target_skills)
+		# print("Skills idxs", skills_idxs)
+		# print("Skills order", np.array(trajectory["skills_order"]))
 
 		dataset = {
 			"observations": observations,
@@ -159,14 +182,15 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			"infos": infos,
 			"source_skills_idxs": source_skills,
 			"target_skills_idxs": target_skills,
-			"language_operator": language_guidance_vector,
+			"sequential_requirement": sequential_requirement_vector,  # Sequential requirements act as an operator.
+			"non_functionality": non_functionality_vector,
 			"first_observations": first_observations,
 			"skills_done": augmented_skills_done,
 			"skills_order": np.array(trajectory["skills_order"]),
 			"skills_idxs": skills_idxs,
+			"params_for_skills": params_for_skills,
 			"rtgs": rtgs
 		}
-
 		return dataset
 
 	def _get_samples(
@@ -185,7 +209,8 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		target_skills = []
 		n_source_skills = []
 		n_target_skills = []
-		language_operators = []
+		sequential_requirements = []
+		non_functionalities = []
 		subtrajectories = []
 
 		for ep, start_idx in zip(episodes, start_idxs):
@@ -195,7 +220,8 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			subtrajectories.append(subtraj)
 			source_skills.append(subtraj.pop("source_skills"))
 			target_skills.append(subtraj.pop("target_skills"))
-			language_operators.append(subtraj.pop("language_operator"))
+			sequential_requirements.append(random.choice(list(subtraj.pop("sequential_requirement").values())))
+			non_functionalities.append(random.choice(list(subtraj.pop("non_functionality").values())))
 			n_source_skills.append(subtraj.pop("n_source_skills"))
 			n_target_skills.append(subtraj.pop("n_target_skills"))
 
@@ -208,6 +234,36 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			target_skills_idxs=np.array(target_skills),  # This is index. Not dense vector
 			n_source_skills=np.array(n_source_skills),
 			n_target_skills=np.array(n_target_skills),
-			language_operators=np.array(language_operators),
+			sequential_requirement=np.array(sequential_requirements),
+			non_functionality=np.array(non_functionalities)
 		)
 		return buffer_sample
+
+	@staticmethod
+	def get_skills_parameter(
+		skills_idxs: np.ndarray,
+		non_functionality: str,
+		parameter: Any,
+	) -> np.ndarray:
+		"""
+		:param skills_idxs:
+		:param non_functionality:
+		:param parameter:
+		:return: [seq_len, param_dim]
+		"""
+
+		seq_len = len(skills_idxs)
+
+		# if non_functionality == "wind":
+		# 	return_parameter = np.zeros((seq_len, 1)) + parameter
+		#
+		# elif non_functionality == "speed":
+		return_parameter = np.zeros_like(skills_idxs)
+		for skill_idx, param in parameter.items():
+			return_parameter = np.where(skills_idxs == skill_idx, param, return_parameter)
+
+		return_parameter = return_parameter[..., np.newaxis]
+
+		# else:
+		# 	raise NotImplementedError("Undefined non-functionality")
+		return return_parameter

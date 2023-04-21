@@ -38,6 +38,8 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		# self.start_token = None	# type: SkillRepresentation
 		# self.end_token = None # type: SkillRepresentation
 
+		self.module_working = (self.cfg["coef_intent"] > 0) or (self.cfg["coef_skill"] > 0)
+
 		if init_build_model:
 			self.build_model()
 
@@ -55,8 +57,8 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		if self.cfg["skill_pred_type"] == "continuous":
 			raise NotImplementedError("Are you sure that skill matching is done via MSE?")
 			# pred_dim = self.inseq_dim	# CLIP dim
-			transformer_cfg.update({"skill_pred_dim": self.inseq_dim})
-			self.skill_pred_type = "continuous"
+			# transformer_cfg.update({"skill_pred_dim": self.inseq_dim})
+			# self.skill_pred_type = "continuous"
 
 		elif self.cfg["skill_pred_type"] == "discrete":
 			# Predict discrete token. +2 for start-end tokens.
@@ -106,47 +108,52 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 
 	def update(self, replay_data: ComDeBufferSample, *, low_policy: BaseLowPolicy) -> Dict:
 		# Concatenate source skills and language first
-		src_skill_language_concat = self.concat_skill_language(
-			source_skills=replay_data.source_skills,
-			n_source_skills=replay_data.n_source_skills,
-			language_operators=replay_data.language_operators
-		)
 
-		update_fn_inputs = {
-			"rng": self.rng,
-			"tr": self.model,
-			"low_policy": low_policy.model,
-			"context": src_skill_language_concat,
-			"target_skills": replay_data.target_skills,
-			"observations": replay_data.observations,
-			"actions": replay_data.actions,
-			"skills": replay_data.skills,
-			"skills_order": replay_data.skills_order,
-			"timesteps": replay_data.timesteps,
-			"maskings": replay_data.maskings,
-			"n_source_skills": replay_data.n_source_skills,
-			"n_target_skills": replay_data.n_target_skills,
-			"start_token": self.start_token.vec,
-			"end_token": self.end_token.vec,
-			"coef_intent": self.cfg["coef_intent"],
-			"coef_skill": self.cfg["coef_skill"]
-		}
+		if self.module_working:
+			raise NotImplementedError("Currently, we don't update skill to skill transformer.")
+			src_skill_language_concat = self.concat_skill_language(
+				source_skills=replay_data.source_skills,
+				n_source_skills=replay_data.n_source_skills,
+				language_operators=replay_data.language_operators
+			)
 
-		if self.skill_pred_type == "continuous":
-			update_fn = continuous_update
+			update_fn_inputs = {
+				"rng": self.rng,
+				"tr": self.model,
+				"low_policy": low_policy.model,
+				"context": src_skill_language_concat,
+				"target_skills": replay_data.target_skills,
+				"observations": replay_data.observations,
+				"actions": replay_data.actions,
+				"skills": replay_data.skills,
+				"skills_order": replay_data.skills_order,
+				"timesteps": replay_data.timesteps,
+				"maskings": replay_data.maskings,
+				"n_source_skills": replay_data.n_source_skills,
+				"n_target_skills": replay_data.n_target_skills,
+				"start_token": self.start_token.vec,
+				"end_token": self.end_token.vec,
+				"coef_intent": self.cfg["coef_intent"],
+				"coef_skill": self.cfg["coef_skill"]
+			}
 
-		elif self.skill_pred_type == "discrete":
-			update_fn = discrete_update
-			update_fn_inputs.update({"target_skills_idxs": replay_data.target_skills_idxs})
+			if self.skill_pred_type == "continuous":
+				raise NotImplementedError("Continuous transformer is obsolete")
+				# update_fn = continuous_update
 
+			elif self.skill_pred_type == "discrete":
+				update_fn = discrete_update
+				update_fn_inputs.update({"target_skills_idxs": replay_data.target_skills_idxs})
+
+			else:
+				raise NotImplementedError(f"Undefined skill prediction type: {self.skill_pred_type}")
+
+			new_model, info = update_fn(**update_fn_inputs)
+			self.model = new_model
 		else:
-			raise NotImplementedError(f"Undefined skill prediction type: {self.skill_pred_type}")
+			info = {"__parameterized_skills": None}
 
-		new_model, info = update_fn(**update_fn_inputs)
-		# print("match_ratio", info["s2s/match_ratio"])
-		self.model = new_model
 		self.rng, _ = jax.random.split(self.rng)
-
 		return info
 
 	def maybe_done(
@@ -223,7 +230,6 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 			maybe_done, nearest_tokens, nearest_idxs = self.maybe_done(pred_skills, get_nearest_token=True)
 
 			pred_intents = predictions["pred_intents"][:, -1, ...]
-
 			pred_skills_seq_raw.append(pred_skills)
 			pred_skills_seq_quantized.append(nearest_tokens)
 			pred_intents_seq.append(pred_intents)
@@ -237,8 +243,7 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 
 		pred_skills_raw = np.stack(pred_skills_seq_raw, axis=1)
 		pred_skills_quantized = np.stack(pred_skills_seq_quantized, axis=1)
-		pred_intents_seq = np.stack(pred_intents_seq, axis=1)
-
+		pred_intents_seq = predictions["pred_intents"].copy()	# Use only final one
 		ret = {
 			"pred_skills_raw": pred_skills_raw,
 			"pred_skills_quantized": pred_skills_quantized,
@@ -343,11 +348,14 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		return {"s2s/skill_match_ratio": match_ratio, "__intents": pred_intents}
 
 	def evaluate(self, replay_data: ComDeBufferSample) -> Dict:
-		if self.skill_pred_type == "continuous":
-			return self._evaluate_continuous(replay_data=replay_data)
+		if self.module_working:
+			if self.skill_pred_type == "continuous":
+				return self._evaluate_continuous(replay_data=replay_data)
 
-		elif self.skill_pred_type == "discrete":
-			return self._evaluate_discrete(replay_data=replay_data)
+			elif self.skill_pred_type == "discrete":
+				return self._evaluate_discrete(replay_data=replay_data)
+		else:
+			return {"__parameterized_skills": None}
 
 	def _excluded_save_params(self) -> List:
 		return SklToSklIntTransformer.PARAM_COMPONENTS

@@ -24,7 +24,7 @@ def skill_dt_updt(
 	action_dim = actions.shape[-1]
 
 	def loss_fn(params: Params) -> Tuple[jnp.ndarray, Dict]:
-		action_preds = dt.apply_fn(
+		_action_preds = dt.apply_fn(
 			{"params": params},
 			observations=observations,
 			actions=actions,
@@ -33,8 +33,10 @@ def skill_dt_updt(
 			maskings=maskings,
 			deterministic=False,
 			rngs={"dropout": dropout_key},
-			# method=PrimSkillDecisionTransformer.forward_with_all_components
+			method=PrimSkillDecisionTransformer.forward_with_all_components
 		)
+		action_preds = _action_preds[0]
+		additional_info = _action_preds[2]
 
 		action_preds = action_preds.reshape(-1, action_dim) * maskings.reshape(-1, 1)
 		target = action_targets.reshape(-1, action_dim) * maskings.reshape(-1, 1)
@@ -44,7 +46,7 @@ def skill_dt_updt(
 		loss = action_loss
 
 		# can pass skill loss either
-		_infos = {"skill_decoder/mse_loss": loss}
+		_infos = {"skill_decoder/mse_loss": loss, "__additional_info": additional_info}
 		return loss, _infos
 
 	new_dt, infos = dt.apply_gradient(loss_fn)

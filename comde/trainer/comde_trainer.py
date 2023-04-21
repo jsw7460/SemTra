@@ -66,8 +66,7 @@ class ComdeTrainer(BaseTrainer):
 
 			# NOTE: Do not change the training order of modules.
 			info = self.seq2seq.update(replay_data=replay_data, low_policy=self.low_policy)
-			# info.update(self.intent_emb.update(replay_data=replay_data, low_policy=self.low_policy.model))
-			replay_data = replay_data._replace(intents=info.pop("__intent_for_skill"))
+			replay_data = replay_data._replace(parameterized_skills=info.pop("__parameterized_skills"))
 			info.update(self.low_policy.update(replay_data))
 			info.update(self.termination.update(replay_data))
 
@@ -83,9 +82,9 @@ class ComdeTrainer(BaseTrainer):
 		eval_data = self.get_skill_from_idxs(eval_data)
 
 		info1 = self.seq2seq.evaluate(replay_data=eval_data)
-		intents = info1["__intents"]
+		parameterized_skills = info1["__parameterized_skills"]
 
-		info2 = self.low_policy.evaluate(replay_data=eval_data._replace(intents=intents))
+		info2 = self.low_policy.evaluate(replay_data=eval_data._replace(parameterized_skills=parameterized_skills))
 		info3 = self.termination.evaluate(replay_data=eval_data)
 
 		self.record_from_dicts(info1, info2, info3, mode="eval")
@@ -97,7 +96,8 @@ class ComdeTrainer(BaseTrainer):
 
 	def save(self):
 		for key, save_path in self.cfg["save_paths"].items():
-			getattr(self, key).save(save_path)
+			cur_step = str(self.n_update)
+			getattr(self, key).save(f"{save_path}_{cur_step}")
 
 	def load(self, *args, **kwargs):
 		raise NotImplementedError()

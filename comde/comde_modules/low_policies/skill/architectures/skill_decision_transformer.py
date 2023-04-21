@@ -25,6 +25,8 @@ class PrimSkillDecisionTransformer(nn.Module):
 	normalization_mean: float = 0.0
 	normalization_std: float = 1.0
 
+	use_timestep: bool = True
+
 	emb_time = None
 	emb_obs = None
 	emb_act = None
@@ -48,7 +50,7 @@ class PrimSkillDecisionTransformer(nn.Module):
 		self.pred_obs = nn.Dense(self.obs_dim)
 		pred_act = create_mlp(
 			output_dim=self.act_dim,
-			net_arch=[64, 64],
+			net_arch=[],
 			squash_output=True
 		)
 		self.pred_act = Scaler(base_model=pred_act, scale=self.act_scale)
@@ -69,8 +71,9 @@ class PrimSkillDecisionTransformer(nn.Module):
 		skills: jnp.ndarray,  # [b, l, d]
 		timesteps: jnp.ndarray,  # [b, l]
 		maskings: jnp.ndarray,  # [b, l]
-		deterministic: bool = True
+		deterministic: bool = True,
 	):
+
 		observations = (observations - self.normalization_mean) / (self.normalization_std + 1E-12)
 
 		batch_size = observations.shape[0]
@@ -79,15 +82,22 @@ class PrimSkillDecisionTransformer(nn.Module):
 		observations_emb = self.emb_obs(observations)
 		actions_emb = self.emb_act(actions)
 		skills_emb = self.emb_skill(skills)
-		timesteps_emb = self.emb_time(timesteps)
+
+		if self.use_timestep:
+			timesteps_emb = self.emb_time(timesteps)
+		else:
+			timesteps_emb = 0.0
 
 		observations_emb = observations_emb + timesteps_emb
 		actions_emb = actions_emb + timesteps_emb
 		skills_emb = skills_emb + timesteps_emb
 
-		# this makes the sequence look like (R_1, s_1, sk_1, a_1, R_2, s_2, sk_2, a_2, ...)
+		# this makes the sequence look like (s_1, sk_1, a_1, s_2, sk_2, a_2, ...)
 		# which works nice in an autoregressive sense since observations predict actions
 		stacked_inputs = jnp.stack((observations_emb, skills_emb, actions_emb), axis=1)  # [b, 3, l, d]
+
+		# stacked_inputs = jnp.stack((observations_emb, observations_emb, observations_emb), axis=1)  # [b, 3, l, d]
+
 		stacked_inputs = einops.rearrange(stacked_inputs, "b c l d -> b l c d")  # [b, l, 3, d]
 		stacked_inputs = stacked_inputs.reshape(batch_size, 3 * subseq_len, self.hidden_size)  # [b, 3 * l, d]
 		stacked_inputs = self.emb_ln(stacked_inputs)
@@ -110,4 +120,11 @@ class PrimSkillDecisionTransformer(nn.Module):
 		obs_preds = self.pred_obs(x[:, 2])
 		action_preds = self.pred_act(x[:, 1])
 
-		return action_preds, obs_preds, observations
+		additional_info = {
+			"observations_emb": observations_emb,
+			"actions_emb": actions_emb,
+			"skills_emb": skills_emb,
+			"timesteps_emb": timesteps_emb,
+		}
+
+		return action_preds, obs_preds, additional_info

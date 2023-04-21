@@ -16,7 +16,8 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 		self.target_skills = []
 		self.n_target_skills = 0
 
-		self.language_operator = None  # E.g., 'do sequentially', ...
+		self.sequential_requirement = None  # E.g., 'do sequentially', ...
+		self.non_functionality = None
 
 		self.skills_orders = []  # Increasing sequence.
 
@@ -34,7 +35,8 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 			infos=episode.infos,
 			source_skills=self.source_skills,
 			target_skills=self.target_skills,
-			language_operator=self.language_operator,
+			sequential_requirement=self.sequential_requirement,
+			non_functionality=self.non_functionality,
 			first_observations=episode.first_observations,
 			skills=episode.skills,
 			skills_done=episode.skills_done,
@@ -55,7 +57,8 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 		infos: List,
 		source_skills: List = None,
 		target_skills: List = None,
-		language_operator: List = None,
+		sequential_requirement: List = None,
+		non_functionality: List = None,
 		first_observations: List = None,
 		skills: List = None,
 		skills_done: List = None,
@@ -82,7 +85,8 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 		ret.timesteps = timesteps.copy()
 		ret.source_skills = source_skills.copy()
 		ret.target_skills = target_skills.copy()
-		ret.language_operator = language_operator.copy()
+		ret.sequential_requirement = sequential_requirement.copy()
+		ret.non_functionality = non_functionality.copy()
 
 		return ret
 
@@ -91,7 +95,8 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 			= super(SourceTargetSkillContainedEpisode, self).get_numpy_subtrajectory(from_, to_, batch_mode=batch_mode)
 		current_data = {
 			"source_skills": self.source_skills.copy(),
-			"language_operator": self.language_operator.copy(),
+			"sequential_requirement": self.sequential_requirement.copy(),
+			"non_functionality": self.non_functionality.copy(),
 			"target_skills": self.target_skills.copy(),
 			"skills_order": np.array(self.skills_orders[from_: to_], dtype="i4"),
 			"n_source_skills": self.n_source_skills,
@@ -106,7 +111,8 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 		ret = super(SourceTargetSkillContainedEpisode, self).to_numpydict()
 		ret.update({
 			"source_skills": self.source_skills.copy(),
-			"language_operator": self.language_operator.copy(),
+			"sequential_requirement": self.sequential_requirement.copy(),
+			"non_functionality": self.non_functionality.copy(),
 			"target_skills": self.target_skills.copy()
 		})
 		return ret
@@ -130,11 +136,13 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 		skill: np.ndarray = None,
 		skill_done: np.ndarray = None,
 		skill_idx: float = None,
+		param_for_skill: np.ndarray = None,
 		timestep: int = None,
 		skill_order: np.ndarray = None,
 	):
 		# "skills" are processed using "skills_idxs" when making minibatch. So we add 'None' skill to buffer.
 		skill = np.empty((0,))
+
 		super(SourceTargetSkillContainedEpisode, self).add(
 			observation=observation,
 			next_observation=next_observation,
@@ -146,6 +154,7 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 			skill=skill,
 			skill_done=skill_done,
 			skill_idx=skill_idx,
+			param_for_skill=param_for_skill,
 			timestep=timestep
 		)
 		self.skills_orders.append(skill_order.copy())
@@ -161,7 +170,8 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 
 		self.target_skills = dataset["target_skills_idxs"]
 		self.n_target_skills = len(self.target_skills)
-		self.language_operator = dataset["language_operator"]
+		self.sequential_requirement = dataset["sequential_requirement"]
+		self.non_functionality = dataset["non_functionality"]
 
 		for i in range(traj_len):
 			self.add(
@@ -174,6 +184,7 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 				first_observation=dataset["first_observations"][i],
 				skill_done=dataset["skills_done"][i],
 				skill_idx=dataset["skills_idxs"][i],
+				param_for_skill=dataset["params_for_skills"][i],
 				timestep=i,
 				skill_order=dataset["skills_order"][i]
 			)

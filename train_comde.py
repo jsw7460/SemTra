@@ -5,7 +5,7 @@ config.update("jax_debug_nans", True)
 from typing import Dict
 import random
 
-random.seed(0)
+random.seed(7)
 
 import os
 from os.path import join, isfile
@@ -28,7 +28,9 @@ def program(cfg: DictConfig) -> None:
 	hdf_files = []
 	for data_dir in data_dirs:
 		hdf_files.extend([join(data_dir, f) for f in os.listdir(data_dir) if isfile(join(data_dir, f))])
-	# random.shuffle(hdf_files)
+	random.shuffle(hdf_files)
+	assert len(hdf_files) > 0, "Empty dataset"
+
 	dataset_window_size = len(hdf_files) // len(data_dirs)
 
 	if cfg["state_normalization"]:
@@ -57,7 +59,11 @@ def program(cfg: DictConfig) -> None:
 			subseq_len=cfg["subseq_len"]
 		)
 		replay_buffer.add_episodes_from_h5py(
-			paths={"trajectory": trajectories[: -10], "language_guidance": cfg["language_guidance_path"]},
+			paths={
+				"trajectory": trajectories[: -10],
+				"sequential_requirements": cfg["sequential_requirements_path"],
+				"non_functionalities": cfg["non_functionalities_path"]
+			},
 			cfg=cfg["dataset"],
 			mode="train"
 		)
@@ -70,7 +76,11 @@ def program(cfg: DictConfig) -> None:
 			subseq_len=cfg["subseq_len"]
 		)
 		eval_buffer.add_episodes_from_h5py(
-			paths={"trajectory": trajectories[-10:], "language_guidance": cfg["language_guidance_path"]},
+			paths={
+				"trajectory": trajectories[-10:],
+				"sequential_requirements": cfg["sequential_requirements_path"],
+				"non_functionalities": cfg["non_functionalities_path"]
+			},
 			cfg=cfg["dataset"],
 			mode="eval"
 		)

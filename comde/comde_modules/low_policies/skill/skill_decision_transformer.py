@@ -66,7 +66,8 @@ class SkillDecisionTransformer(BaseLowPolicy):
 			act_scale=self.cfg["act_scale"],
 			max_ep_len=self.max_ep_len,
 			normalization_mean=self.normalization_mean,
-			normalization_std=self.normalization_std
+			normalization_std=self.normalization_std,
+			use_timestep=self.cfg["use_timestep"]
 		)
 		self.rng, rngs = get_basic_rngs(self.rng)
 		self.rng, transformer_dropout = jax.random.split(self.rng)
@@ -74,7 +75,7 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		subseq_len = self.cfg["subseq_len"]
 		init_observations = np.random.normal(size=(1, subseq_len, self.observation_dim))
 		init_actions = np.random.normal(size=(1, subseq_len, self.action_dim))
-		init_skills = np.random.normal(size=(1, subseq_len, self.skill_dim + self.intent_dim))
+		init_skills = np.random.normal(size=(1, subseq_len, self.skill_dim + self.nonfunc_dim + self.param_dim))
 		init_timesteps = np.zeros((1, self.cfg["subseq_len"]), dtype="i4")
 		init_masks = np.ones((1, self.cfg["subseq_len"]))
 		tx = optax.chain(
@@ -96,7 +97,12 @@ class SkillDecisionTransformer(BaseLowPolicy):
 
 	def update(self, replay_data: ComDeBufferSample) -> Dict:
 
-		skills = BaseLowPolicy.get_intent_conditioned_skill(replay_data)
+		if self.cfg["use_optimal_lang"]:
+			raise NotImplementedError("Obsolete")
+			# replay_data = replay_data._replace(intents=None)
+
+		skills = self.get_parameterized_skills(replay_data)
+
 		new_model, info = skill_dt_updt(
 			rng=self.rng,
 			dt=self.model,
@@ -107,7 +113,6 @@ class SkillDecisionTransformer(BaseLowPolicy):
 			maskings=replay_data.maskings,
 			action_targets=np.copy(replay_data.actions),
 		)
-
 		self.model = new_model
 		self.rng, _ = jax.random.split(self.rng)
 
@@ -166,12 +171,12 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		# Shorter than subseq_len -> Set zero paddings and get maskings.
 		if cur_subseq_len < subseq_len:
 			raise NotImplementedError("Are you sure this if loop required?")
-			observations, actions, skills, timesteps, maskings = self.get_padded_components(
-				observations=observations,
-				actions=actions,
-				skills=skills,
-				timesteps=timesteps
-			)
+			# observations, actions, skills, timesteps, maskings = self.get_padded_components(
+			# 	observations=observations,
+			# 	actions=actions,
+			# 	skills=skills,
+			# 	timesteps=timesteps
+			# )
 
 		subseq_len = self.cfg["subseq_len"]
 		observations = observations[:, :subseq_len, :]
@@ -201,9 +206,13 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		self,
 		replay_data: ComDeBufferSample
 	) -> Dict:
+		if self.cfg["use_optimal_lang"]:
+			raise NotImplementedError("Obsolete")
+			# replay_data = replay_data._replace(intents=None)
+
 		observations = replay_data.observations
 		actions = replay_data.actions
-		skills = BaseLowPolicy.get_intent_conditioned_skill(replay_data)
+		skills = self.get_parameterized_skills(replay_data)
 		timesteps = replay_data.timesteps
 		maskings = replay_data.maskings
 

@@ -134,7 +134,11 @@ class HistoryEnv(gym.Wrapper):
 	def step(self, action: np.ndarray) -> Tuple[Dict[str, np.ndarray], float, bool, Dict]:
 		"""Replaces env observation with fixed length observation history."""
 		# Update applied action to the previous timestep.
-		self.act_stack[-1] = action
+
+		store_action = action.copy()
+		store_action[0] += 0.0
+
+		self.act_stack[-1] = store_action
 		obs, rew, done, info = self.env.step(np.array(action))
 		self.rew_stack[-1] = rew
 		# Update frame stack.

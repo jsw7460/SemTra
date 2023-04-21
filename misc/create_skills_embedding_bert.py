@@ -1,3 +1,4 @@
+import pickle
 from collections import defaultdict
 
 import torch as th
@@ -12,24 +13,22 @@ if __name__ == "__main__":
 	save_dir = "/home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/language_guidance/"
 	# NOTE: """order matters""". it mapped to one-hot representation.
 	main_texts = [
-		"box",
-		"puck",
-		"handle",
-		"drawer",
-		"button",
-		"lever",
-		"door",
-		"stick"
+		"bottom burner",
+		"top burner",
+		"light switch",
+		"slide cabinet",
+		"hinge cabinet",
+		"microwave",
+		"kettle",
 	]
 	texts_variations = {
-		"box": ["close box"],
-		"puck": ["slide puck"],
-		"handle": ["pull handle"],
-		"drawer": ["close drawer"],
-		"button": ["press button"],
-		"lever": ["pull lever"],
-		"door": ["open door"],
-		"stick": ["insert stick"]
+		"bottom burner": ["bottom burner"],
+		"top burner": ["top burner"],
+		"light switch": ["light switch"],
+		"slide cabinet": ["slide cabinet"],
+		"hinge cabinet": ["hinge cabinet"],
+		"microwave": ["microwave"],
+		"kettle": ["kettle"],
 	}
 	# === Hyper parameters
 
@@ -47,19 +46,21 @@ if __name__ == "__main__":
 				sentence_vector = th.mean(output, dim=1).squeeze()
 				sentence_vector = sentence_vector.cpu().numpy()
 
-				SkillRepresentation(
+				skill_rep = SkillRepresentation(
 					title=key,
 					variation=text,
 					vec=sentence_vector,
 					index=idx
 				)
 
-				save_dict[key].append(sentence_vector)
+				save_dict[key].append(skill_rep)
 
-	print(save_dict["box"][0])
+	with open("/home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/kitchen/skills_mapping", "wb") as f:
+		pickle.dump(save_dict, f)
+
 
 	# save_dict = defaultdict(list)
-	#
+
 	# for idx, title in enumerate(main_texts):
 	# 	# print(idx, title, variation, tensor.mean())
 	# 	vectors_variations = text_features[title]
@@ -72,6 +73,6 @@ if __name__ == "__main__":
 	# 			index=idx
 	# 		)
 	# 		save_dict[title].append(skill_representation)
-
+	#
 	# with open("/home/jsw7460/mnt/comde_datasets/clip_mappings/metaworld/clip_mapping", "wb") as f:
 	# 	pickle.dump(save_dict, f)

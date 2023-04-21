@@ -65,16 +65,18 @@ class SkillMLP(BaseLowPolicy):
 		)
 
 		init_obs = np.zeros((1, self.observation_dim))
-		init_skills = np.zeros((1, self.skill_dim + self.intent_dim))
+		init_skills = np.zeros((1, self.skill_dim + self.nonfunc_dim + self.param_dim))
 
 		self.rng, rngs = get_basic_rngs(self.rng)
 		tx = optax.adam(self.cfg["lr"])
 		self.model = Model.create(model_def=mlp, inputs=[rngs, init_obs, init_skills], tx=tx)
 
 	def update(self, replay_data: ComDeBufferSample) -> Dict:
-		if self.cfg["use_optimal_lang"]:
-			replay_data = replay_data._replace(intents=None)
-		skills = BaseLowPolicy.get_intent_conditioned_skill(replay_data)
+
+		# if self.cfg["use_optimal_lang"]:
+		# 	replay_data = replay_data._replace(intents=None)
+		skills = self.get_parameterized_skills(replay_data)
+
 		new_model, info = skill_mlp_updt(
 			rng=self.rng,
 			mlp=self.model,
@@ -92,15 +94,17 @@ class SkillMLP(BaseLowPolicy):
 	def predict(
 		self,
 		observations: np.ndarray,
-		skills: np.ndarray,
+		skills: np.ndarray,	# [b, l, dim] or [b, dim]
 		to_np: bool = True,
 		squeeze: bool = False,
-		*args, **kwargs
+		*args, **kwargs	 # Do not remove these dummy parameters.
 	) -> np.ndarray:
-
-		if observations.ndim == 3:  # Transformer inputs are used at evaluation time -> Use only current
+		assert observations.ndim == skills.ndim
+		# Transformer inputs are used at evaluation time -> Use only current
+		if observations.ndim == 3:
+			# They should have the same dimension
+			assert (skills.ndim == 3) and (observations.ndim == 3)
 			observations = observations[:, -1, ...]
-		if skills.ndim == 3:
 			skills = skills[:, -1, ...]
 
 		self.rng, prediction = fwd(
@@ -125,8 +129,9 @@ class SkillMLP(BaseLowPolicy):
 		observations = replay_data.observations
 		actions = replay_data.actions[:, -1, ...]
 		if self.cfg["use_optimal_lang"]:
-			replay_data = replay_data._replace(intents=None)
-		skills = BaseLowPolicy.get_intent_conditioned_skill(replay_data)
+			raise NotImplementedError("Obsolete")
+			# replay_data = replay_data._replace(intents=None)
+		skills = self.get_parameterized_skills(replay_data)
 		maskings = replay_data.maskings[:, -1]
 
 		if maskings is None:

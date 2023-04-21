@@ -186,5 +186,9 @@ outputs/
 d4rl/
 mm_sbrl/
 foo.py
+cow.py
+dollar.py
 bar.py
 meta_world/
+spirl/
+#misc/

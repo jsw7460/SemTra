@@ -28,26 +28,29 @@ class BaseLowPolicy(ComdeBaseModule, IJaxSavable, ITrainable):
 		self.action_dim = cfg["action_dim"]
 
 		self.skill_dim = cfg["skill_dim"]
-		self.intent_dim = cfg["intent_dim"]
+		self.nonfunc_dim = cfg["non_functionality_dim"]
+		self.param_dim = cfg["param_dim"]
 
 		if init_build_model:
 			self.normalization_mean = cfg["obs_mean"]
 			self.normalization_std = cfg["obs_std"]
 
-	@staticmethod
-	def get_intent_conditioned_skill(replay_data: ComDeBufferSample) -> np.ndarray:
+	# @staticmethod
+	def get_parameterized_skills(self, replay_data: ComDeBufferSample) -> np.ndarray:
 		"""
-			Concatenate intent and skill
+			Return parameterized skills: [Skill @ Non-functionality @ Parameter]
 		"""
-		skills = replay_data.skills
-		intents = replay_data.intents
-		if intents is None:
-			intents = np.expand_dims(replay_data.language_operators, axis=1)
-			intents = np.repeat(intents, repeats=replay_data.skills.shape[1], axis=1)
+		if replay_data.parameterized_skills is not None:
+			return replay_data.parameterized_skills
 
-		skills = np.concatenate((skills, intents), axis=-1)
+		else:
+			skills = replay_data.skills
+			non_func = np.broadcast_to(replay_data.non_functionality[:, np.newaxis, ...], skills.shape)
+			params = replay_data.params_for_skills
+			params = np.repeat(params, repeats=self.param_dim, axis=-1)
 
-		return skills
+			parameterized_skills = np.concatenate((skills, non_func, params), axis=-1)
+			return parameterized_skills
 
 	def predict(self, *args, **kwargs) -> np.ndarray:
 		raise NotImplementedError()

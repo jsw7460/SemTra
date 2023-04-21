@@ -5,16 +5,20 @@ seed: ${seed}
 cfg:
   inseq_dim: ${skill_dim} # Input sequence = sequence of skills
   lr: 1e-4
-  coef_skill: 1.0
-  coef_intent: 1.0
+  coef_skill: 0.0
+  coef_intent: 0.0
   skill_infos_path: ${env.skill_infos_path}
   startend_token_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/tokens/start_end_tokens
   skill_pred_type: discrete
+
   skill_intent_transformer_cfg:
     input_dropout_prob: 0.1
     skill_dropout_prob: 0.1
     intent_dropout_prob: 0.1
-    intent_dim: ${intent_dim}
+    non_functionality_dim: ${non_functionality_dim}
+    param_dim: ${param_dim}
+
+    intent_detach: False
 
     encoder_cfg:
       num_layers: 1

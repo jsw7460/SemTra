@@ -24,8 +24,10 @@ cfg:
   observation_dim: ${observation_dim}
   action_dim: ${action_dim}
   skill_dim: ${skill_dim}
-  intent_dim: ${intent_dim}
-  use_optimal_lang: True
+
+  non_functionality_dim: ${non_functionality_dim}
+  param_dim: ${param_dim} # Change this is possible
+  use_optimal_lang: False
 
   obs_mean: 0.0
   obs_std: 1.0

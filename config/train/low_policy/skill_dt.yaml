@@ -5,7 +5,7 @@ cfg:
   gpt2_config:
     vocab_size: 1
     n_positions: 1024
-    n_layer: 2
+    n_layer: 3
     n_head: 4
     activation_function: relu
     resid_pdrop: 0.1
@@ -13,6 +13,7 @@ cfg:
     attn_pdrop: 0.1
     layer_norm_epsilon: 0
 
+  use_timestep: False
   hidden_size: 64
   act_scale: ${act_scale}
   subseq_len: ${subseq_len}
@@ -22,7 +23,9 @@ cfg:
   observation_dim: ${observation_dim}
   action_dim: ${action_dim}
   skill_dim: ${skill_dim}
-  intent_dim: ${intent_dim}
+  non_functionality_dim: ${non_functionality_dim}
+  param_dim: ${param_dim} # Change this is possible
+  use_optimal_lang: False
 
   obs_mean: 0.0
   obs_std: 1.0

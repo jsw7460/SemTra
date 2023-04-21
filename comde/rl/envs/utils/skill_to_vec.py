@@ -9,7 +9,7 @@ class SkillInfoEnv(gym.Wrapper):
 	def __init__(self, env: gym.Env, skill_infos: Dict[str, List[SkillRepresentation]]):
 		super(SkillInfoEnv, self).__init__(env=env)
 
-		assert hasattr(env, "ONEHOT_SKILLS_MAPPING"), \
+		assert hasattr(env, "onehot_skills_mapping"), \
 			"Environment should have skill mapping: skill(e.g., `drawer`) -> index (e.g., `3`)"
 
 		assert hasattr(env, "skill_list"), \
@@ -25,7 +25,7 @@ class SkillInfoEnv(gym.Wrapper):
 		skills.sort(key=lambda skill: skill[0].index)
 
 		for sk in self.skill_list:
-			self.__idx_skill_list.append(self.ONEHOT_SKILLS_MAPPING[sk])
+			self.__idx_skill_list.append(self.onehot_skills_mapping[sk])
 
 	@property
 	def skill_infos(self):
@@ -36,10 +36,11 @@ class SkillInfoEnv(gym.Wrapper):
 		return self.__idx_skill_list
 
 	def availability_check(self):
+		# Check whether onehot index and loaded information match well.
 		skills = []
 		for sk in self.skill_infos.values():
 			skills.extend(sk)
 
 		for sk in skills:
-			assert sk.index == self.env.ONEHOT_SKILLS_MAPPING[sk.title], \
+			assert sk.index == self.env.onehot_skills_mapping[sk.title], \
 			f"Skill onehot representation mismatch."

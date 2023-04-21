@@ -156,7 +156,6 @@ def skilltoskill_transformer_ce_updt(
 	input_skills = jnp.concatenate((start_token, target_skills), axis=1)
 
 	target_skills_idxs = jnp.concatenate((target_skills_idxs, -1 + jnp.zeros((batch_size, 1), dtype="i4")), axis=-1)
-
 	target_max = target_skills_idxs.shape[1]
 
 	# NOTE !!!! Since context vector contains language operator as well as source skills,
