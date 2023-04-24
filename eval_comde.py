@@ -43,20 +43,18 @@ def program(cfg: DictConfig) -> None:
 	with open(pretrained_cfg["env"]["skill_infos_path"], "rb") as f:
 		skill_infos = pickle.load(f)
 
-	# with open(pretrained_cfg["language_guidance_path"], "rb") as f:
-	# 	language_guidances = pickle.load(f)
-	# 	language_guidances = language_guidances[cfg["language_guidance"]]  # Dict of vectors
-
 	with open(pretrained_cfg["non_functionalities_path"], "rb") as f:
 		non_functionalities = pickle.load(f)
 		non_functionalities = random.choice(list(non_functionalities[cfg.non_functionality].values()))
 
+	param_dim = pretrained_cfg["low_policy"]["cfg"]["param_dim"]
 	subseq_len = pretrained_cfg["subseq_len"]
 	skill_dim = pretrained_cfg["skill_dim"] \
 				+ pretrained_cfg["non_functionality_dim"] \
-				+ pretrained_cfg["low_policy"]["cfg"]["param_dim"]
+				+ param_dim
 
 	env_class = get_class(cfg.env.path)  # type: Union[type, Type[gym.Env]]
+	print("Tasks for eval", tasks_for_eval)
 	envs_candidate = get_batch_env(
 		env_class=env_class,
 		tasks=tasks_for_eval.copy(),
@@ -108,14 +106,15 @@ def program(cfg: DictConfig) -> None:
 				parameter_dict = template.parameter
 				param_for_skill = np.zeros_like(optimal_idxs)
 
-				param_to_check = {k: 0.0 for k in range(7)}
+				param_to_check = {k: 0.0 for k in range(7)}	# Kitchen, No wind
+				# param_to_check = {1: 25.0, 3: 25.0, 4: 15.0, 6: 3.0}
 				if parameter_dict != param_to_check:
 					continue
 
 				for skill_idx, parameter in parameter_dict.items():
 					param_for_skill = np.where(optimal_idxs == skill_idx, parameter, param_for_skill)
 
-				param_for_skill = np.repeat(param_for_skill[..., np.newaxis], repeats=100, axis=-1)
+				param_for_skill = np.repeat(param_for_skill[..., np.newaxis], repeats=param_dim, axis=-1)
 				params_for_skills.append(param_for_skill)
 
 			params_for_skills = np.stack(params_for_skills, axis=0)
@@ -144,20 +143,29 @@ def program(cfg: DictConfig) -> None:
 	# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 	for template, param_for_skill in zip(templates, params_for_skills):
-		print("Curren template:", template)
+		print("Curren param:", param_for_skill)
 		target_skills = np.concatenate((semantic_skills, non_functionalities, param_for_skill), axis=-1)
 
 		info = evaluate_comde_batch(
 			envs=envs,
 			target_skills=target_skills,
-			save_results=cfg.save_results,
+			save_results=cfg.save_results or cfg.save_text,
 			use_optimal_next_skill=cfg.use_optimal_next_skill,
 			**pretrained_models
 		)
 
-		if cfg.save_results:
+		save_path = Path(cfg.save_prefix) / Path(cfg.date) / Path(cfg.pretrained_suffix)
+		if cfg.save_text:
+			save_path.mkdir(parents=True, exist_ok=True)
+			print("=" * 30)
+			print(f"Result is saved at {save_path}")
+			print(info)
+			# with open(save_path / Path(str(cfg.save_suffix)), "wb") as f:
+
+			print(info)
+
+		elif cfg.save_results:
 			# 학습 한 모델은 그날 평가할거니깐 학습시킨 날짜로 저장...........
-			save_path = Path(cfg.save_prefix) / Path(cfg.date) / Path(cfg.pretrained_suffix)
 			save_path.mkdir(parents=True, exist_ok=True)
 			print("=" * 30)
 			print(f"Result is saved at {save_path}")

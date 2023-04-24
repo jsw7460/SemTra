@@ -160,7 +160,7 @@ if __name__ == "__main__":
 
 	file_idx = 0
 	folder_idx = 0
-	save_path = f'/home/jsw7460/mnt/comde_datasets/kitchen/wind/4_target_skills'
+	save_path = f'/home/jsw7460/mnt/comde_datasets/kitchen/wo_wind/4_target_skills'
 	# save_path = f'/home/jsw7460/foo'
 	folder_path = save_path + '/' + f'{folder_idx}'
 	os.makedirs(folder_path, exist_ok=True)
@@ -200,6 +200,7 @@ if __name__ == "__main__":
 	prev_done = 0
 	for t in range(len(d_observations)):
 		if d_terminals[t]:
+			print(f"Current {t} / {len(d_observations)}")
 			observations = d_observations[prev_done: t + 1].copy()
 			actions = d_actions[prev_done: t + 1].copy()
 			terminals = d_terminals[prev_done: t + 1].copy()
@@ -230,6 +231,10 @@ if __name__ == "__main__":
 				wind_mean = list(template.parameter.values())[0]
 				for v in template.parameter.values():
 					assert v == wind_mean
+
+				if wind_mean != 0.0:
+					continue
+
 				wind = np.array([wind_mean, 0., 0., 0., 0., 0., 0., 0., 0.]).reshape(1, -1)
 				source_skills = template_split_target_to_source(target_skills, operators, template)
 
@@ -268,7 +273,7 @@ if __name__ == "__main__":
 
 					file_idx += 1
 
-					if file_idx % 10000 == 0:
+					if file_idx % 100000 == 0:
 						folder_idx += 1
 						folder_path = save_path + '/' + f'{folder_idx}'
 						os.makedirs(folder_path, exist_ok=True)

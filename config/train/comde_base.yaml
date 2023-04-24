@@ -9,15 +9,16 @@ defaults:
   - env: metaworld
   - mode: comde
   - dataset: base
+  - baseline: retail
 
 save_prefix: /home/jsw7460/comde_save/train/
 save_suffix: foo
 modules: ${mode.modules}
 trainer: ${mode.trainer}
-non_functionality_dim: 1024
-param_dim: 1
+non_functionality_dim: ${language_dim}
+param_dim: 10
 
-act_scale: 1.4
+act_scale: 1.35
 observation_dim: ${env.observation_dim}
 action_dim: ${env.action_dim}
 dataset_path: ???
@@ -26,7 +27,8 @@ max_source_skills: 6
 max_target_skills: 6
 
 state_normalization: False
-skill_dim: 1024 # 512 for clip, 1024 for bert.
+skill_dim: ${language_dim} # 512 for clip, 1024 for bert.
+language_dim: 1024
 subseq_len: 5
 batch_size: 256
 max_iter: 500

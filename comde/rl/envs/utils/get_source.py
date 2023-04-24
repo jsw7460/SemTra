@@ -60,5 +60,6 @@ def get_optimal_semantic_skills(
 		optimal_target_skills.append(optimal_target_skill)
 
 	optimal_target_idxs = np.array(optimal_target_idxs)
+	print("Optimal target idxs", optimal_target_idxs)
 	optimal_target_skills = np.array(optimal_target_skills)
 	return optimal_target_skills, optimal_target_idxs

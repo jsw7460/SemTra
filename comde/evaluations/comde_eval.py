@@ -98,8 +98,6 @@ def evaluate_comde_batch(
 			to_np=True
 		)
 
-		# actions[:, 0] -= 0.0
-
 		step_results = [env.step(act.copy(), cur_skills[i].copy()) for env, act, i in zip(envs, actions, range(n_envs))]
 		obs_list = [result[I_OBS] for result in step_results]
 

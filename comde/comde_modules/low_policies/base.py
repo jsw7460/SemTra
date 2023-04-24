@@ -12,7 +12,6 @@ EPS = 1E-12
 
 
 class BaseLowPolicy(ComdeBaseModule, IJaxSavable, ITrainable):
-
 	def __init__(
 		self,
 		seed: int,

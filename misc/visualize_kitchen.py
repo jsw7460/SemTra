@@ -20,7 +20,7 @@ if __name__ == '__main__':
 	# ====================================
 	data_prefix = Path("/home/jsw7460/comde_save/eval/")
 	date = Path("2023-04-21")
-	model = Path("kitchen_mlp")
+	model = Path("kitchen_mlp_bigbatch")
 	data_suffix = Path("kitchen_vis")
 	data_path = data_prefix / date / model / data_suffix
 	# ====================================

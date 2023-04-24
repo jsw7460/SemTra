@@ -5,3 +5,4 @@ modules:
   - termination
 #  - intent_emb
 intent_dim: 1024
+save_source_trajectory: False

@@ -1,6 +1,6 @@
 """Common aliases for type hints"""
 
-from typing import NamedTuple, List, Union
+from typing import NamedTuple, List, Union, Dict
 
 import numpy as np
 import torch as th
@@ -40,6 +40,8 @@ class ComDeBufferSample(NamedTuple):
 	n_target_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b,]
 	sequential_requirement: Union[np.ndarray, th.tensor] = np.empty(0, )	# [b, d]
 	non_functionality: Union[np.ndarray, th.tensor] = np.empty(0, )	# [b, d]
+	source_parameters: List[Dict] = []
+	parameters: List[Dict] = []
 
 	skills: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l, d]
 	skills_order: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b, l]
@@ -58,6 +60,11 @@ class ComDeBufferSample(NamedTuple):
 	timesteps: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
 	rtgs: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
 	true_subseq_len: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, ]
+
+	# Maybe required (for some baseline which require source state and actions)
+	source_observations: Union[np.ndarray, th.Tensor] = np.empty(0,)
+	source_actions: Union[np.ndarray, th.Tensor] = np.empty(0,)
+	source_maskings: Union[np.ndarray, th.Tensor] = np.empty(0,)
 
 	def __repr__(self):
 		for key in self._fields:

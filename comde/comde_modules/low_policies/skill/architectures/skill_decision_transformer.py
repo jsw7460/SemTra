@@ -105,6 +105,7 @@ class PrimSkillDecisionTransformer(nn.Module):
 		stacked_masks = jnp.stack((maskings, maskings, maskings), axis=1)  # [b, 3, l]
 		stacked_masks = einops.rearrange(stacked_masks, "b c l -> b l c")
 		stacked_masks = stacked_masks.reshape(batch_size, 3 * subseq_len)
+
 		transformer_outputs = self.transformer(
 			hidden_states=stacked_inputs,
 			attention_mask=stacked_masks,

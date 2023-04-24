@@ -33,7 +33,4 @@ class FrankaKitchen(ComdeSkillEnv):
 
 	def step(self, action):
 		obs, rew, done, info = super(FrankaKitchen, self).step(action)
-
-		print("rew", rew)
-
 		return obs, rew, done, info

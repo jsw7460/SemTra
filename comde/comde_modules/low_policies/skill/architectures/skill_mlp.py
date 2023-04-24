@@ -17,7 +17,7 @@ class PrimSkillMLP(nn.Module):
 	act_scale: float
 	output_dim: int
 	net_arch: List
-	activation_fn: nn.Module
+	activation_fn: nn.Module = nn.relu
 	dropout: float = 0.0
 	squash_output: bool = False
 	layer_norm: bool = False
@@ -58,3 +58,5 @@ class PrimSkillMLP(nn.Module):
 		y = self.mlp(mlp_input, deterministic=deterministic, training=training)
 		return y
 
+
+PrimGoalMLP = PrimSkillMLP

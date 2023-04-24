@@ -19,6 +19,7 @@ class ComdeBaseModule:
 						cfg[k] = self.str_to_activation(cfg[k])
 
 		self.cfg = MappingProxyType(cfg)  # Freeze
+		self.n_update = 0
 
 	def str_to_activation(self, activation_fn: str):
 		return str_to_flax_activation(activation_fn)

@@ -1,55 +1,49 @@
 from typing import List, Dict
 
 import numpy as np
+from comde.rl.buffers.episodes.source_target_skill import SourceTargetSkillContainedEpisode
 
-from comde.rl.buffers.episodes.skill import SkillContainedEpisode
 
-
-class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
-
+class SourceStateEpisode(SourceTargetSkillContainedEpisode):
 	def __init__(self):
-		super(SourceTargetSkillContainedEpisode, self).__init__()
-
-		self.source_skills = []
-		self.n_source_skills = 0
-
-		self.target_skills = []
-		self.n_target_skills = 0
-
-		self.sequential_requirement = None  # E.g., 'do sequentially', ...
-		self.non_functionality = None
-
-		self.source_parameter = None
-		self.parameter = None
-
-		self.skills_orders = []  # Increasing sequence.
+		super(SourceStateEpisode, self).__init__()
+		self.source_observations = []
+		self.source_actions = []
+		self.source_maskings = []
 
 	def __getitem__(self, idx):
-		episode = super(SourceTargetSkillContainedEpisode, self).__getitem__(idx)
+		episode = super(SourceStateEpisode, self).__getitem__(idx)
 		if idx.start < 0:
 			idx = slice(0, idx.stop, None)
-		skills_orders = list(self.skills_orders[idx].copy())
-		return SourceTargetSkillContainedEpisode.from_list(
+
+		source_observations = list(self.source_observations[idx].copy())
+		source_actions = list(self.source_actions[idx].copy())
+		source_maskings = list(self.source_maskings[idx].copy())
+
+		SourceStateEpisode.from_list(
 			observations=episode.observations,
 			next_observations=episode.next_observations,
 			actions=episode.actions,
 			rewards=episode.rewards,
 			dones=episode.dones,
 			infos=episode.infos,
-			source_skills=self.source_skills,
-			target_skills=self.target_skills,
-			sequential_requirement=self.sequential_requirement,
-			non_functionality=self.non_functionality,
+			source_skills=episode.source_skills,
+			target_skills=episode.target_skills,
+			sequential_requirement=episode.sequential_requirement,
+			non_functionality=episode.non_functionality,
 			source_parameter=self.source_parameter,
 			parameter=self.parameter,
 			first_observations=episode.first_observations,
 			skills=episode.skills,
 			skills_done=episode.skills_done,
 			skills_idxs=episode.skills_idxs,
-			skills_orders=skills_orders,
+			skills_orders=episode.skills_orders,
 			rtgs=episode.rtgs,
 			maskings=episode.maskings,
 			timesteps=episode.timesteps,
+			source_observations=source_observations,
+			source_actions=source_actions,
+			source_maskings=source_maskings,
 		)
 
 	@staticmethod
@@ -74,8 +68,11 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 		rtgs: List = None,
 		maskings: List = None,
 		timesteps: List = None,
-	) -> "SourceTargetSkillContainedEpisode":
-		ret = SourceTargetSkillContainedEpisode()
+		source_observations: List = None,
+		source_actions: List = None,
+		source_maskings: List = None
+	) -> "SourceStateEpisode":
+		ret = SourceStateEpisode()
 		ret.observations = observations.copy()
 		ret.next_observations = next_observations.copy()
 		ret.actions = actions.copy()
@@ -94,48 +91,37 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 		ret.target_skills = target_skills.copy()
 		ret.sequential_requirement = sequential_requirement.copy()
 		ret.non_functionality = non_functionality.copy()
+		ret.source_observations = source_observations.copy()
+		ret.source_actions = source_actions.copy()
+		ret.source_maskings = source_maskings.copy()
 		ret.source_parameter = source_parameter.copy()
 		ret.parameter = parameter.copy()
-
 		return ret
 
 	def get_numpy_subtrajectory(self, from_: int, to_: int, batch_mode: bool) -> Dict:
-		super_data \
-			= super(SourceTargetSkillContainedEpisode, self).get_numpy_subtrajectory(from_, to_, batch_mode=batch_mode)
+		super_data = super(SourceStateEpisode, self).get_numpy_subtrajectory(from_, to_, batch_mode=batch_mode)
+
 		current_data = {
-			"source_skills": self.source_skills.copy(),
-			"sequential_requirement": self.sequential_requirement.copy(),
-			"source_parameter": self.source_parameter.copy(),
-			"parameter": self.parameter.copy(),
-			"non_functionality": self.non_functionality.copy(),
-			"target_skills": self.target_skills.copy(),
-			"skills_order": np.array(self.skills_orders[from_: to_], dtype="i4"),
-			"n_source_skills": self.n_source_skills,
-			"n_target_skills": self.n_target_skills
+			"source_observations": np.array(self.source_observations[from_: to_]),
+			"source_actions": np.array(self.source_actions[from_: to_]),
+			"source_maskings": np.array(self.source_maskings[from_: to_])
 		}
 		if batch_mode:
 			self.expand_1st_dim(current_data)
 
 		return {**super_data, **current_data}
 
-	def to_numpydict(self) -> Dict:
-		ret = super(SourceTargetSkillContainedEpisode, self).to_numpydict()
-		ret.update({
-			"source_skills": self.source_skills.copy(),
-			"sequential_requirement": self.sequential_requirement.copy(),
-			"non_functionality": self.non_functionality.copy(),
-			"source_parameter": self.source_parameter.copy(),
-			"parameter": self.parameter.copy(),
-			"target_skills": self.target_skills.copy()
-		})
-		return ret
-
 	def set_zeropaddings(self, n_padding: int, max_source_skills: int = None, max_target_skills: int = None):
-		assert len(self.target_skills) > 0, "We require at least one target skills !"
-		super(SourceTargetSkillContainedEpisode, self).set_zeropaddings(n_padding=n_padding)
-		[self.source_skills.append(-1) for _ in range(max_source_skills - self.n_source_skills)]
-		[self.target_skills.append(-1) for _ in range(max_target_skills - self.n_target_skills)]
-		[self.skills_orders.append(-1) for _ in range(n_padding)]
+		super(SourceStateEpisode, self).set_zeropaddings(
+			n_padding=n_padding,
+			max_source_skills=max_source_skills,
+			max_target_skills=max_target_skills
+		)
+		padding_size = len(self) - len(self.source_observations)
+		for _ in range(padding_size):
+			self.source_observations.append(np.zeros(self.observation_dim, ))
+			self.source_actions.append(np.zeros(self.action_dim, ))
+			self.source_maskings.append(np.array(0))
 
 	def add(
 		self,
@@ -152,11 +138,10 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 		param_for_skill: np.ndarray = None,
 		timestep: int = None,
 		skill_order: np.ndarray = None,
+		source_observation: np.ndarray = None,
+		source_action: np.ndarray = None
 	):
-		# "skills" are processed using "skills_idxs" when making minibatch. So we add 'None' skill to buffer.
-		skill = np.empty((0,))
-
-		super(SourceTargetSkillContainedEpisode, self).add(
+		super(SourceStateEpisode, self).add(
 			observation=observation,
 			next_observation=next_observation,
 			action=action,
@@ -168,16 +153,18 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 			skill_done=skill_done,
 			skill_idx=skill_idx,
 			param_for_skill=param_for_skill,
-			timestep=timestep
+			timestep=timestep,
+			skill_order=skill_order
 		)
-		self.skills_orders.append(skill_order.copy())
 
-	@staticmethod
-	def expand_1st_dim(dataset: Dict[str, np.ndarray]):
-		raise NotImplementedError("Obsolete")
+	def add_source(self, source_observation: np.ndarray, source_action: np.ndarray):
+		self.source_observations.append(source_observation.copy())
+		self.source_actions.append(source_action.copy())
+		self.source_maskings.append(np.array(1))
 
 	def add_from_dict(self, dataset: Dict):
-		traj_len = len(dataset["observations"])
+		tgt_len = len(dataset["observations"])
+		src_len = len(dataset["source_observations"])
 		self.source_skills = dataset["source_skills_idxs"]
 		self.n_source_skills = len(self.source_skills)
 
@@ -188,7 +175,7 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 		self.parameter = dataset["parameter"].copy()
 		self.source_parameter = dataset["source_parameter"].copy()
 
-		for i in range(traj_len):
+		for i in range(tgt_len):
 			self.add(
 				observation=dataset["observations"][i],
 				next_observation=dataset["next_observations"][i],
@@ -201,5 +188,11 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 				skill_idx=dataset["skills_idxs"][i],
 				param_for_skill=dataset["params_for_skills"][i],
 				timestep=i,
-				skill_order=dataset["skills_order"][i]
+				skill_order=dataset["skills_order"][i],
+			)
+
+		for i in range(src_len):
+			self.add_source(
+				source_observation=dataset["source_observations"][i],
+				source_action=dataset["source_actions"][i]
 			)

@@ -40,7 +40,6 @@ def program(cfg: DictConfig) -> None:
 
 	env = get_dummy_env(cfg["env"])  # Dummy env for obtain an observation and action space.
 	modules_dict = {module: instantiate(cfg[module]) for module in cfg["modules"]}
-
 	trainer_cls = get_class(cfg["trainer"])
 
 	trainer = trainer_cls(
@@ -64,7 +63,7 @@ def program(cfg: DictConfig) -> None:
 				"trajectory": trajectories[: -10],
 				"sequential_requirements": cfg["sequential_requirements_path"],
 				"non_functionalities": cfg["non_functionalities_path"]
-			}
+			},
 		)
 
 		trainer.run(replay_buffer)

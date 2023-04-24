@@ -1,6 +1,8 @@
 max_source_skills: ${max_source_skills}
 max_target_skills: ${max_target_skills}
 num_skills_done_relabel: 1
+save_source_trajectory: ${mode.save_source_trajectory}
+default_source_skills: ${env.default_source_skills}
 
 task_masking:
 language_masking:

@@ -73,10 +73,7 @@ class SkillMLP(BaseLowPolicy):
 
 	def update(self, replay_data: ComDeBufferSample) -> Dict:
 
-		# if self.cfg["use_optimal_lang"]:
-		# 	replay_data = replay_data._replace(intents=None)
 		skills = self.get_parameterized_skills(replay_data)
-
 		new_model, info = skill_mlp_updt(
 			rng=self.rng,
 			mlp=self.model,
