@@ -16,7 +16,8 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 		self.target_skills = []
 		self.n_target_skills = 0
 
-		self.sequential_requirement = None  # E.g., 'do sequentially', ...
+		self.str_sequential_requirement = None	# String. e.g., 'do sequentially', ...
+		self.sequential_requirement = None  # Vector
 		self.non_functionality = None
 
 		self.source_parameter = None
@@ -38,6 +39,7 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 			infos=episode.infos,
 			source_skills=self.source_skills,
 			target_skills=self.target_skills,
+			str_sequential_requirement=self.str_sequential_requirement,
 			sequential_requirement=self.sequential_requirement,
 			non_functionality=self.non_functionality,
 			source_parameter=self.source_parameter,
@@ -62,6 +64,7 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 		infos: List,
 		source_skills: List = None,
 		target_skills: List = None,
+		str_sequential_requirement: str = None,
 		sequential_requirement: List = None,
 		non_functionality: List = None,
 		source_parameter: Dict = None,
@@ -92,6 +95,7 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 		ret.timesteps = timesteps.copy()
 		ret.source_skills = source_skills.copy()
 		ret.target_skills = target_skills.copy()
+		ret.str_sequential_requirement = str_sequential_requirement
 		ret.sequential_requirement = sequential_requirement.copy()
 		ret.non_functionality = non_functionality.copy()
 		ret.source_parameter = source_parameter.copy()
@@ -104,6 +108,7 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 			= super(SourceTargetSkillContainedEpisode, self).get_numpy_subtrajectory(from_, to_, batch_mode=batch_mode)
 		current_data = {
 			"source_skills": self.source_skills.copy(),
+			"str_sequential_requirement": self.str_sequential_requirement,
 			"sequential_requirement": self.sequential_requirement.copy(),
 			"source_parameter": self.source_parameter.copy(),
 			"parameter": self.parameter.copy(),
@@ -133,6 +138,10 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 	def set_zeropaddings(self, n_padding: int, max_source_skills: int = None, max_target_skills: int = None):
 		assert len(self.target_skills) > 0, "We require at least one target skills !"
 		super(SourceTargetSkillContainedEpisode, self).set_zeropaddings(n_padding=n_padding)
+		assert len(self.source_skills) <= max_source_skills, \
+			f"possible max num of source skills is {max_source_skills} but detect {len(self.source_skills)} skills."
+		assert len(self.target_skills) <= max_target_skills, \
+			f"possible max num of target skills is {max_target_skills} but detect {len(self.target_skills)} skills."
 		[self.source_skills.append(-1) for _ in range(max_source_skills - self.n_source_skills)]
 		[self.target_skills.append(-1) for _ in range(max_target_skills - self.n_target_skills)]
 		[self.skills_orders.append(-1) for _ in range(n_padding)]
@@ -183,6 +192,8 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 
 		self.target_skills = dataset["target_skills_idxs"]
 		self.n_target_skills = len(self.target_skills)
+
+		self.str_sequential_requirement = dataset["str_sequential_requirement"]
 		self.sequential_requirement = dataset["sequential_requirement"]
 		self.non_functionality = dataset["non_functionality"]
 		self.parameter = dataset["parameter"].copy()

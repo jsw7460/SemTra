@@ -6,7 +6,6 @@ from transformers import BertTokenizer, BertModel
 
 from comde.utils.common.lang_representation import SkillRepresentation
 
-
 if __name__ == "__main__":
 
 	# === Hyper parameters
@@ -33,8 +32,8 @@ if __name__ == "__main__":
 	# === Hyper parameters
 
 	# text_tokens = [clip.tokenize(v) for v in variations]
-	tokenizer = BertTokenizer.from_pretrained('bert-large-uncased')
-	model = BertModel.from_pretrained("bert-large-uncased").cuda()
+	tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+	model = BertModel.from_pretrained("bert-base-uncased").cuda()
 
 	save_dict = defaultdict(list)
 
@@ -55,24 +54,6 @@ if __name__ == "__main__":
 
 				save_dict[key].append(skill_rep)
 
-	with open("/home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/kitchen/skills_mapping", "wb") as f:
+	with open("/home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/kitchen/bert_base_skills_mapping",
+			  "wb") as f:
 		pickle.dump(save_dict, f)
-
-
-	# save_dict = defaultdict(list)
-
-	# for idx, title in enumerate(main_texts):
-	# 	# print(idx, title, variation, tensor.mean())
-	# 	vectors_variations = text_features[title]
-	#
-	# 	for variation, tensor in vectors_variations.items():
-	# 		skill_representation = SkillRepresentation(
-	# 			title=title,
-	# 			variation=variation,
-	# 			vec=np.squeeze(tensor.numpy(), axis=0),
-	# 			index=idx
-	# 		)
-	# 		save_dict[title].append(skill_representation)
-	#
-	# with open("/home/jsw7460/mnt/comde_datasets/clip_mappings/metaworld/clip_mapping", "wb") as f:
-	# 	pickle.dump(save_dict, f)

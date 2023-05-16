@@ -63,6 +63,9 @@ class BaselineTrainer(BaseTrainer):
 			if (self.n_update % self.log_interval) == 0:
 				self.dump_logs(step=self.n_update)
 
+			if (self.n_update % self.save_interval) == 0:
+				self.save()
+
 	def evaluate(self, replay_buffer: ComdeBuffer):
 		""" ... """
 

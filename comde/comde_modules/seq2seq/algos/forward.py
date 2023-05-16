@@ -30,8 +30,8 @@ def skilltoskill_transformer_forward(
 	rng: jnp.ndarray,
 	model: Model,
 	x: jnp.ndarray,
-	context: jnp.ndarray,	# [b, l, d], Concatenation of source-skill
-	mask: jnp.ndarray,	# Padding mask. Not a causal
+	context: jnp.ndarray,	# [b, L, d]
+	mask: jnp.ndarray,	# Padding mask for the context. Not a causal mask.
 	deterministic: bool = True
 ) -> Tuple[PRNGKey, Dict[str, jnp.ndarray]]:
 	rng, dropout_key = jax.random.split(rng)

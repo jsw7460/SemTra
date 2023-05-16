@@ -50,7 +50,8 @@ class Episode:
 			"actions": np.array(self.actions[from_: to_]),
 			"rewards": np.array(self.rewards[from_: to_]),
 			"dones": np.array(self.dones[from_: to_]),
-			"maskings": np.array(self.maskings[from_: to_])
+			"maskings": np.array(self.maskings[from_: to_]),
+			"rtgs": np.array(self.rtgs[from_: to_])
 		}
 
 		if batch_mode:

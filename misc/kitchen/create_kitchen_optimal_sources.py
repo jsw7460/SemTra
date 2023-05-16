@@ -1,16 +1,15 @@
 import pickle
 from itertools import permutations
 
-
 onehot_skills_mapping = {
-		'bottom_burner': 0,
-		'top_burner': 1,
-		'light_switch': 2,
-		'slide_cabinet': 3,
-		'hinge_cabinet': 4,
-		'microwave': 5,
-		'kettle': 6,
-	}
+	'bottom_burner': 0,
+	'top_burner': 1,
+	'light_switch': 2,
+	'slide_cabinet': 3,
+	'hinge_cabinet': 4,
+	'microwave': 5,
+	'kettle': 6,
+}
 
 idx2skills = {str(v): k for k, v in onehot_skills_mapping.items()}
 
@@ -22,11 +21,10 @@ for (i, j) in idx_permutations:
 
 skills = list(onehot_skills_mapping.keys())
 
-
 # with open("/home/jsw7460/mnt/comde_datasets/tasks_for_evals/kitchen/eval-9", "rb") as f:
 # 	tasks_for_eval = pickle.load(f)
 
-n_target_skills = 3
+n_target_skills = 4
 r = n_target_skills
 nPr = permutations(skills, r)
 
@@ -37,7 +35,7 @@ for target_skills in list(nPr):
 	for i in range(len(l_target_skills)):
 		l_target_skills[i] = l_target_skills[i].replace("_", " ")
 
-	target_skills = " ".join(target_skills)	# list
+	target_skills = " ".join(target_skills)  # list
 
 	optimal_source_skills[target_skills] = dict()
 	for req in sequential_requirements:
@@ -68,5 +66,8 @@ for target_skills in list(nPr):
 				optimal_source_skills[target_skills][req] = replaced_l_target_skills.copy()
 
 
-with open("/home/jsw7460/mnt/comde_datasets/source_skills/kitchen/optimal_three_skills", "wb") as f:
+for k, v in optimal_source_skills["kettle microwave slide_cabinet hinge_cabinet"].items():
+	print(k, v)
+
+with open("/home/jsw7460/mnt/comde_datasets/source_skills/kitchen/optimal_four_skills", "wb") as f:
 	pickle.dump(optimal_source_skills, f)

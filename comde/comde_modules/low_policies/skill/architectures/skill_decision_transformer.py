@@ -53,7 +53,7 @@ class PrimSkillDecisionTransformer(nn.Module):
 			net_arch=[],
 			squash_output=True
 		)
-		self.pred_act = Scaler(base_model=pred_act, scale=self.act_scale)
+		self.pred_act = Scaler(base_model=pred_act, scale=jnp.array(self.act_scale))
 		self.pred_skill = nn.Dense(self.skill_dim)
 
 	def __call__(self, *args, **kwargs):

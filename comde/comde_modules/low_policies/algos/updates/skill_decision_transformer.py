@@ -46,7 +46,12 @@ def skill_dt_updt(
 		loss = action_loss
 
 		# can pass skill loss either
-		_infos = {"skill_decoder/mse_loss": loss, "__additional_info": additional_info}
+		_infos = {
+			"skill_decoder/mse_loss": loss,
+			"__additional_info": additional_info,
+			"__action_preds": action_preds,
+			"__target": target
+		}
 		return loss, _infos
 
 	new_dt, infos = dt.apply_gradient(loss_fn)

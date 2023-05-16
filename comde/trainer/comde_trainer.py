@@ -37,15 +37,21 @@ class ComdeTrainer(BaseTrainer):
 		self.skill_infos = skill_infos  # type: Dict[str, List[SkillRepresentation]]
 
 		self.info_records = {"info/suffix": self.cfg["save_suffix"]}
-
 		self.__last_onehot_skills = None
+
+	@staticmethod
+	def append_dummy_skill(skills: List[np.array]):
+		dummy_skill = np.zeros_like(skills[0])
+		skills.append(dummy_skill)
 
 	def get_skill_from_idxs(self, replay_data: ComDeBufferSample) -> ComDeBufferSample:
 
 		if self.__last_onehot_skills is None:
 			skills = [random.choice(sk) for sk in list(self.skill_infos.values())]
 			skills.sort(key=lambda sk: sk.index)
-			self.__last_onehot_skills = np.array([sk.vec for sk in skills])
+			skills = [sk.vec for sk in skills]
+			self.append_dummy_skill(skills)
+			self.__last_onehot_skills = np.array([sk for sk in skills])
 
 		skills_idxs = replay_data.skills_idxs
 		source_skills_idxs = replay_data.source_skills_idxs
@@ -65,8 +71,8 @@ class ComdeTrainer(BaseTrainer):
 			replay_data = self.get_skill_from_idxs(replay_data)
 
 			# NOTE: Do not change the training order of modules.
-			info = self.seq2seq.update(replay_data=replay_data, low_policy=self.low_policy)
-			replay_data = replay_data._replace(parameterized_skills=info.pop("__parameterized_skills"))
+			info = self.seq2seq.update(replay_data=replay_data)
+			replay_data = replay_data._replace(parameterized_skills=None)
 			info.update(self.low_policy.update(replay_data))
 			info.update(self.termination.update(replay_data))
 
@@ -76,12 +82,16 @@ class ComdeTrainer(BaseTrainer):
 			if (self.n_update % self.log_interval) == 0:
 				self.dump_logs(step=self.n_update)
 
+			if (self.n_update % self.save_interval) == 0:
+				self.save()
+
 	def evaluate(self, replay_buffer: ComdeBuffer):
 		eval_data = replay_buffer.sample(128)  # type: ComDeBufferSample
 
 		eval_data = self.get_skill_from_idxs(eval_data)
 
 		info1 = self.seq2seq.evaluate(replay_data=eval_data)
+		info1.update({"__parameterized_skills": None})
 		parameterized_skills = info1["__parameterized_skills"]
 
 		info2 = self.low_policy.evaluate(replay_data=eval_data._replace(parameterized_skills=parameterized_skills))

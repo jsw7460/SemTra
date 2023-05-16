@@ -29,27 +29,39 @@ class BaseLowPolicy(ComdeBaseModule, IJaxSavable, ITrainable):
 		self.skill_dim = cfg["skill_dim"]
 		self.nonfunc_dim = cfg["non_functionality_dim"]
 		self.param_dim = cfg["param_dim"]
+		self.param_repeats = cfg.get("param_repeats", None)
+		# self.param_repeats = cfg["param_repeats"]	# type: int
+
+		# ============================================ DEBUG
+		if self.param_repeats is None:	# For the deprecated case.
+			# raise NotImplementedError("Unwrap this code if you really want")
+			self.param_dim = 10
+			self.param_repeats = 1
+
+		self.total_param_dim = self.param_dim * self.param_repeats
 
 		if init_build_model:
 			self.normalization_mean = cfg["obs_mean"]
 			self.normalization_std = cfg["obs_std"]
 
-	# @staticmethod
-	def get_parameterized_skills(self, replay_data: ComDeBufferSample) -> np.ndarray:
+	def get_parameterized_skills(self, replay_data: ComDeBufferSample) -> Dict[str, np.ndarray]:
 		"""
 			Return parameterized skills: [Skill @ Non-functionality @ Parameter]
 		"""
 		if replay_data.parameterized_skills is not None:
 			return replay_data.parameterized_skills
-
 		else:
 			skills = replay_data.skills
 			non_func = np.broadcast_to(replay_data.non_functionality[:, np.newaxis, ...], skills.shape)
 			params = replay_data.params_for_skills
-			params = np.repeat(params, repeats=self.param_dim, axis=-1)
+			params = np.repeat(params, repeats=self.param_repeats, axis=-1)
 
 			parameterized_skills = np.concatenate((skills, non_func, params), axis=-1)
-			return parameterized_skills
+			return {
+				"parameterized_skills": parameterized_skills,
+				"repeated_params": params,
+				"non_functionality": non_func
+			}
 
 	def predict(self, *args, **kwargs) -> np.ndarray:
 		raise NotImplementedError()
@@ -74,4 +86,7 @@ class BaseLowPolicy(ComdeBaseModule, IJaxSavable, ITrainable):
 		pass
 
 	def evaluate(self, *args, **kwargs) -> Dict:
+		pass
+
+	def str_to_activation(self, activation_fn: str):
 		pass

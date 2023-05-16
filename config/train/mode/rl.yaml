@@ -1,0 +1,26 @@
+mode: rl
+trainer: comde.trainer.hrl_trainer.HierarchicalRLAgent
+save_source_trajectory: False
+modules:
+  - seq2seq
+
+pretrained_modules:
+  - termination
+  - low_policy
+
+env_name: ${env.name}
+termination_pred_interval: 30
+use_optimal_next_skill: False
+
+tasks: ???
+
+pretrained_model:
+
+  carla: None
+
+  metaworld: None
+
+  kitchen:
+    date: 2023-05-01
+    suffix: comde_kitchen_mlp
+    step: 570000

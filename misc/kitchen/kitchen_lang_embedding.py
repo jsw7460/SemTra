@@ -143,7 +143,6 @@ if __name__ == "__main__":
 			'Change the positions of the bottom burner and the kettle.',
 			'Replace the bottom burner with the kettle and vice versa.'
 		],
-
 		"replace 1 with 0": [
 			'Swap the positions of the top burner and the bottom burner.',
 			'Exchange the top burner with the bottom burner.',
@@ -222,7 +221,6 @@ if __name__ == "__main__":
 			'Exchange the positions of the kettle and the top burner.',
 			'Swap the kettle and the top burner.'
 		],
-
 		"replace 2 with 0": [
 			"Swap the positions of the light switch and the bottom burner.",
 			"Move the light switch to where the bottom burner is and move the bottom burner to where the light switch is.",
@@ -296,7 +294,6 @@ if __name__ == "__main__":
 							 'Replace the light switch with the kettle and vice versa.',
 							 'Exchange the positions of the kettle and the light switch.',
 							 'Swap the light switch and the kettle.'],
-
 		"replace 3 with 0": ["Swap the positions of the slide cabinet and the bottom burner.",
 							 "Move the slide cabinet to where the bottom burner is and move the bottom burner to where the slide cabinet is.",
 							 "Put the bottom burner where the slide cabinet is and vice versa.",
@@ -369,7 +366,6 @@ if __name__ == "__main__":
 							 "Replace the slide cabinet with the kettle and vice versa.",
 							 "Exchange the positions of the kettle and the slide cabinet.",
 							 "Swap the slide cabinet and the kettle."],
-
 		"replace 4 with 0": [
 			'Swap the positions of the hinge cabinet and the bottom burner.',
 			'Move the hinge cabinet to where the bottom burner is and move the bottom burner to where the hinge cabinet is.',
@@ -444,7 +440,6 @@ if __name__ == "__main__":
 							 'Replace the hinge cabinet with the kettle and vice versa.',
 							 'Exchange the positions of the kettle and the hinge cabinet.',
 							 'Swap the hinge cabinet and the kettle.'],
-
 		"replace 5 with 0": [
 			"Substitute bottom burner for microwave.",
 			"Exchange bottom burner and microwave.",
@@ -507,7 +502,6 @@ if __name__ == "__main__":
 							 "Replace the microwave appliance with the kettle",
 							 "Put the kettle in place of the microwave", "Switch the microwave for the kettle",
 							 "Substitute the microwave with the kettle appliance"],
-
 		"replace 6 with 0": ["Swap positions of kettle and bottom burner", "Exchange kettle and bottom burner",
 							 "Move bottom burner where kettle is and put kettle where bottom burner is",
 							 "Rearrange kettle and bottom burner",
@@ -570,8 +564,8 @@ if __name__ == "__main__":
 
 	# === Hyper parameters
 
-	tokenizer = BertTokenizer.from_pretrained('bert-large-uncased')
-	model = BertModel.from_pretrained("bert-large-uncased").cuda()
+	tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+	model = BertModel.from_pretrained("bert-base-uncased").cuda()
 
 	save_dict = {main_text: dict() for main_text in main_texts}
 
@@ -586,5 +580,5 @@ if __name__ == "__main__":
 				sentence_vector = sentence_vector.cpu().numpy()
 				save_dict[key][text] = sentence_vector
 
-	with open(Path(save_dir) / Path(f"{topic}_bert_mapping"), "wb") as f:
+	with open(Path(save_dir) / Path(f"{topic}_bert_base_mapping"), "wb") as f:
 		pickle.dump(save_dict, f)

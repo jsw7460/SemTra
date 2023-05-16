@@ -39,6 +39,7 @@ class ComDeBufferSample(NamedTuple):
 	n_source_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b,]
 	n_target_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b,]
 	sequential_requirement: Union[np.ndarray, th.tensor] = np.empty(0, )	# [b, d]
+	str_sequential_requirement: List = []		# String
 	non_functionality: Union[np.ndarray, th.tensor] = np.empty(0, )	# [b, d]
 	source_parameters: List[Dict] = []
 	parameters: List[Dict] = []
@@ -61,10 +62,17 @@ class ComDeBufferSample(NamedTuple):
 	rtgs: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
 	true_subseq_len: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, ]
 
-	# Maybe required (for some baseline which require source state and actions)
+	# Maybe required (for some baseline which requires source state and actions)
 	source_observations: Union[np.ndarray, th.Tensor] = np.empty(0,)
 	source_actions: Union[np.ndarray, th.Tensor] = np.empty(0,)
 	source_maskings: Union[np.ndarray, th.Tensor] = np.empty(0,)
+
+	# Maybe required (for some baseline which requires video or their embeddings)
+	source_videos: Union[np.ndarray, th.Tensor] = np.empty(0, )
+	target_video: Union[np.ndarray, th.Tensor] = np.empty(0, )
+	source_video_embeddings: Union[np.ndarray, th.Tensor] = np.empty(0,)
+	target_video_embedding: Union[np.ndarray, th.Tensor] = np.empty(0,)
+
 
 	def __repr__(self):
 		for key in self._fields:

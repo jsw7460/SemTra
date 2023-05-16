@@ -1,9 +1,11 @@
 max_source_skills: ${max_source_skills}
 max_target_skills: ${max_target_skills}
-num_skills_done_relabel: 1
+num_skills_done_relabel: ${env.num_skills_done_relabel}
+observation_keys: ${env.observation_keys}
 save_source_trajectory: ${mode.save_source_trajectory}
 default_source_skills: ${env.default_source_skills}
-
+np_parameter: ${env.np_parameter}
+shuffle_dataset: ${env.shuffle_dataset}
 task_masking:
 language_masking:
   -

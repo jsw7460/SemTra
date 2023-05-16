@@ -691,7 +691,7 @@ if __name__ == "__main__":
 		k: clip.tokenize(v).cuda() for k, v in texts_variations.items()
 	}
 
-	model_name = "ViT-B/32"	# Bert
+	model_name = "ViT-B/32"  # Bert
 	assert model_name in AVAILABLE_MODELS, "See above avilable models"
 	model, preprocess = clip.load(model_name)
 	model.cuda().eval()
@@ -700,7 +700,6 @@ if __name__ == "__main__":
 		text_features = {
 			k: model.encode_text(v).float() for k, v in text_tokens.items()
 		}
-
 
 	save_dict = {main_text: dict() for main_text in main_texts}
 	for k, tensors in text_features.items():

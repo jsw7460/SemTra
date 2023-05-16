@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import List, Dict
+from typing import List, Dict, Any
 
 import gym
 
@@ -30,8 +30,19 @@ class ComdeSkillEnv(gym.Wrapper):
 	def skill_index_mapping(self):
 		raise NotImplementedError()
 
+	@abstractmethod
+	def get_rtg(self):
+		raise NotImplementedError()
+
 	def get_short_str_for_save(self) -> str:
 		return "_".join(self.env.skill_list)
 
 	def __str__(self):
 		return self.get_short_str_for_save()
+
+	@abstractmethod
+	def get_default_parameter(self, non_functionality: str):
+		raise NotImplementedError()
+
+	def get_buffer_action(self, action: Any):
+		return action

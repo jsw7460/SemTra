@@ -25,6 +25,7 @@ class HistoryEnv(gym.Wrapper):
 	):
 		super(HistoryEnv, self).__init__(env=env)
 		self.env = env
+
 		self.num_stack_frames = num_stack_frames
 		if self.is_goal_conditioned:
 			# If env is goal-conditioned, we want to track goal history.
@@ -170,7 +171,6 @@ class SkillHistoryEnv(HistoryEnv):
 		self.skill_stack = collections.deque([], maxlen=self.num_stack_frames)
 		self.skill_space = gym.spaces.Box(-np.inf, np.inf, shape=(skill_dim, ))
 		self.skill_dim = skill_dim
-
 		self.n_masking = num_stack_frames
 
 	@property
@@ -238,6 +238,7 @@ class SkillHistoryEnv(HistoryEnv):
 
 	def step(self, action: np.ndarray, skill: np.ndarray = None) -> Tuple[Dict[str, np.ndarray], float, bool, Dict]:
 		self.skill_stack.append(skill)
+		action = self.get_buffer_action(action)
 		if self.n_masking > 0:
 			self.n_masking -= 1
 		return super(SkillHistoryEnv, self).step(action=action)

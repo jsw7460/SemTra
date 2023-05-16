@@ -1,15 +1,9 @@
-from jax.config import config
-
-config.update("jax_debug_nans", True)
-
-from typing import Dict
 import random
+from typing import Dict, Union
 
 random.seed(7)
 
-import os
-from os.path import join, isfile
-from pathlib import Path
+from comde.utils.common.load_data_paths import load_data_paths
 
 import hydra
 from hydra.utils import instantiate, get_class
@@ -22,15 +16,11 @@ from comde.utils.common.normalization import get_observation_statistics
 
 @hydra.main(version_base=None, config_path="config/train", config_name="comde_base.yaml")
 def program(cfg: DictConfig) -> None:
-	cfg = OmegaConf.to_container(cfg, resolve=True)
+	cfg = OmegaConf.to_container(cfg, resolve=True)  # type: Dict[str, Union[str, int, Dict]]
 
-	data_dirs = [Path(cfg["dataset_path"]) / Path(name) for name in os.listdir(cfg["dataset_path"])]
-	hdf_files = []
-	for data_dir in data_dirs:
-		hdf_files.extend([join(data_dir, f) for f in os.listdir(data_dir) if isfile(join(data_dir, f))])
-	# random.shuffle(hdf_files)
-	assert len(hdf_files) > 0, "Empty dataset"
+	data_dirs, hdf_files = load_data_paths(cfg)
 
+	print(f"This program uses {len(hdf_files)} trajectories for the training.")
 	dataset_window_size = len(hdf_files) // len(data_dirs)
 
 	if cfg["state_normalization"]:
@@ -66,9 +56,7 @@ def program(cfg: DictConfig) -> None:
 				"non_functionalities": cfg["non_functionalities_path"]
 			}
 		)
-
 		trainer.run(replay_buffer)
-
 		eval_buffer = ComdeBuffer(
 			observation_space=env.observation_space,
 			action_space=env.action_space,
@@ -83,7 +71,6 @@ def program(cfg: DictConfig) -> None:
 			}
 		)
 		trainer.evaluate(eval_buffer)
-		trainer.save()
 
 
 if __name__ == "__main__":

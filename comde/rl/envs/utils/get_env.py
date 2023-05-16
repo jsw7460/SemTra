@@ -1,15 +1,13 @@
 import pickle
-from itertools import permutations
 from pathlib import Path
 from typing import Dict, List, Type
 
-
 import gym
 
-from comde.rl.envs.metaworld import MultiStageMetaWorld
+from comde.rl.envs.carla import DummyEasyCarla
 from comde.rl.envs.franka_kitchen import FrankaKitchen
+from comde.rl.envs.metaworld import MultiStageMetaWorld
 from comde.rl.envs.utils import TimeLimitEnv, SkillHistoryEnv, SkillInfoEnv
-import random
 
 
 def get_dummy_env(cfg: Dict) -> SkillInfoEnv:
@@ -24,7 +22,10 @@ def get_dummy_env(cfg: Dict) -> SkillInfoEnv:
 
 	elif "kitchen" in env_name:
 		# Task has no meaning here
-		env = FrankaKitchen(seed=0, task=["microwave", "kettle", "top burner", "hinge cabinet"], n_target=4)
+		env = FrankaKitchen(seed=0, task=["microwave", "kettle", "bottom burner", "top burner"], n_target=4)
+
+	elif "carla" in env_name:
+		env = DummyEasyCarla(seed=0, task=["straight", "right", "left"], n_target=3, cfg=cfg)
 
 	else:
 		raise NotImplementedError(f"Not supported: {env_name}")
@@ -36,31 +37,54 @@ def get_dummy_env(cfg: Dict) -> SkillInfoEnv:
 	return env
 
 
+def get_env(
+	env_class: Type[gym.Env],
+	task: List,
+	n_target: int,
+	parameterized_skill_dim: int,
+	time_limit: int = 1000,
+	history_len: int = 1,
+	seed: int = 0,
+	skill_infos: Dict = None,
+	cfg: Dict = None
+):
+	if skill_infos is None:
+		with open(Path(cfg["skill_infos_path"]), "rb") as f:
+			skill_infos = pickle.load(f)
+
+	env = env_class(seed=seed, task=task, n_target=n_target, cfg=cfg)
+	env = SkillInfoEnv(env, skill_infos=skill_infos)
+	env.availability_check()
+	env = TimeLimitEnv(env=env, limit=time_limit)
+	env = SkillHistoryEnv(env=env, skill_dim=parameterized_skill_dim, num_stack_frames=history_len)
+	return env
+
 def get_batch_env(
 	env_class: Type[gym.Env],
 	tasks: List,
-	skill_dim: int,
+	n_target: int,
+	parameterized_skill_dim: int,
 	time_limit: int = 1000,
 	history_len: int = 1,
 	seed: int = 0,
 	cfg: Dict = None,
 ) -> List[SkillHistoryEnv]:
-	envs = []	# type: List[SkillHistoryEnv]
+	envs = []  # type: List[SkillHistoryEnv]
 
 	with open(Path(cfg["skill_infos_path"]), "rb") as f:
 		skill_infos = pickle.load(f)
 
-	# tasks = list(permutations([1, 3, 4, 6], r=4))
-	# for i in range(len(tasks)):
-	# 	tasks[i] = list(tasks[i])
-	#
-	# random.shuffle(tasks)
-
 	for task in tasks:
-		env = env_class(seed=seed, task=task, n_target=3, cfg=cfg)
-		env = SkillInfoEnv(env, skill_infos=skill_infos)
-		env.availability_check()
-		env = TimeLimitEnv(env=env, limit=time_limit)
-		env = SkillHistoryEnv(env=env, skill_dim=skill_dim, num_stack_frames=history_len)
+		env = get_env(
+			env_class=env_class,
+			task=task,
+			n_target=n_target,
+			parameterized_skill_dim=parameterized_skill_dim,
+			time_limit=time_limit,
+			history_len=history_len,
+			skill_infos=skill_infos,
+			seed=seed,
+			cfg=cfg
+		)
 		envs.append(env)
 	return envs

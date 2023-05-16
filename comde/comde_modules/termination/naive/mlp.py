@@ -87,6 +87,7 @@ class MLPTermination(BaseTermination):
 		:return:
 		"""
 		self.rng, prediction = termination_forward(self.rng, self.model, observations, first_observations, skills)
+		# print(prediction)
 		if binary:
 			return np.argmax(prediction, axis=-1)
 		else:

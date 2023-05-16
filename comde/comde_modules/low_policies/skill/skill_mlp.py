@@ -1,7 +1,6 @@
 from typing import Dict, List
 
 import jax
-
 import numpy as np
 import optax
 
@@ -15,9 +14,8 @@ from comde.utils.jax_utils.general import str_to_flax_activation
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
 
-
 """
-majority of the code is from:
+ code is from:
 	mm_sbrl/component/decoder/sensoric/mlp_skill_decoder.py
 """
 
@@ -65,7 +63,7 @@ class SkillMLP(BaseLowPolicy):
 		)
 
 		init_obs = np.zeros((1, self.observation_dim))
-		init_skills = np.zeros((1, self.skill_dim + self.nonfunc_dim + self.param_dim))
+		init_skills = np.zeros((1, self.skill_dim + self.nonfunc_dim + self.total_param_dim))
 
 		self.rng, rngs = get_basic_rngs(self.rng)
 		tx = optax.adam(self.cfg["lr"])
@@ -73,7 +71,8 @@ class SkillMLP(BaseLowPolicy):
 
 	def update(self, replay_data: ComDeBufferSample) -> Dict:
 
-		skills = self.get_parameterized_skills(replay_data)
+		skills_dict = self.get_parameterized_skills(replay_data)
+		skills = skills_dict["parameterized_skills"]
 		new_model, info = skill_mlp_updt(
 			rng=self.rng,
 			mlp=self.model,
@@ -82,7 +81,6 @@ class SkillMLP(BaseLowPolicy):
 			skills=skills,
 			maskings=replay_data.maskings
 		)
-
 		self.model = new_model
 		self.rng, _ = jax.random.split(self.rng)
 
@@ -91,10 +89,10 @@ class SkillMLP(BaseLowPolicy):
 	def predict(
 		self,
 		observations: np.ndarray,
-		skills: np.ndarray,	# [b, l, dim] or [b, dim]
+		skills: np.ndarray,  # [b, l, dim] or [b, dim]
 		to_np: bool = True,
 		squeeze: bool = False,
-		*args, **kwargs	 # Do not remove these dummy parameters.
+		*args, **kwargs  # Do not remove these dummy parameters.
 	) -> np.ndarray:
 		assert observations.ndim == skills.ndim
 		# Transformer inputs are used at evaluation time -> Use only current
@@ -127,15 +125,12 @@ class SkillMLP(BaseLowPolicy):
 		actions = replay_data.actions[:, -1, ...]
 		if self.cfg["use_optimal_lang"]:
 			raise NotImplementedError("Obsolete")
-			# replay_data = replay_data._replace(intents=None)
-		skills = self.get_parameterized_skills(replay_data)
+		skills_dict = self.get_parameterized_skills(replay_data)
+		skills = skills_dict["parameterized_skills"]
 		maskings = replay_data.maskings[:, -1]
 
 		if maskings is None:
 			raise NotImplementedError("No mask")
-			batch_size = observations.shape[0]
-			maskings = np.ones((batch_size, 1))
-		
 		maskings = maskings.reshape(-1, 1)
 		pred_actions = self.predict(observations=observations, skills=skills)
 

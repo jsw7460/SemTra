@@ -1,6 +1,8 @@
-from typing import Dict, List
+from typing import Dict, List, Union
+import random
 
 import gym
+import numpy as np
 
 from comde.utils.common.lang_representation import SkillRepresentation
 
@@ -43,4 +45,19 @@ class SkillInfoEnv(gym.Wrapper):
 
 		for sk in skills:
 			assert sk.index == self.env.onehot_skills_mapping[sk.title], \
-			f"Skill onehot representation mismatch."
+				f"Skill onehot representation mismatch."
+
+	def get_skill_from_idx(self, idx: int, variation: Union[str, int] = "random") -> SkillRepresentation:
+		sk = self.skill_index_mapping[idx]
+		if variation == "random":
+			return random.choice(self.skill_infos[sk])
+		else:
+			return self.skill_infos[sk][variation]
+
+	def get_skill_vectors_from_idx_list(self, idxs: List[int]) -> np.ndarray:
+		skill_vectors = []
+		for idx in idxs:
+			skill = self.get_skill_from_idx(idx)
+			skill_vectors.append(skill.vec)
+		skill_vectors = np.array(skill_vectors)
+		return skill_vectors

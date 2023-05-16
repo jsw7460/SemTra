@@ -7,9 +7,6 @@ cfg:
     - 128
     - 128
     - 128
-    - 128
-    - 128
-    - 128
 
   activation_fn: relu
   dropout: 0.0
@@ -26,7 +23,8 @@ cfg:
   skill_dim: ${skill_dim}
 
   non_functionality_dim: ${non_functionality_dim}
-  param_dim: ${param_dim} # Change this is possible
+  param_dim: ${env.param_dim}
+  param_repeats: ${env.param_repeats}
   use_optimal_lang: False
 
   obs_mean: 0.0

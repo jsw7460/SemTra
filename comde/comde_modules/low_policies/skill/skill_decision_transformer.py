@@ -75,7 +75,7 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		subseq_len = self.cfg["subseq_len"]
 		init_observations = np.random.normal(size=(1, subseq_len, self.observation_dim))
 		init_actions = np.random.normal(size=(1, subseq_len, self.action_dim))
-		init_skills = np.random.normal(size=(1, subseq_len, self.skill_dim + self.nonfunc_dim + self.param_dim))
+		init_skills = np.random.normal(size=(1, subseq_len, self.skill_dim + self.nonfunc_dim + self.total_param_dim))
 		init_timesteps = np.zeros((1, self.cfg["subseq_len"]), dtype="i4")
 		init_masks = np.ones((1, self.cfg["subseq_len"]))
 		tx = optax.chain(
@@ -99,9 +99,9 @@ class SkillDecisionTransformer(BaseLowPolicy):
 
 		if self.cfg["use_optimal_lang"]:
 			raise NotImplementedError("Obsolete")
-			# replay_data = replay_data._replace(intents=None)
 
-		skills = self.get_parameterized_skills(replay_data)
+		skills_dict = self.get_parameterized_skills(replay_data)
+		skills = skills_dict["parameterized_skills"]
 
 		new_model, info = skill_dt_updt(
 			rng=self.rng,
@@ -113,6 +113,12 @@ class SkillDecisionTransformer(BaseLowPolicy):
 			maskings=replay_data.maskings,
 			action_targets=np.copy(replay_data.actions),
 		)
+
+		# print("=" * 30)
+		# print("MSE loss", info["skill_decoder/mse_loss"])
+		# print("prediction", info["__action_preds"][:10])
+		# print("target", info["__target"][:10])
+
 		self.model = new_model
 		self.rng, _ = jax.random.split(self.rng)
 
@@ -171,12 +177,6 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		# Shorter than subseq_len -> Set zero paddings and get maskings.
 		if cur_subseq_len < subseq_len:
 			raise NotImplementedError("Are you sure this if loop required?")
-			# observations, actions, skills, timesteps, maskings = self.get_padded_components(
-			# 	observations=observations,
-			# 	actions=actions,
-			# 	skills=skills,
-			# 	timesteps=timesteps
-			# )
 
 		subseq_len = self.cfg["subseq_len"]
 		observations = observations[:, :subseq_len, :]
@@ -208,11 +208,12 @@ class SkillDecisionTransformer(BaseLowPolicy):
 	) -> Dict:
 		if self.cfg["use_optimal_lang"]:
 			raise NotImplementedError("Obsolete")
-			# replay_data = replay_data._replace(intents=None)
+		# replay_data = replay_data._replace(intents=None)
 
 		observations = replay_data.observations
 		actions = replay_data.actions
-		skills = self.get_parameterized_skills(replay_data)
+		skills_dict = self.get_parameterized_skills(replay_data)
+		skills = skills_dict["parameterized_skills"]
 		timesteps = replay_data.timesteps
 		maskings = replay_data.maskings
 

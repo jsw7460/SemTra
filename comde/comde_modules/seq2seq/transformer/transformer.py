@@ -1,15 +1,14 @@
-from typing import Dict, List
+import pickle
+import random
+from typing import Dict, List, Tuple
 
 import einops
-
 import jax.random
 import numpy as np
 import optax
 
-from comde.comde_modules.low_policies.base import BaseLowPolicy
 from comde.comde_modules.seq2seq.algos.forward import skilltoskill_transformer_forward as fwd
 from comde.comde_modules.seq2seq.algos.updates.skilltoskill_transformer import (
-	skilltoskill_transformer_updt as continuous_update,
 	skilltoskill_transformer_ce_updt as discrete_update
 )
 from comde.comde_modules.seq2seq.base import BaseSeqToSeq
@@ -32,13 +31,24 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		# Source skills: [b, l, d], Target skills: [b, l, d]
 		self.__model = None
 
-		self.decoder_max_len = self.cfg["skill_intent_transformer_cfg"]["decoder_cfg"]["max_len"]
-		self.skill_pred_type = "continuous"
+		self.decoder_max_len = self.cfg["transformer_cfg"]["decoder_cfg"]["max_len"]
 
-		# self.start_token = None	# type: SkillRepresentation
-		# self.end_token = None # type: SkillRepresentation
+		sentence_embedding_path = cfg["sentence_embedding_path"]
+		with open(sentence_embedding_path, "rb") as f:
+			self.sentence_embedding = pickle.load(f)  # type: Dict[str, Dict[str, np.ndarray]]
 
-		self.module_working = (self.cfg["coef_intent"] > 0) or (self.cfg["coef_skill"] > 0)
+		self.heldout_instructions = {key: [] for key in self.sentence_embedding.keys()}
+		self.reset_heldout_instructions()
+
+		# Compute the max length of sentence.
+		sentence_max_len = 0
+		for key in self.sentence_embedding.values():
+			assert len(key) > 30, "Too little variations."
+			for var in key.values():
+				sentence_length = var.shape[1]
+				if sentence_length > sentence_max_len:
+					sentence_max_len = sentence_length
+		self.sentence_max_len = sentence_max_len
 
 		if init_build_model:
 			self.build_model()
@@ -51,22 +61,18 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 	def model(self, model):
 		self.__model = model
 
+	def reset_heldout_instructions(self):
+		for key, value in self.sentence_embedding.items():
+			heldout_sentence = random.choices(list(value.keys()), k=3)
+			self.heldout_instructions[key] = heldout_sentence
+
 	def build_model(self):
-		transformer_cfg = self.cfg["skill_intent_transformer_cfg"]
+		transformer_cfg = self.cfg["transformer_cfg"]
 
-		if self.cfg["skill_pred_type"] == "continuous":
-			raise NotImplementedError("Are you sure that skill matching is done via MSE?")
-			# pred_dim = self.inseq_dim	# CLIP dim
-			# transformer_cfg.update({"skill_pred_dim": self.inseq_dim})
-			# self.skill_pred_type = "continuous"
-
-		elif self.cfg["skill_pred_type"] == "discrete":
-			# Predict discrete token. +2 for start-end tokens.
-			transformer_cfg.update({"skill_pred_dim": transformer_cfg["decoder_cfg"]["max_len"] + 2})
-			self.skill_pred_type = "discrete"
-
-		else:
-			raise NotImplementedError("Undefined skill prediction type")
+		# Predict discrete token. +2 for start-end tokens.
+		vocab_size = len(self._example_vocabulary)
+		# transformer_cfg.update({"skill_pred_dim": transformer_cfg["decoder_cfg"]["max_len"] + 2})
+		transformer_cfg.update({"skill_pred_dim": vocab_size - 2})  # We don't predict start token.
 
 		transformer = PrimSklToSklIntTransformer(**transformer_cfg)
 		init_x = np.zeros((1, transformer_cfg["decoder_cfg"]["max_len"], self.inseq_dim))  # 512 dim
@@ -81,77 +87,91 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 			tx=tx
 		)
 
-	@staticmethod
-	def concat_skill_language(source_skills: np.ndarray, n_source_skills: np.ndarray, language_operators: np.ndarray):
+	def get_context_and_mask(
+		self,
+		source_skills: np.ndarray,
+		n_source_skills: np.ndarray,
+		natural_languages: List[str],
+		training: bool
+	) -> Tuple[np.ndarray, np.ndarray]:
 		"""
 		Source skills: [b, M, d] (There are zero paddings for axis=1)
-		Language operators: [b, d]
 
-		Output:
-			Source-skill concatenated vector [b, M + 1, d]
+		1. From natural_languages, sample sentence tokens	([b, L, d])
+		2. Concatenate with source skills, which is a context for the Transformer. Thus, shape [b, M + L, d]
+		3. For M + L tokens in each batch, compute the context masking, which has the shape [b, M + L].
 		"""
 		b, m, d = source_skills.shape
-		source_skills = source_skills
 		n_source_skills = n_source_skills.reshape(b, 1)
+
+		sequential_requirements = []
+		pad_lengths = []
+		for str_seq_req in natural_languages:
+			if training:
+				seq_req = [
+					self.sentence_embedding[str_seq_req][var]
+					for var in self.sentence_embedding[str_seq_req].keys()
+					if var not in self.heldout_instructions[str_seq_req]
+				]
+			else:
+				seq_req = [
+					self.sentence_embedding[str_seq_req][var]
+					for var in self.sentence_embedding[str_seq_req].keys()
+					if var in self.heldout_instructions[str_seq_req]
+				]
+			seq_req = random.choice(seq_req)
+			seq_req = np.squeeze(seq_req, axis=0)
+
+			# Apply the zero padding
+			pad_length = self.sentence_max_len - seq_req.shape[0]
+			pad_lengths.append(pad_length)
+			padding = np.zeros((pad_length, self.inseq_dim))
+			padded_seq_req = np.concatenate((seq_req, padding), axis=0)
+			sequential_requirements.append(padded_seq_req)
+
+		sequential_requirements = np.array(sequential_requirements)	 # [b, 20, 768]
+		pad_lengths = np.array(pad_lengths).reshape(-1, 1)	# [b, 1]
+		seq_req_padding_mask = np.arange(self.sentence_max_len)
+		seq_req_padding_mask = np.broadcast_to(seq_req_padding_mask, (b, self.sentence_max_len))
+		seq_req_padding_mask = np.where(seq_req_padding_mask < self.sentence_max_len - pad_lengths, 1, 0)
 
 		source_skills_padding_mask = np.arange(m)
 		source_skills_padding_mask = np.broadcast_to(source_skills_padding_mask, (b, m))
 		source_skills_padding_mask = np.where(source_skills_padding_mask < n_source_skills, 1, 0)
 
-		source_skills = source_skills * source_skills_padding_mask.reshape(b, m, 1)
-		padded_source_skills = np.concatenate((source_skills, np.zeros((b, 1, d))), axis=1)  # [b, M + 1, d]
+		context = np.concatenate((source_skills, sequential_requirements), axis=1)
+		context_maskings = np.concatenate((source_skills_padding_mask, seq_req_padding_mask), axis=1)
 
-		residue = np.zeros_like(padded_source_skills)  # [b, M + 1, d]
-		residue[np.arange(b), n_source_skills, ...] = language_operators
+		return context, context_maskings
 
-		return padded_source_skills + residue
-
-	def update(self, replay_data: ComDeBufferSample, *, low_policy: BaseLowPolicy) -> Dict:
+	def update(self, replay_data: ComDeBufferSample) -> Dict:
 		# Concatenate source skills and language first
+		# return {"__parameterized_skills": None}	# For the present, not used.
 
-		if self.module_working:
-			raise NotImplementedError("Currently, we don't update skill to skill transformer.")
-			src_skill_language_concat = self.concat_skill_language(
-				source_skills=replay_data.source_skills,
-				n_source_skills=replay_data.n_source_skills,
-				language_operators=replay_data.language_operators
-			)
+		context, context_mask = self.get_context_and_mask(
+			source_skills=replay_data.source_skills,
+			n_source_skills=replay_data.n_source_skills,
+			natural_languages=replay_data.str_sequential_requirement,
+			training=True
+		)
+		update_fn_inputs = {
+			"rng": self.rng,
+			"tr": self.model,
+			"context": context,
+			"context_mask": context_mask,
+			"target_skills": replay_data.target_skills,
+			"target_skills_idxs": replay_data.target_skills_idxs,
+			"observations": replay_data.observations,
+			"actions": replay_data.actions,
+			"skills": replay_data.skills,
+			"maskings": replay_data.maskings,
+			"n_source_skills": replay_data.n_source_skills,
+			"n_target_skills": replay_data.n_target_skills,
+			"start_token": self.start_token.vec,
+		}
 
-			update_fn_inputs = {
-				"rng": self.rng,
-				"tr": self.model,
-				"low_policy": low_policy.model,
-				"context": src_skill_language_concat,
-				"target_skills": replay_data.target_skills,
-				"observations": replay_data.observations,
-				"actions": replay_data.actions,
-				"skills": replay_data.skills,
-				"skills_order": replay_data.skills_order,
-				"timesteps": replay_data.timesteps,
-				"maskings": replay_data.maskings,
-				"n_source_skills": replay_data.n_source_skills,
-				"n_target_skills": replay_data.n_target_skills,
-				"start_token": self.start_token.vec,
-				"end_token": self.end_token.vec,
-				"coef_intent": self.cfg["coef_intent"],
-				"coef_skill": self.cfg["coef_skill"]
-			}
-
-			if self.skill_pred_type == "continuous":
-				raise NotImplementedError("Continuous transformer is obsolete")
-				# update_fn = continuous_update
-
-			elif self.skill_pred_type == "discrete":
-				update_fn = discrete_update
-				update_fn_inputs.update({"target_skills_idxs": replay_data.target_skills_idxs})
-
-			else:
-				raise NotImplementedError(f"Undefined skill prediction type: {self.skill_pred_type}")
-
-			new_model, info = update_fn(**update_fn_inputs)
-			self.model = new_model
-		else:
-			info = {"__parameterized_skills": None}
+		new_model, info = discrete_update(**update_fn_inputs)
+		self.model = new_model
 
 		self.rng, _ = jax.random.split(self.rng)
 		return info
@@ -159,16 +179,20 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 	def maybe_done(
 		self,
 		pred_skills: np.ndarray,  # [b, d]
-		get_nearest_token: bool = True
+		get_nearest_token: bool = True,
+		stochastic_sampling: bool = False,
 	):
 		tokens_vec = np.array([vocab.vec for vocab in self._example_vocabulary])
 
 		_tokens_vec = tokens_vec[np.newaxis, ...]  # [1, M, d]
 		pred_skills = pred_skills[:, np.newaxis, ...]  # [b, 1, d]
 
-		if self.skill_pred_type == "discrete":
-			pred_skills = np.argmax(pred_skills, axis=-1, keepdims=True)	# [b, 1, n_skills]
-			pred_skills = np.take_along_axis(_tokens_vec, pred_skills, axis=1)	# [b, 1, d]
+		if stochastic_sampling:
+			pred_skills = jax.random.categorical(self.rng, logits=pred_skills, axis=-1)
+			pred_skills = pred_skills[..., np.newaxis]
+		else:
+			pred_skills = np.argmax(pred_skills, axis=-1, keepdims=True)  # [b, 1, 1]
+		pred_skills = np.take_along_axis(_tokens_vec, pred_skills, axis=1)  # [b, 1, d]
 
 		distance = np.mean((pred_skills - _tokens_vec) ** 2, axis=-1)  # [b, M]
 
@@ -185,8 +209,9 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 	def predict(
 		self,
 		source_skills: np.ndarray,  # [b, M, d]
-		language_operator: np.ndarray,  # [b, d]
+		natural_languages: List[str],
 		n_source_skills: np.ndarray,  # [b,]: Indication of true length of source_skills without zero padding
+		stochastic: bool = False
 	) -> Dict:
 		"""
 			Given source skills and language operator, this function generate the target skills.
@@ -199,20 +224,15 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 
 		done = False
 
-		context = self.concat_skill_language(
+		context, context_mask = self.get_context_and_mask(
 			source_skills=source_skills,
 			n_source_skills=n_source_skills,
-			language_operators=language_operator
+			natural_languages=natural_languages,
+			training=False
 		)
-
-		context_maxlen = context.shape[1]
-		ctx_padding_mask = np.arange(context_maxlen)
-		ctx_padding_mask = np.broadcast_to(ctx_padding_mask, (batch_size, context_maxlen))  # [b, l]
-		ctx_padding_mask = np.where(ctx_padding_mask <= n_source_skills.reshape(-1, 1), 1, 0)  # [b, l]
 
 		pred_skills_seq_raw = []
 		pred_skills_seq_quantized = []
-		pred_intents_seq = []
 		pred_nearest_idxs_seq = []
 
 		t = 0
@@ -224,15 +244,17 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 				model=self.model,
 				x=x,
 				context=context,
-				mask=ctx_padding_mask,
+				mask=context_mask,
 			)
 			pred_skills = predictions["pred_skills"][:, -1, ...]  # [b, d]
-			maybe_done, nearest_tokens, nearest_idxs = self.maybe_done(pred_skills, get_nearest_token=True)
+			maybe_done, nearest_tokens, nearest_idxs = self.maybe_done(
+				pred_skills,
+				get_nearest_token=True,
+				stochastic_sampling=stochastic
+			)
 
-			pred_intents = predictions["pred_intents"][:, -1, ...]
 			pred_skills_seq_raw.append(pred_skills)
 			pred_skills_seq_quantized.append(nearest_tokens)
-			pred_intents_seq.append(pred_intents)
 			pred_nearest_idxs_seq.append(nearest_idxs)
 
 			nearest_tokens = nearest_tokens.reshape(batch_size, 1, skill_dim)
@@ -243,11 +265,9 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 
 		pred_skills_raw = np.stack(pred_skills_seq_raw, axis=1)
 		pred_skills_quantized = np.stack(pred_skills_seq_quantized, axis=1)
-		pred_intents_seq = predictions["pred_intents"].copy()	# Use only final one
 		ret = {
 			"pred_skills_raw": pred_skills_raw,
 			"pred_skills_quantized": pred_skills_quantized,
-			"pred_intents": pred_intents_seq,
 			"pred_nearest_idxs": pred_nearest_idxs_seq
 		}
 		return ret
@@ -255,73 +275,38 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 	def predict_w_teacher_forcing(
 		self,
 		source_skills: np.ndarray,
-		language_operator: np.ndarray,
+		natural_languages: List[str],
 		n_source_skills: np.ndarray,
 		target: np.ndarray
 	):
-		context = self.concat_skill_language(
+		context, context_mask = self.get_context_and_mask(
 			source_skills=source_skills,
 			n_source_skills=n_source_skills,
-			language_operators=language_operator
+			natural_languages=natural_languages,
+			training=False,
 		)
-		batch_size = source_skills.shape[0]
-		context_maxlen = context.shape[1]
-		ctx_padding_mask = np.arange(context_maxlen)
-		ctx_padding_mask = np.broadcast_to(ctx_padding_mask, (batch_size, context_maxlen))  # [b, l]
-		ctx_padding_mask = np.where(ctx_padding_mask <= n_source_skills.reshape(-1, 1), 1, 0)  # [b, l]
 
 		self.rng, predictions = fwd(
 			rng=self.rng,
 			model=self.model,
 			x=target,
 			context=context,
-			mask=ctx_padding_mask
+			mask=context_mask
 		)
 		return predictions
 
 	def _evaluate_continuous(self, replay_data: ComDeBufferSample) -> Dict:
-		prediction = self.predict(
-			source_skills=replay_data.source_skills,
-			language_operator=replay_data.language_operators,
-			n_source_skills=replay_data.n_source_skills
-		)
-
-		target_skills = replay_data.target_skills  # [b, M, d]
-		n_target_skills = replay_data.n_target_skills  # [b, M]
-		pred_skills_raw = prediction["pred_skills_raw"]  # [b, l, d]
-
-		batch_size = target_skills.shape[0]
-		skill_dim = target_skills.shape[-1]
-		pad = np.zeros((batch_size, target_skills.shape[1] - pred_skills_raw.shape[1], skill_dim))
-		pred_skills_raw = np.concatenate((pred_skills_raw, pad), axis=1)  # [b, M, d]
-
-		tgt_mask = np.arange(self.decoder_max_len)
-		tgt_mask = np.broadcast_to(tgt_mask, (batch_size, self.decoder_max_len))  # [b, M]
-		tgt_mask = np.where(tgt_mask < n_target_skills[..., np.newaxis], 1, 0)[..., np.newaxis]  # [b, M, 1]
-
-		pred_skills_raw = pred_skills_raw * tgt_mask
-		target_skills = target_skills * tgt_mask
-		skills_mse = np.sum(np.mean((pred_skills_raw - target_skills) ** 2, axis=-1)) / np.sum(tgt_mask)
-
-		pred_w_target = self.predict_w_teacher_forcing(
-			source_skills=replay_data.source_skills,
-			language_operator=replay_data.language_operators,
-			n_source_skills=replay_data.n_source_skills,
-			target=replay_data.target_skills
-		)
-		pred_intents = pred_w_target["pred_intents"]
-		pred_intents = np.take_along_axis(pred_intents, indices=replay_data.skills_order[..., np.newaxis], axis=1)
-		return {"s2s/skill_loss": skills_mse, "__intents": pred_intents}
+		raise NotImplementedError("Continuous mode is obsolete")
 
 	def _evaluate_discrete(self, replay_data: ComDeBufferSample) -> Dict:
 		prediction = self.predict(
 			source_skills=replay_data.source_skills,
-			language_operator=replay_data.language_operators,
+			natural_languages=replay_data.str_sequential_requirement,
 			n_source_skills=replay_data.n_source_skills
 		)
 
 		pred_nearest_idxs = np.array(prediction["pred_nearest_idxs"])
-		pred_nearest_idxs = einops.rearrange(pred_nearest_idxs, "l b -> b l")	# [b, M]
+		pred_nearest_idxs = einops.rearrange(pred_nearest_idxs, "l b -> b l")  # [b, M]
 
 		target_skills_idxs = replay_data.target_skills_idxs  # [b, M, d]
 		n_target_skills = replay_data.n_target_skills  # [b, M]
@@ -337,25 +322,12 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 
 		match_ratio = np.sum(pred_nearest_idxs == target_skills_idxs) / np.sum(tgt_mask)
 
-		pred_w_target = self.predict_w_teacher_forcing(
-			source_skills=replay_data.source_skills,
-			language_operator=replay_data.language_operators,
-			n_source_skills=replay_data.n_source_skills,
-			target=replay_data.target_skills
-		)
-		pred_intents = pred_w_target["pred_intents"]
-		pred_intents = np.take_along_axis(pred_intents, indices=replay_data.skills_order[..., np.newaxis], axis=1)
-		return {"s2s/skill_match_ratio": match_ratio, "__intents": pred_intents}
+		return {"s2s/skill_match_ratio": match_ratio}
 
 	def evaluate(self, replay_data: ComDeBufferSample) -> Dict:
-		if self.module_working:
-			if self.skill_pred_type == "continuous":
-				return self._evaluate_continuous(replay_data=replay_data)
-
-			elif self.skill_pred_type == "discrete":
-				return self._evaluate_discrete(replay_data=replay_data)
-		else:
-			return {"__parameterized_skills": None}
+		eval_info =  self._evaluate_discrete(replay_data=replay_data)
+		self.reset_heldout_instructions()
+		return eval_info
 
 	def _excluded_save_params(self) -> List:
 		return SklToSklIntTransformer.PARAM_COMPONENTS
@@ -369,3 +341,6 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 
 	def _get_load_params(self) -> List[str]:
 		return SklToSklIntTransformer.PARAM_COMPONENTS
+
+	def str_to_activation(self, activation_fn: str):
+		pass

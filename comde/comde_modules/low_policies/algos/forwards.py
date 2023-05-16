@@ -75,3 +75,28 @@ def skill_mlp_forward(
 		training=False
 	)
 	return rng, prediction
+
+
+
+@jax.jit
+def skill_ln_mlp_forward(
+	rng: jnp.ndarray,
+	model: Model,
+	observations: jnp.ndarray,
+	skills: jnp.ndarray,
+	non_functionality: jnp.ndarray,
+	parameters: jnp.ndarray,
+) -> Tuple[PRNGKey, jnp.ndarray]:
+
+	rng, dropout_key = jax.random.split(rng)
+	prediction = model.apply_fn(
+		{"params": model.params},
+		observations=observations,
+		skills=skills,
+		non_functionality=non_functionality,
+		parameters=parameters,
+		rngs={"dropout": dropout_key},
+		deterministic=True,
+		training=False
+	)
+	return rng, prediction

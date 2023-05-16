@@ -41,7 +41,7 @@ class PrimSkillMLP(nn.Module):
 			kernel_init=self.kernel_init,
 			bias_init=self.bias_init
 		)
-		self.mlp = Scaler(base_model=mlp, scale=self.act_scale)
+		self.mlp = Scaler(base_model=mlp, scale=jnp.array(self.act_scale))
 
 	def __call__(self, *args, **kwargs):
 		return self.forward(*args, **kwargs)

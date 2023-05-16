@@ -1,12 +1,11 @@
 import pickle
-
-import numpy as np
-
-from comde.utils.common.lang_representation import SkillRepresentation
 from collections import defaultdict
 
 import clip
+import numpy as np
 import torch
+
+from comde.utils.common.lang_representation import SkillRepresentation
 
 AVAILABLE_MODELS = ['RN50',
 					'RN101',
@@ -17,7 +16,6 @@ AVAILABLE_MODELS = ['RN50',
 					'ViT-B/16',
 					'ViT-L/14',
 					'ViT-L/14@336px']
-
 
 if __name__ == "__main__":
 
@@ -67,7 +65,6 @@ if __name__ == "__main__":
 		vectors_variations = text_features[title]
 
 		for variation, tensor in vectors_variations.items():
-
 			skill_representation = SkillRepresentation(
 				title=title,
 				variation=variation,
@@ -75,7 +72,6 @@ if __name__ == "__main__":
 				index=idx
 			)
 			save_dict[title].append(skill_representation)
-
 
 	with open("/home/jsw7460/mnt/comde_datasets/clip_mappings/metaworld/clip_mapping", "wb") as f:
 		pickle.dump(save_dict, f)

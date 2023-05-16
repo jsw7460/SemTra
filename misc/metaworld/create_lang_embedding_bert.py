@@ -1,62 +1,22 @@
 import pickle
 from pathlib import Path
-from itertools import combinations
-from comde.utils.common.lang_representation import Template
 
-from transformers import BertTokenizer, BertModel
 import torch as th
+from transformers import BertTokenizer, BertModel
 
 if __name__ == "__main__":
 
-	# Start === Hyper parameters
+	# === Hyper parameters
 	save_dir = "/home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/language_guidance/"
-	topic = "metaworld_templates"
-
-	meta_information = {
-		"language_model": "bert"
-	}
-
-	sequential_requirements = [
+	topic = "mw_word_embedding"
+	main_texts = [
 		"sequential", "reverse", "replace 3 with 1", "replace 6 with 1", "replace 4 with 1",
 		"replace 6 with 3", "replace 4 with 3", "replace 1 with 6", "replace 1 with 3", "replace 3 with 4",
 		"replace 3 with 6", "replace 6 with 4", "replace 1 with 4", "replace 4 with 6"
 	]
-	non_functionality = [
-		"speed"
-	]
-
-	# In the following code section, you need to make the variable 'parameters'
-	POSSIBLE_SPEEDS = {
-		1: {"fast": 25.0, "normal": 10.0, "slow": 1.5},
-		3: {"fast": 25.0, "normal": 13.0, "slow": 6.0},
-		4: {"fast": 15.0, "normal": 5.0, "slow": 1.5},
-		6: {"fast": 25.0, "normal": 8.0, "slow": 3.0}
-	}
-	DEFAULT_SPEED = "fast"
-	NONDEFAULT_SPEED = ["normal", "slow"]
-
-	parameters = []
-	tasks_set = {1, 3, 4, 6}
-	for r in [0, 1, 2]:
-		slowed_tasks_tuples = set(combinations(tasks_set, r))
-
-		for slow_tasks in slowed_tasks_tuples:
-			for nondefault_speed in ["slow", "normal"]:
-
-				parameter = dict()
-				default_tasks = tasks_set - set(slow_tasks)
-
-				# Default tasks appended
-				for task in default_tasks:
-					parameter[task] = POSSIBLE_SPEEDS[task][DEFAULT_SPEED]
-
-				for slow_task in slow_tasks:
-					parameter[slow_task] = POSSIBLE_SPEEDS[slow_task][nondefault_speed]
-
-				parameters.append(parameter)
 
 	# text_variations: Key: main_texts // value: variations of main_texts
-	sequential_requirements_variations = {
+	texts_variations = {
 		"sequential": ["Execute these in a particular order.", "Complete these one after the other.",
 					   "Do these tasks in a specific order.", "Carry out these actions sequentially.",
 					   "Perform these steps in order.", "Follow these instructions in sequence.",
@@ -716,62 +676,26 @@ if __name__ == "__main__":
 			"Trade pressing the button for opening the door"
 		]
 	}
+	assert main_texts == list(texts_variations.keys())
 
-	non_functionality_variations = {"speed": ["speed"]}
+	# === Hyper parameters
 
-	assert sequential_requirements == list(sequential_requirements_variations.keys())
-	assert non_functionality == list(non_functionality_variations.keys())
+	tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+	model = BertModel.from_pretrained("bert-base-uncased").cuda()
 
-	# End === Hyper parameters
+	save_dict = {main_text: dict() for main_text in main_texts}
 
-	tokenizer = BertTokenizer.from_pretrained('bert-large-uncased')
-	model = BertModel.from_pretrained("bert-large-uncased").cuda()
-
-	sequential_vectors = {main_text: dict() for main_text in sequential_requirements}
-	nonfunc_vectors = {main_text: dict() for main_text in non_functionality}
-
+	time = 0
 	with th.no_grad():
-		for seq_key, seq_variations in sequential_requirements_variations.items():
-			for seq_text in seq_variations:
-				encoded_input = tokenizer(seq_text, return_tensors='pt').to("cuda:0")
-				output = model(**encoded_input)["last_hidden_state"]
-				sentence_vector = th.mean(output, dim=1).squeeze()
+		for key, variations in texts_variations.items():
+			for text in variations:
+				time += 1
+				encoded_input = tokenizer(text, return_tensors='pt').to("cuda:0")
+				sentence_vector = model(**encoded_input)["last_hidden_state"]
 				sentence_vector = sentence_vector.cpu().numpy()
-				sequential_vectors[seq_key][seq_text] = sentence_vector
+				print("Sentence vector", sentence_vector.shape)
+				print(sentence_vector.shape)
+				save_dict[key][text] = sentence_vector
 
-		for nonfunc_key, nonfunc_variations in non_functionality_variations.items():
-			for nonfunc_text in nonfunc_variations:
-				encoded_input = tokenizer(nonfunc_text, return_tensors='pt').to("cuda:0")
-				output = model(**encoded_input)["last_hidden_state"]
-				sentence_vector = th.mean(output, dim=1).squeeze()
-				sentence_vector = sentence_vector.cpu().numpy()
-				nonfunc_vectors[nonfunc_key][nonfunc_text] = sentence_vector
-
-
-	# Make data for saving
-	save_dict = {k: [] for k in sequential_vectors.keys()}
-
-	for seq_key, seq_variations in sequential_vectors.items():
-		for nonfunc_key, nonfunc_variations in nonfunc_vectors.items():
-			for param in parameters:
-
-				for seq_var_key, seq_var_vec in seq_variations.items():
-					for nonfunc_var_key, nonfunc_var_vec in nonfunc_variations.items():
-						sequential_requirement = {
-							"name": seq_key, "variation": seq_var_key, "vector": seq_var_vec
-						}
-						non_functionality = {
-							"name": nonfunc_key, "variation": nonfunc_var_key, "vector": nonfunc_var_vec
-						}
-						new_template = Template(
-							sequential_requirement=sequential_requirement,
-							non_functionality=non_functionality,
-							parameter=param
-						)
-						save_dict[seq_key].append(new_template)
-
-	save_dict.update(**meta_information)
-	print(sequential_vectors["sequential"]["Execute these in a particular order."])
-	#
-	# with open(Path(save_dir) / Path(f"BERT_{topic}"), "wb") as f:
-	# 	pickle.dump(save_dict, f)
+	with open(Path(save_dir) / Path(f"{topic}_bert_base_mapping"), "wb") as f:
+		pickle.dump(save_dict, f)

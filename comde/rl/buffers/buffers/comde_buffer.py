@@ -1,23 +1,26 @@
-import ast
 import pickle
 import random
-from typing import Dict, Optional, Union, Tuple, List, Any
+from typing import Dict, Optional, Union, Tuple, List
 
 import gym
 import h5py
 import numpy as np
 from jax.tree_util import tree_map
 from stable_baselines3.common.vec_env import VecNormalize
+from copy import deepcopy
 
 from comde.rl.buffers.buffers.episodic import EpisodicMaskingBuffer
 from comde.rl.buffers.episodes.source_target_skill import SourceTargetSkillContainedEpisode
 from comde.rl.buffers.episodes.source_target_state import SourceStateEpisode
 from comde.rl.buffers.type_aliases import ComDeBufferSample
+from comde.utils.common.safe_eval import safe_eval_to_float
+
+array = np.array		# DO NOT REMOVE THIS !
 
 
 class ComdeBuffer(EpisodicMaskingBuffer):
 	MUST_LOADED_COMPONENTS = {
-		"observations", "actions", "skills_idxs", "skills_order", "skills_done", "source_skills", "target_skills"
+		"actions", "skills_idxs", "skills_order", "skills_done", "source_skills", "target_skills"
 	}
 
 	def __init__(
@@ -39,11 +42,23 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		)
 		del self.representative_to_indices
 
+		cfg = deepcopy(cfg)
+
 		self.num_skills_done_relabel = cfg["num_skills_done_relabel"]
 		self.max_source_skills = cfg["max_source_skills"]
 		self.max_target_skills = cfg["max_target_skills"]
 		self.save_source_trajectory = cfg["save_source_trajectory"]
-		self.default_source_skills = cfg["default_source_skills"]
+		self.default_source_skills \
+			= cfg["default_source_skills"]  # type: Dict[str, Dict[int, Union[float, np.ndarray]]]
+
+		for nf, pdict in self.default_source_skills.items():
+			if -1 in pdict.keys():
+				raise LookupError("-1 is for the skill which is padded. Please fix here.")
+			else:
+				pdict.update({-1: np.zeros_like(np.array(list(pdict.values())[0]))})
+		self.observation_keys = cfg["observation_keys"]
+		# If parameter is numpy -> use eval function, otherwise ast.literal_eval
+		self.eval_param = eval if cfg["np_parameter"] else safe_eval_to_float
 		self.episode_class = SourceStateEpisode if self.save_source_trajectory else SourceTargetSkillContainedEpisode
 
 	def add_dict_chunk(self, dataset: Dict, representative: str = None, clear_info: bool = False) -> None:
@@ -85,6 +100,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			if dataset is None:
 				continue
 			episode.add_from_dict(dataset)
+			episode.set_rtgs()
 
 			self.add(episode)
 			self.episode_lengths.append(len(episode))
@@ -105,18 +121,23 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		non_functionalities_mapping: Dict[str, Dict[str, np.ndarray]],
 		num_skills_done_relabel: int,
 	) -> Dict:
-		assert self.MUST_LOADED_COMPONENTS <= trajectory.keys(), \
-			f"Under qualified dataset. Please fill {trajectory.keys() - self.MUST_LOADED_COMPONENTS}"
+		must_loaded_components = self.MUST_LOADED_COMPONENTS.union(set(self.observation_keys))
+		assert must_loaded_components <= trajectory.keys(), \
+			f"Under qualified dataset. Please fill {must_loaded_components - trajectory.keys()}"
 
-		observations = np.array(trajectory["observations"])
+		obs_values = []
+		for obs_key in self.observation_keys:
+			obs_values.append(trajectory[obs_key])
+
+		observations = np.hstack(obs_values)
 		next_observations = np.zeros_like(observations)
 		next_observations[: -1] = observations[1:]
 		actions = np.array(trajectory["actions"])
 
 		traj_len = len(observations)
-		rewards = np.zeros((traj_len,))
+
 		rtgs = np.zeros((traj_len,))
-		dones = np.zeros_like(rewards, dtype=np.bool)
+		dones = np.zeros((traj_len,), dtype=np.bool)
 
 		if "infos" in trajectory.keys():
 			assert type(trajectory["infos"]) == List, "undefined info type"
@@ -134,13 +155,15 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		non_functionality = str(trajectory["non_functionality"][()], "utf-8")
 		skills_idxs = np.array(trajectory["skills_idxs"])
 		parameter = str(trajectory["parameter"][()], "utf-8")
-		parameter = ast.literal_eval(parameter)
+		parameter = self.eval_param(parameter)
+		if -1 in parameter.keys():
+			raise LookupError("-1 is for the skill which is padded. Please fix here.")
+		else:
+			parameter.update({-1: 0.0})
+
 		source_parameter = self.default_source_skills[non_functionality].copy()
 
-		for key, value in parameter.items():  # Make into float value (because hdf5 save string).
-			parameter[key] = float(value)
-
-		params_for_skills = self.get_skills_parameter(
+		params_for_skills = self.get_params_for_skills(
 			skills_idxs=skills_idxs,
 			parameter=parameter
 		)
@@ -157,11 +180,18 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			first_observations[i] = observations[first_obs_pos]
 
 		# === Augment skill done by 4 ===
+		skills_done = np.array(trajectory["skills_done"])
 		done_times = np.where(np.array(trajectory["skills_done"]) == 1)[0]
-		augmented_skills_done = np.array(trajectory["skills_done"]).copy()
+		augmented_skills_done = skills_done.copy()
 
 		for timestep in done_times.astype("i4"):
 			augmented_skills_done[timestep - num_skills_done_relabel: timestep + num_skills_done_relabel + 1] = 1
+
+		# === Set reward (For some environment this is required)
+		if "rewards" in trajectory.keys():
+			rewards = np.array(trajectory["rewards"])
+		else:
+			rewards = skills_done.astype(np.float32)
 
 		dataset = {
 			"observations": observations,
@@ -173,6 +203,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			"source_skills_idxs": source_skills,
 			"target_skills_idxs": target_skills,
 			"sequential_requirement": sequential_requirement_vector,  # Sequential requirements act as an operator.
+			"str_sequential_requirement": sequential_requirement,
 			"non_functionality": non_functionality_vector,
 			"first_observations": first_observations,
 			"skills_done": augmented_skills_done,
@@ -205,6 +236,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		target_skills = []
 		n_source_skills = []
 		n_target_skills = []
+		str_sequential_requirements = []
 		sequential_requirements = []
 		non_functionalities = []
 		subtrajectories = []
@@ -213,7 +245,6 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 
 		for ep, start_idx in zip(episodes, start_idxs):
 			subtraj = ep.get_numpy_subtrajectory(from_=start_idx, to_=start_idx + self.subseq_len, batch_mode=False)
-			subtraj.pop("rtgs")
 			source_parameters.append(subtraj.pop("source_parameter"))
 			parameters.append(subtraj.pop("parameter"))
 			# source_observations.append(subtraj.pop("source_observations"))
@@ -222,6 +253,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			subtrajectories.append(subtraj)
 			source_skills.append(subtraj.pop("source_skills"))
 			target_skills.append(subtraj.pop("target_skills"))
+			str_sequential_requirements.append(subtraj.pop("str_sequential_requirement"))
 			sequential_requirements.append(random.choice(list(subtraj.pop("sequential_requirement").values())))
 			non_functionalities.append(random.choice(list(subtraj.pop("non_functionality").values())))
 			n_source_skills.append(subtraj.pop("n_source_skills"))
@@ -236,6 +268,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			target_skills_idxs=np.array(target_skills),  # This is index. Not dense vector
 			n_source_skills=np.array(n_source_skills),
 			n_target_skills=np.array(n_target_skills),
+			str_sequential_requirement=str_sequential_requirements,
 			sequential_requirement=np.array(sequential_requirements),
 			non_functionality=np.array(non_functionalities),
 			source_parameters=source_parameters,
@@ -244,17 +277,22 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		return buffer_sample
 
 	@staticmethod
-	def get_skills_parameter(
-		skills_idxs: np.ndarray,
-		parameter: Any,
+	def get_params_for_skills(
+		skills_idxs: np.ndarray,  # [l, ]
+		parameter: Dict,
 	) -> np.ndarray:
 		"""
-		:param skills_idxs:
+		:param skills_idxs:	# [sequence length, ]
 		:param parameter:
 		:return: [seq_len, param_dim]
 		"""
-		return_parameter = np.zeros_like(skills_idxs)
+
+		seq_len = skills_idxs.shape[0]
+		raw_param_dim = np.array([list(parameter.values())[0]]).shape[-1]
+		return_parameter = np.zeros((seq_len, raw_param_dim))
 		for skill_idx, param in parameter.items():
-			return_parameter = np.where(skills_idxs == skill_idx, param, return_parameter)
-		return_parameter = return_parameter[..., np.newaxis]
+			idxs = np.where(skills_idxs == skill_idx)
+
+			return_parameter[idxs] = param
+
 		return return_parameter

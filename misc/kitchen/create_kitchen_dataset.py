@@ -18,10 +18,7 @@ file = h5py.File("/home/jsw7460/mnt/comde_datasets/metaworld/speed/3_target_skil
 wind_file = h5py.File("/home/jsw7460/mnt/comde_datasets/metaworld/wind/3_target_skills/0/data0.hdf5")
 
 # Make keys: [actions, non_functionality, observations, parameter, sequential_requirement, skills_done, skills_idxs, skills_order, source_skills, target_skills]
-WINDS = [
-	-0.35, -0.3, -0.25, -0.2, -0.15, -0.1, -0.05, 0.0,
-	0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35
-]
+WINDS = [-0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3]
 
 KITCHEN_SKILL_INDICES = {
 	'bottom burner': 0,
@@ -160,8 +157,7 @@ if __name__ == "__main__":
 
 	file_idx = 0
 	folder_idx = 0
-	save_path = f'/home/jsw7460/mnt/comde_datasets/kitchen/wo_wind/4_target_skills'
-	# save_path = f'/home/jsw7460/foo'
+	save_path = f'/home/jsw7460/mnt/comde_datasets/kitchen/wind/4_target_skills'
 	folder_path = save_path + '/' + f'{folder_idx}'
 	os.makedirs(folder_path, exist_ok=True)
 
@@ -232,9 +228,6 @@ if __name__ == "__main__":
 				for v in template.parameter.values():
 					assert v == wind_mean
 
-				if wind_mean != 0.0:
-					continue
-
 				wind = np.array([wind_mean, 0., 0., 0., 0., 0., 0., 0., 0.]).reshape(1, -1)
 				source_skills = template_split_target_to_source(target_skills, operators, template)
 
@@ -244,14 +237,19 @@ if __name__ == "__main__":
 
 				for source_skill in source_skills:
 					wind_appended_actions = actions - wind
+					# print(source_skill)
+					# exit()
 
 					# exit()
 					data_path = os.path.join(folder_path, f'data{file_idx}.hdf5')
 					# data_path = "/home/jsw7460/foo.hdf5"
+					# ========= SAVE =========
 					with h5py.File(data_path, 'w') as f:
 						# source_skill, operator
 						for k, v in source_skill.items():
 							if 'video' in k:
+								print("Video skill type!", type(v))
+								exit()
 								f['source_skills/' + k] = v
 							elif 'template' in k:
 								f.create_dataset('sequential_requirement', data=v.sequential_requirement)
@@ -261,7 +259,6 @@ if __name__ == "__main__":
 								raise ValueError()
 
 						# target_skill
-						# print("SKILLS IDXS", skills_idxs)
 						f.create_dataset('target_skills', data=target_skills)
 
 						# obs, action, skill_idx
@@ -270,10 +267,10 @@ if __name__ == "__main__":
 						f.create_dataset('skills_idxs', data=skills_idxs)
 						f.create_dataset('skills_done', data=skills_done)
 						f.create_dataset('skills_order', data=skills_order)
-
+					# ========= SAVE =========
 					file_idx += 1
 
-					if file_idx % 100000 == 0:
+					if file_idx % 10000 == 0:
 						folder_idx += 1
 						folder_path = save_path + '/' + f'{folder_idx}'
 						os.makedirs(folder_path, exist_ok=True)

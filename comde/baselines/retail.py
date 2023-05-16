@@ -15,6 +15,7 @@ from comde.rl.buffers.type_aliases import ComDeBufferSample
 from comde.utils.jax_utils.general import get_basic_rngs
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
+from comde.baselines.utils.get_episode_skills import get_episodic_level_skills
 
 
 class Retail(BaseLowPolicy):
@@ -28,6 +29,7 @@ class Retail(BaseLowPolicy):
 		self.obs_subseq_len = cfg["obs_subseq_len"]
 		self.act_subseq_len = cfg["act_subseq_len"]
 		self.n_target_skill = cfg["n_target_skill"]
+		self.policy_warmup_step = cfg["policy_warmup_step"]
 
 		self.parameterized_skill_dim = self.skill_dim + self.nonfunc_dim + self.param_dim
 
@@ -81,64 +83,14 @@ class Retail(BaseLowPolicy):
 			tx=tx
 		)
 
-	def get_flat_parameterized_source_target_skills(self, replay_data: ComDeBufferSample):
-		"""
-		source_skills: [1, 3, 4]
-		info: type: List[Dict] [{1: ..., 3: ..., 4: ...}, {1: ..., 3: ..., 4: ...,}, ...]	# Length = batch size
-		:param replay_data:
-		:return:
-		"""
-
-		source_skills = replay_data.source_skills
-		target_skills = replay_data.target_skills
-
-		batch_source_params = []
-		batch_target_params = []
-
-		non_func = replay_data.non_functionality
-		source_parameter = replay_data.source_parameters
-		parameter = replay_data.parameters
-
-		source_skills_idxs = replay_data.source_skills_idxs[:, :self.n_target_skill, ...]
-		target_skills_idxs = replay_data.target_skills_idxs[:, :self.n_target_skill, ...]
-		for i, (source_idx, target_idx) in enumerate(zip(source_skills_idxs, target_skills_idxs)):
-			# i: loop over batch
-			source_params = [source_parameter[i][idx] for idx in source_idx]
-			target_params = [parameter[i][idx] for idx in target_idx]
-			batch_source_params.append(source_params)
-			batch_target_params.append(target_params)
-
-		batch_source_params = np.array(batch_source_params)[..., np.newaxis]	# b, n_target_skill
-		batch_target_params = np.array(batch_target_params)[..., np.newaxis]	# b, n_target_skill
-		batch_source_params = np.repeat(batch_source_params, axis=-1, repeats=self.param_dim)
-		batch_target_params = np.repeat(batch_target_params, axis=-1, repeats=self.param_dim)
-
-		batch_size = source_skills.shape[0]
-
-		source_skills = source_skills[:, :self.n_target_skill, ...]	# [b, n, d]
-		target_skills = target_skills[:, :self.n_target_skill, ...]	# [b, n, d]
-
-		parameterized_source_skills = np.concatenate((source_skills, batch_source_params), axis=-1)
-		parameterized_target_skills = np.concatenate((target_skills, batch_target_params), axis=-1)
-
-		flat_parameterized_source_skills = parameterized_source_skills.reshape(batch_size, -1)
-		flat_parameterized_target_skills = parameterized_target_skills.reshape(batch_size, -1)
-
-		flat_parameterized_source_skills = np.concatenate((flat_parameterized_source_skills, non_func), axis=-1)
-		flat_parameterized_target_skills = np.concatenate((flat_parameterized_target_skills, non_func), axis=-1)
-
-		info = {
-			"flat_parameterized_source_skills": flat_parameterized_source_skills,
-			"flat_parameterized_target_skills": flat_parameterized_target_skills,
-			"parameterized_target_skills": parameterized_target_skills
-		}
-		return info
-
 	def update(self, replay_data: ComDeBufferSample) -> Dict:
-
-		info = self.get_flat_parameterized_source_target_skills(replay_data)
-		f_p_source_skills = info["flat_parameterized_source_skills"]
-		f_p_target_skills = info["flat_parameterized_target_skills"]
+		info = get_episodic_level_skills(
+			replay_data=replay_data,
+			n_target_skill=self.n_target_skill,
+			param_repeats=self.param_repeats
+		)
+		f_p_source_skills = info["flat_nonfunc_parameterized_source_skills"]
+		f_p_target_skills = info["flat_nonfunc_parameterized_target_skills"]
 		p_target_skills = info["parameterized_target_skills"]
 
 		subseq_len = replay_data.actions.shape[1]
@@ -159,7 +111,7 @@ class Retail(BaseLowPolicy):
 
 		language = np.concatenate((replay_data.sequential_requirement, replay_data.non_functionality), axis=-1)
 		transfer_info = dict()
-		if self.n_update % 100 == 0:
+		if self.policy_warmup_step < self.n_update:
 			new_transfer, transfer_info = transfer_update(
 				rng=self.rng,
 				policy=self.__policy,
@@ -175,7 +127,6 @@ class Retail(BaseLowPolicy):
 			self.__transfer = new_transfer
 
 		self.rng, _ = jax.random.split(self.rng)
-
 		self.n_update += 1
 		return {**policy_info, **transfer_info}
 

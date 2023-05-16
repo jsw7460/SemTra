@@ -12,7 +12,7 @@ class LanguageRepresentation(NamedTuple):
 class SkillRepresentation(NamedTuple):
 	title: str
 	variation: List[str]
-	vec: List[np.ndarray]
+	vec: np.ndarray
 	index: int = -1	# Null skill
 
 

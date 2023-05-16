@@ -44,7 +44,7 @@ for j, path in enumerate(hdf_files):
 	else:
 		trajectory.close()
 
-		# print(str(trajectory["operator"]))
+	# print(str(trajectory["operator"]))
 
-	# print(x)
-	# trajectory["operator"][()]
+# print(x)
+# trajectory["operator"][()]

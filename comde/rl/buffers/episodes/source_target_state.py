@@ -167,9 +167,9 @@ class SourceStateEpisode(SourceTargetSkillContainedEpisode):
 		src_len = len(dataset["source_observations"])
 		self.source_skills = dataset["source_skills_idxs"]
 		self.n_source_skills = len(self.source_skills)
-
 		self.target_skills = dataset["target_skills_idxs"]
 		self.n_target_skills = len(self.target_skills)
+
 		self.sequential_requirement = dataset["sequential_requirement"]
 		self.non_functionality = dataset["non_functionality"]
 		self.parameter = dataset["parameter"].copy()

@@ -5,13 +5,15 @@ cfg:
   obs_mean: 0.0
   obs_std: 1.0
 
+  policy_warmup_step: 1_000_000
   language_dim: ${language_dim}
   n_target_skill: 3
   observation_dim: ${observation_dim}
   action_dim: ${action_dim}
   skill_dim: ${skill_dim}
   non_functionality_dim: ${non_functionality_dim}
-  param_dim: ${param_dim}
+  param_dim: ${env.param_dim}
+  param_repeats: ${env.param_repeats}
 
   entity_dim: ${observation_dim}
   goal_dim: ${observation_dim}
@@ -21,6 +23,7 @@ cfg:
   policy_cfg:
     act_scale: ${act_scale}
     output_dim: ${action_dim}
+    squash_output: True
     net_arch:
       - 128
       - 128

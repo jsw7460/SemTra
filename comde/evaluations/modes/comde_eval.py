@@ -7,6 +7,7 @@ from jax.tree_util import tree_map
 from comde.comde_modules.low_policies.base import BaseLowPolicy
 from comde.comde_modules.termination.base import BaseTermination
 from comde.rl.envs.utils import SkillHistoryEnv
+from comde.evaluations.utils.postprocess_evaldata import postprocess_eval_data as postprocess
 
 I_OBS = 0
 I_REWARD = 1
@@ -14,12 +15,12 @@ I_DONE = 2
 I_INFO = 3
 
 
-def evaluate_comde_batch(
+def evaluate_comde(
 	envs: List[SkillHistoryEnv],
 	low_policy: BaseLowPolicy,
 	termination: BaseTermination,
 	target_skills: np.ndarray,
-	termination_pred_interval: int = 50,
+	termination_pred_interval: int,
 	save_results: bool = False,
 	use_optimal_next_skill: bool = False,
 ):
@@ -34,7 +35,6 @@ def evaluate_comde_batch(
 	:return:
 	"""
 	# Some variables
-
 	n_envs = len(envs)
 	subseq_len = envs[0].num_stack_frames
 	semantic_skill_dim = termination.skill_dim
@@ -61,7 +61,7 @@ def evaluate_comde_batch(
 
 		history_observations = obs["observations"]  # [8, 4, 140]
 		history_actions = obs["actions"]  # [8, 4, 4]
-		history_rewards = obs["rewards"]  # [8, 4]
+		# history_rewards = obs["rewards"]  # [8, 4]
 		history_skills = obs["skills"]  # [8, 4, 512]
 		history_maskings = obs["maskings"]
 		timestep += 1
@@ -70,7 +70,6 @@ def evaluate_comde_batch(
 
 		if use_optimal_next_skill:
 			cur_skill_pos = np.min([cur_skill_pos + rew, max_skills], axis=0)
-			print("Cur skill pos", cur_skill_pos)
 		else:
 			if ((timestep - 1) % termination_pred_interval) == 0 and (timestep > 30):
 				maybe_skill_done = termination.predict(
@@ -80,11 +79,12 @@ def evaluate_comde_batch(
 					binary=True
 				)
 				skill_done = np.where(maybe_skill_done == 1)[0]
-				first_observations[skill_done] = history_observations[skill_done, -1, ...].copy()
+				first_observations[skill_done] = history_observations[skill_done, -1, ...]
 				cur_skill_pos = np.min([cur_skill_pos + maybe_skill_done, max_skills], axis=0)
 
 		cur_skill_pos = cur_skill_pos.astype("i4")
 		cur_skills = target_skills[np.arange(n_envs), cur_skill_pos, ...]
+
 		timesteps = np.arange(timestep - subseq_len, timestep)[np.newaxis, ...]
 		timesteps = np.repeat(timesteps, axis=0, repeats=n_envs)
 		timesteps[timesteps < 0] = -1
@@ -102,12 +102,15 @@ def evaluate_comde_batch(
 		obs_list = [result[I_OBS] for result in step_results]
 
 		obs = tree_map(lambda *arr: np.stack(arr, axis=0), *obs_list)
-		rew = np.stack([result[I_REWARD] for result in step_results])
-
-		# if np.sum(rew) > 0:
-		# 	print("POSITIVE!!!")
-		# 	exit()
 		done = np.stack([result[I_DONE] for result in step_results])
+
+		# Advance state.
+		done = np.logical_or(done, done_prev).astype(np.int32)
+		rew_mul_done = np.logical_and(done, done_prev).astype(np.int32)
+		rew = np.stack([result[I_REWARD] for result in step_results])
+		rew = rew * (1 - rew_mul_done)
+		returns += rew
+
 		if save_results:
 			for k in range(n_envs):
 				eval_infos[f"env_{k}"]["observations"].append(obs_list[k])
@@ -118,18 +121,7 @@ def evaluate_comde_batch(
 			for k in range(n_envs):
 				eval_infos[f"env_{k}"]["rewards"].append(rew[k])
 
-		# Advance state.
-		done = np.logical_or(done, done_prev).astype(np.int32)
-		rew_mul_done = np.logical_and(done, done_prev).astype(np.int32)
-		rew = rew * (1 - rew_mul_done)
-		returns += rew
 
-	print("=" * 30)
+
 	n_tasks = sum([env.n_target for env in envs])
-	print("Returns", returns)
-	for (k, v), ret in zip(eval_infos.items(), returns):
-		print(v["env_name"], ret)
-	print(f"Total sum: {returns.sum()} among {len(envs)} tasks")
-	print(f"Total success ratio: {100 * (returns.sum() / n_tasks)}%")
-	print("=" * 30)
-	return eval_infos
+	return postprocess(eval_infos=eval_infos, n_tasks=n_tasks)

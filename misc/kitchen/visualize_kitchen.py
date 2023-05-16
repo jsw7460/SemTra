@@ -8,20 +8,20 @@ from tqdm import tqdm
 
 sys.path.append("/home/jsw7460/comde/")
 
+import d4rl
 
+_ = d4rl
 from spirl.rl.envs import kitchen
 
 if __name__ == '__main__':
-
-	pos = [['box', 'puck'], ['handle', 'drawer'], ['button', 'lever'], ['door', 'stick']]
 
 	# ====================================
 	# ========= Hyper parameters =========
 	# ====================================
 	data_prefix = Path("/home/jsw7460/comde_save/eval/")
-	date = Path("2023-04-21")
-	model = Path("kitchen_mlp_bigbatch")
-	data_suffix = Path("kitchen_vis")
+	date = Path("2023-05-13")
+	model = Path("bcz_kitchen_wind")
+	data_suffix = Path("eval")
 	data_path = data_prefix / date / model / data_suffix
 	# ====================================
 	# ========= Hyper parameters =========
@@ -49,7 +49,7 @@ if __name__ == '__main__':
 		rewards = data["rewards"]
 
 		_env = getattr(kitchen, "Kitchen_mikebohi")
-		_env = _env({})
+		_env = _env({"task_elements": ("microwave", "kettle", "bottom burner", "hinge cabinet")})
 		_env.reset()
 
 		done = False
@@ -57,15 +57,15 @@ if __name__ == '__main__':
 
 		for i, info in tqdm(enumerate(infos)):
 			mode += rewards[i]
+
 			qpos = info["obs_dict"]["org_qpos"]
 			qvel = info["obs_dict"]["org_qval"]
 
 			_env._env.set_state(qpos=qpos, qvel=qvel)
-
 			img = _env.render(mode="rgb_array")
 
 			bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-			bgr = cv2.putText(bgr, "Kitchen", (0, 20), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 0), 1)
+			bgr = cv2.putText(bgr, f"Kitchen_mode{mode}", (0, 20), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 0), 1)
 			video.write(bgr)
 			if i > 1000:
 				break

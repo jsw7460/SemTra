@@ -9,17 +9,14 @@ from comde.comde_modules.seq2seq.transformer.architectures.encoder import Transf
 
 
 class PrimSklToSklIntTransformer(nn.Module):
-	# Output: Skill and Intent
+	# Output: Skill sequence
 	encoder_cfg: Dict
 	decoder_cfg: Dict
 	input_dropout_prob: float
 	skill_dropout_prob: float
-	intent_dropout_prob: float
 	skill_pred_dim: int
 	non_functionality_dim: int
 	param_dim: int
-
-	intent_detach: bool = False
 
 	input_dropout = None
 	input_layer = None
@@ -51,18 +48,6 @@ class PrimSklToSklIntTransformer(nn.Module):
 			dropout=self.skill_dropout_prob,
 			squash_output=False
 		)
-		self.pred_nonfunc = create_mlp(
-			output_dim=self.non_functionality_dim,
-			net_arch=[],
-			layer_norm=True,
-			dropout=self.intent_dropout_prob
-		)
-		self.pred_param = create_mlp(
-			output_dim=self.param_dim,
-			net_arch=[],
-			layer_norm=True,
-			dropout=self.intent_dropout_prob
-		)
 
 	def __call__(self, *args, **kwargs):
 		return self.forward(*args, **kwargs)
@@ -80,12 +65,4 @@ class PrimSklToSklIntTransformer(nn.Module):
 
 		pred_skills = self.pred_skills(decoded_x)  # [b, l, d]
 
-		pred_nonfunc = self.pred_nonfunc(x)
-		pred_params = self.pred_param(x)
-
-		# if self.intent_detach:
-		# 	pred_intents = self.pred_intents(x)  # [b, l, d]
-		# else:
-		# 	pred_intents = self.pred_intents(decoded_x)
-
-		return {"pred_skills": pred_skills, "pred_nonfunc": pred_nonfunc, "pred_params": pred_params}
+		return {"pred_skills": pred_skills}

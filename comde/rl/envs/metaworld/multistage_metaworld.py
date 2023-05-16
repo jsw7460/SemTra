@@ -21,6 +21,13 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 	}
 	skill_index_mapping = {v: k for k, v in onehot_skills_mapping.items()}
 
+	speed_default_param = {
+		1: 25.0, 3: 25.0, 4: 15.0, 6: 25.0
+	}
+	wind_default_param = {
+		1: 0.0, 3: 0.0, 4: 0.0, 6: 0.0
+	}
+
 	def __init__(self, seed: int, task: List, n_target: int, cfg: Dict = None):
 
 		if type(task[0]) == int:
@@ -31,8 +38,20 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 		super(MultiStageMetaWorld, self).__init__(env=base_env, seed=seed, task=task, n_target=n_target, cfg=cfg)
 		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1, MultiStageMetaWorld.MW_OBS_DIM))
 
+	def get_rtg(self):
+		return self.n_target
+
 	def step(self, action):
 		obs, reward, done, info = super(MultiStageMetaWorld, self).step(action)
 		if self.env.env.mode == self.n_target:
 			done = True
 		return obs, reward, done, info
+
+	def get_default_parameter(self, non_functionality: str):
+		if non_functionality == "speed":
+			return MultiStageMetaWorld.speed_default_param
+		elif non_functionality == "wind":
+			return MultiStageMetaWorld.wind_default_param
+
+		else:
+			raise NotImplementedError(f"{non_functionality} is undefined non functionality for multistage metaworld.")

@@ -24,6 +24,7 @@ class BaseTrainer(Loggable):
 		self.max_iter = cfg["max_iter"]
 		self.step_per_dataset = cfg["step_per_dataset"]
 		self.log_interval = cfg["log_interval"]
+		self.save_interval = cfg["save_interval"]
 
 		self.required_total_update = self.max_iter * self.step_per_dataset
 
@@ -73,7 +74,12 @@ class BaseTrainer(Loggable):
 			module_fullpath = module_prefix / Path(suffix)
 			self.cfg["save_paths"][module_key] = str(module_fullpath)
 
-		self.cfg.update({"date": today_str})
+		self.cfg.update({
+			"date": today_str,
+			"wandb_url": self.wandb_url
+		})
+
+		# Dump configure file
 		with open(str(cfg_prefix / Path(f"cfg_{suffix}")), "wb") as f:
 			pickle.dump(self.cfg, f)
 

@@ -2,10 +2,11 @@ defaults:
   - env: metaworld
 
 seed: 0
+n_eval: 3
 pretrained_prefix: /home/jsw7460/comde_save/train
-date: 2023-04-11  # yyyy-mm-dd. Date for trained model
+date: 2023-05-13  # yyyy-mm-dd. Date for trained model
 pretrained_suffix: ???
-step: 120000
+step: 500000
 
 pretrained_path: ${pretrained_prefix}/${date}/cfg/cfg_${pretrained_suffix}
 sequential_requirement: sequential
@@ -17,4 +18,6 @@ use_optimal_next_skill: False
 save_text: False
 save_results: False
 save_prefix: /home/jsw7460/comde_save/eval
-save_suffix: foo
+text_save_prefix: /home/jsw7460/comde/comde_eval/
+save_suffix: eval
+termination_pred_interval: ${env.termination_pred_interval}

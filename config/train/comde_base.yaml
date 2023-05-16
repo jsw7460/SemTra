@@ -1,12 +1,13 @@
 seed: 777
 
+#env: metaworld
 defaults:
-  - low_policy: skill_dt
+  - low_policy: skill_mlp
   - seq2seq: transformer
 #  - intent_emb: vq
   - termination: mlp
   - wandb: comde_train
-  - env: metaworld
+  - env: kitchen
   - mode: comde
   - dataset: base
   - baseline: retail
@@ -16,23 +17,30 @@ save_suffix: foo
 modules: ${mode.modules}
 trainer: ${mode.trainer}
 non_functionality_dim: ${language_dim}
-param_dim: 10
 
-act_scale: 1.35
+act_scale: ${env.act_scale}
 observation_dim: ${env.observation_dim}
 action_dim: ${env.action_dim}
 dataset_path: ???
 
-max_source_skills: 6
-max_target_skills: 6
+max_source_skills: 4
+max_target_skills: 4
 
 state_normalization: False
-skill_dim: ${language_dim} # 512 for clip, 1024 for bert.
-language_dim: 1024
+skill_dim: ${language_dim}
+
+# language_dim: CLIP: 512 / Bert-base: 768 / Bert-large: 1024
+language_dim: 768
 subseq_len: 5
 batch_size: 256
-max_iter: 500
+max_iter: 200
 step_per_dataset: 5000
 log_interval: 1000
+save_interval: ${mode.save_interval}
+skill_infos_path: ${env.skill_infos_path}
 sequential_requirements_path: ${env.sequential_requirements_path}
 non_functionalities_path: ${env.non_functionalities_path}
+datadir_limit: ${mode.datadir_limit}
+excluded_dirs:
+  - videofeature_mapping
+  - firstimage_mapping

@@ -1,0 +1,34 @@
+#low_policy:
+_target_: comde.comde_modules.low_policies.SkillLnMLP
+seed: ${seed}
+cfg:
+  net_arch:
+    - 128
+    - 128
+    - 128
+    - 128
+
+  activation_fn: leaky_relu
+  hidden_size: 32
+  dropout: 0.0
+  squash_output: True
+  layer_norm: False
+  batch_norm: False
+  use_bias: True
+  act_scale: ${act_scale}
+
+  lr: 1e-4
+
+  observation_dim: ${observation_dim}
+  action_dim: ${action_dim}
+  skill_dim: ${skill_dim}
+
+  non_functionality_dim: ${non_functionality_dim}
+  param_dim: ${env.param_dim}
+  param_repeats: ${env.param_repeats}
+  use_optimal_lang: False
+
+  obs_mean: 0.0
+  obs_std: 1.0
+
+
