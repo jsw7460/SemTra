@@ -15,6 +15,7 @@ Output: Latent vector (will be used as input to Transformer decoder).
 """
 
 
+@jax.jit
 def scaled_dot_product(
 	q: jnp.ndarray,  # [b, h, len(q), d]	(h: Num head)
 	k: jnp.ndarray,  # [b, h, len(k), d]	(h: Num head)

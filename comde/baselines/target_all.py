@@ -30,11 +30,11 @@ class TargetAllPromptDT(VLPromptDT):
 
 	def get_prompts(self, replay_data: ComDeBufferSample):
 		target_skills = replay_data.target_skills
-		n_source_skills = replay_data.n_source_skills.reshape(-1, 1)
+		n_target_skills = replay_data.n_source_skills.reshape(-1, 1)
 		batch_size = target_skills.shape[0]
 		target_skills_maskings = np.arange(target_skills.shape[1]).reshape(1, -1)  # [1, M]
 		target_skills_maskings = np.repeat(target_skills_maskings, repeats=batch_size, axis=0)  # [b, M]
-		target_skills_maskings = np.where(target_skills_maskings < n_source_skills, 1, 0)
+		target_skills_maskings = np.where(target_skills_maskings < n_target_skills, 1, 0)
 		return target_skills, target_skills_maskings
 
 	def evaluate(self, *args, **kwargs) -> Dict:

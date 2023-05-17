@@ -68,6 +68,8 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 
 	def build_model(self):
 		transformer_cfg = self.cfg["transformer_cfg"]
+		decoder_maxlen = transformer_cfg["decoder_cfg"]["max_len"]
+		encoder_maxlen = transformer_cfg["encoder_cfg"]["max_len"]
 
 		# Predict discrete token. +2 for start-end tokens.
 		vocab_size = len(self._example_vocabulary)
@@ -75,25 +77,27 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		transformer_cfg.update({"skill_pred_dim": vocab_size - 2})  # We don't predict start token.
 
 		transformer = PrimSklToSklIntTransformer(**transformer_cfg)
-		init_x = np.zeros((1, transformer_cfg["decoder_cfg"]["max_len"], self.inseq_dim))  # 512 dim
-		init_context = np.zeros((1, transformer_cfg["encoder_cfg"]["max_len"], self.inseq_dim))  # 512 dim
-		init_mask = np.zeros((1, transformer_cfg["encoder_cfg"]["max_len"]))
+		init_x = np.zeros((1, decoder_maxlen, self.inseq_dim))  # 512 dim
+		init_q = np.zeros((1, 7, self.inseq_dim))  # 512 dim
+		init_kv = np.zeros((1, 15, self.inseq_dim))
+		init_q_mask = np.zeros((1, 7))
+		init_kv_mask = np.zeros((1, 15))
 
 		self.rng, rngs = get_basic_rngs(self.rng)
 		tx = optax.chain(optax.clip(1.0), optax.adam(learning_rate=self.cfg["lr"]))
 		self.model = Model.create(
 			model_def=transformer,
-			inputs=[rngs, init_x, init_context, init_mask],
+			inputs=[rngs, init_x, init_q, init_kv, init_q_mask, init_kv_mask],
 			tx=tx
 		)
 
-	def get_context_and_mask(
+	def get_qkv_and_mask(
 		self,
 		source_skills: np.ndarray,
 		n_source_skills: np.ndarray,
 		natural_languages: List[str],
 		training: bool
-	) -> Tuple[np.ndarray, np.ndarray]:
+	) -> Dict[str, np.ndarray]:
 		"""
 		Source skills: [b, M, d] (There are zero paddings for axis=1)
 
@@ -139,26 +143,38 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		source_skills_padding_mask = np.broadcast_to(source_skills_padding_mask, (b, m))
 		source_skills_padding_mask = np.where(source_skills_padding_mask < n_source_skills, 1, 0)
 
-		context = np.concatenate((source_skills, sequential_requirements), axis=1)
-		context_maskings = np.concatenate((source_skills_padding_mask, seq_req_padding_mask), axis=1)
+		info = {
+			"q": sequential_requirements,
+			"kv": source_skills,
+			"q_mask": seq_req_padding_mask,
+			"kv_mask": source_skills_padding_mask
+		}
 
-		return context, context_maskings
+		return info
 
 	def update(self, replay_data: ComDeBufferSample) -> Dict:
 		# Concatenate source skills and language first
 		# return {"__parameterized_skills": None}	# For the present, not used.
 
-		context, context_mask = self.get_context_and_mask(
+		info = self.get_qkv_and_mask(
 			source_skills=replay_data.source_skills,
 			n_source_skills=replay_data.n_source_skills,
 			natural_languages=replay_data.str_sequential_requirement,
 			training=True
 		)
+
+		q = info["q"]
+		kv = info["kv"]
+		q_mask = info["q_mask"]
+		kv_mask = info["kv_mask"]
+
 		update_fn_inputs = {
 			"rng": self.rng,
 			"tr": self.model,
-			"context": context,
-			"context_mask": context_mask,
+			"encoder_q": q,
+			"encoder_kv": kv,
+			"q_mask": q_mask,
+			"kv_mask": kv_mask,
 			"target_skills": replay_data.target_skills,
 			"target_skills_idxs": replay_data.target_skills_idxs,
 			"observations": replay_data.observations,
@@ -171,8 +187,8 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		}
 
 		new_model, info = discrete_update(**update_fn_inputs)
-		self.model = new_model
 
+		self.model = new_model
 		self.rng, _ = jax.random.split(self.rng)
 		return info
 
@@ -224,12 +240,17 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 
 		done = False
 
-		context, context_mask = self.get_context_and_mask(
+		info = self.get_qkv_and_mask(
 			source_skills=source_skills,
 			n_source_skills=n_source_skills,
 			natural_languages=natural_languages,
-			training=False
+			training=True
 		)
+
+		q = info["q"]
+		kv = info["kv"]
+		q_mask = info["q_mask"]
+		kv_mask = info["kv_mask"]
 
 		pred_skills_seq_raw = []
 		pred_skills_seq_quantized = []
@@ -243,8 +264,10 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 				rng=self.rng,
 				model=self.model,
 				x=x,
-				context=context,
-				mask=context_mask,
+				encoder_q=q,
+				encoder_kv=kv,
+				q_mask=q_mask,
+				kv_mask=kv_mask,
 			)
 			pred_skills = predictions["pred_skills"][:, -1, ...]  # [b, d]
 			maybe_done, nearest_tokens, nearest_idxs = self.maybe_done(
@@ -279,19 +302,27 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		n_source_skills: np.ndarray,
 		target: np.ndarray
 	):
-		context, context_mask = self.get_context_and_mask(
+		info = self.get_qkv_and_mask(
 			source_skills=source_skills,
 			n_source_skills=n_source_skills,
 			natural_languages=natural_languages,
-			training=False,
+			training=True
 		)
+
+		q = info["q"]
+		kv = info["kv"]
+		q_mask = info["q_mask"]
+		kv_mask = info["kv_mask"]
 
 		self.rng, predictions = fwd(
 			rng=self.rng,
 			model=self.model,
 			x=target,
-			context=context,
-			mask=context_mask
+			encoder_q=q,
+			encoder_kv=kv,
+			q_mask=q_mask,
+			kv_mask=kv_mask,
+			deterministic=True
 		)
 		return predictions
 

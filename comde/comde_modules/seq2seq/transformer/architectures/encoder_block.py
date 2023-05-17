@@ -4,7 +4,7 @@ import flax.linen as nn
 import jax.numpy as jnp
 
 from comde.comde_modules.common.utils import create_mlp
-from comde.comde_modules.seq2seq.transformer.architectures.self_attention import SelfAttention
+from comde.comde_modules.seq2seq.transformer.architectures.cross_attention import CrossAttention
 
 
 class EncoderBlock(nn.Module):
@@ -15,14 +15,14 @@ class EncoderBlock(nn.Module):
 	use_bias: bool
 	activation_fn: Callable
 
-	self_attention = None
+	attention = None
 	linear = None
 	ln1 = None
 	ln2 = None
 	dropout = None
 
 	def setup(self) -> None:
-		self.self_attention = SelfAttention(
+		self.attention = CrossAttention(
 			embed_dim=self.input_dim,
 			num_heads=self.num_heads,
 			use_bias=True
@@ -42,14 +42,24 @@ class EncoderBlock(nn.Module):
 	def __call__(self, *args, **kwargs):
 		return self.forward(*args, **kwargs)
 
-	def forward(self, x: jnp.ndarray, mask: jnp.ndarray, deterministic: bool):
-		attn_out, _ = self.self_attention(x=x, mask=mask, deterministic=deterministic)
-		x = x + self.dropout(attn_out, deterministic=deterministic)
+	def forward(
+		self,
+		q: jnp.ndarray,
+		kv: jnp.ndarray,
+		q_mask: jnp.ndarray,	# [b, len(q)]
+		kv_mask: jnp.ndarray,	# [b, len(kv)]
+		deterministic: bool
+	):
+		mask = jnp.matmul(jnp.expand_dims(q_mask, axis=2), jnp.expand_dims(kv_mask, axis=1))
+		mask = jnp.expand_dims(mask, axis=1)
+
+		x, _ = self.attention(q=q, kv=kv, mask=mask, deterministic=deterministic)
+		x = q + self.dropout(x, deterministic=deterministic)
 
 		x = self.ln1(x)
 
-		linear_out = self.linear(x, deterministic=deterministic)
-		x = x + self.dropout(linear_out, deterministic=deterministic)
-		x = self.ln2(x)
+		x2 = self.linear(x, deterministic=deterministic)
+		x2 = x + self.dropout(x2, deterministic=deterministic)
+		x2 = self.ln2(x2)
 
-		return x
+		return x2

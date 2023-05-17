@@ -50,10 +50,12 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 		sequential_requirement = [seq_req_mapping[str_seq_req] for _ in range(n_envs)]
 		random.seed(custom_seed)
 		random.shuffle(sequential_requirement)
+
 		sequential_requirement = np.array(sequential_requirement)
 		non_functionalities = kwargs["non_functionalities"]
 		param_for_skill = kwargs["param_for_skill"]
 
+		source_skills_vecs = kwargs["source_skills_vec"]
 		source_skills_idxs = kwargs["source_skills_idx"]
 
 		if mode in ["demogen", "bcz"]:
@@ -81,20 +83,47 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 		else:
 			envs = kwargs["envs"]
 			prompts = []
-			firstimage_mapping = pretrained_models["baseline"].firstimage_mapping
-			for env, source_skill_idxs in zip(envs, source_skills_idxs):
-				tmp_prompts = np.array([random.choice(firstimage_mapping[str(sk)]) for sk in source_skill_idxs])
-				prompts.append(tmp_prompts)
+			model = pretrained_models["baseline"]
+
+			if str(model) == "VLPromptDT":
+				firstimage_mapping = pretrained_models["baseline"].firstimage_mapping
+				for env, source_skill_idxs in zip(envs, source_skills_idxs):
+					tmp_prompts = np.array([random.choice(firstimage_mapping[str(sk)]) for sk in source_skill_idxs])
+					prompts.append(tmp_prompts)
+
+				prompts_maskings = None
+
+			elif str(model) == "SourceLanguagePromptDT":
+				prompts.extend(source_skills_vecs)
+				source_skills = np.array(source_skills_vecs)
+				n_source_skills = np.array([sk.shape[0] for sk in source_skills_vecs]).reshape(-1, 1)
+				batch_size = source_skills.shape[0]
+				prompts_maskings = np.arange(source_skills.shape[1]).reshape(1, -1)  # [1, M]
+				prompts_maskings = np.repeat(prompts_maskings, repeats=batch_size, axis=0)  # [b, M]
+				prompts_maskings = np.where(prompts_maskings < n_source_skills, 1, 0)
+
+			elif str(model) == "TargetAllPromptDT":
+				prompts.extend(semantic_skills_sequence)
+				target_skills = np.array(semantic_skills_sequence)
+				n_target_skills = np.array([sk.shape[0] for sk in semantic_skills_sequence]).reshape(-1, 1)
+				batch_size = target_skills.shape[0]
+				prompts_maskings = np.arange(target_skills.shape[1]).reshape(1, -1)  # [1, M]
+				prompts_maskings = np.repeat(prompts_maskings, repeats=batch_size, axis=0)  # [b, M]
+				prompts_maskings = np.where(prompts_maskings < n_target_skills, 1, 0)
+
+			else:
+				raise NotImplementedError("Undefined PromptDT")
+
 			prompts = np.array(prompts)
 
 			# Note: This raise an error if the number of source skills is different
 			non_functionality = non_functionalities[:, 0, ...]
-
 			rtgs = np.array([env.get_rtg() for env in envs])
 
 			arguments.update({
 				**kwargs["pretrained_models"],
 				"prompts": prompts,
+				"prompts_maskings": prompts_maskings,
 				"sequential_requirement": sequential_requirement,
 				"non_functionality": non_functionality,
 				"param_for_skills": param_for_skill,
@@ -125,10 +154,9 @@ def get_evaluation_function(kwargs: Dict, custom_seed: int):
 		elif str(model) == "DemoGen":
 			fn = evaluate_demogen
 			mode = "demogen"
-		elif str(model) == "VLPromptDT":
+		elif str(model) in ["VLPromptDT", "SourceLanguagePromptDT", "TargetAllPromptDT"]:
 			fn = evaluate_promptdt
 			mode = "promptdt"
-
 		elif str(model) == "BCZ":
 			fn = evaluate_bcz
 			mode = "bcz"

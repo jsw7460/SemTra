@@ -43,7 +43,8 @@ class TransformerDecoder(nn.Module):
 
 	def forward(self, x: jnp.ndarray, kv: jnp.ndarray, mask: jnp.ndarray, deterministic: bool):
 		"""
-			x: [batch_size, target_seq_len]
+			x: [batch_size, target_seq_len]: Label
+			kv: Context
 		"""
 		x = self.input_dropout(x, deterministic=deterministic)
 		x = self.input_layer(x, deterministic=deterministic)

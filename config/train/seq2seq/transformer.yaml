@@ -19,7 +19,7 @@ cfg:
 
     encoder_cfg:
       num_layers: 1
-      input_dim: 32
+      input_dim: ${language_dim}
       num_heads: 1
       ff_dim: 16
       dropout_prob: 0.1
@@ -29,7 +29,7 @@ cfg:
 
     decoder_cfg:
       num_layers: 1
-      input_dim: 32
+      input_dim: ${language_dim}
       num_heads: 1
       ff_dim: 16
       dropout_prob: 0.1

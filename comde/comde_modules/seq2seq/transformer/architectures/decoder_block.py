@@ -62,6 +62,7 @@ class DecoderBlock(nn.Module):
 		x = q + self.dropout(x, deterministic=deterministic)
 		x = self.ln1(x)
 
+		mask = jnp.expand_dims(mask, axis=(-3, -2))
 		x2, _ = self.cross_attention(q=x, kv=kv, mask=mask, deterministic=deterministic)
 		x2 = x + self.dropout(x2, deterministic=deterministic)
 		x2 = self.ln2(x2)

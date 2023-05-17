@@ -41,25 +41,23 @@ class TransformerEncoder(nn.Module):
 	def __call__(self, *args, **kwargs):
 		return self.forward(*args, **kwargs)
 
-	def forward(self, context: jnp.ndarray, mask: jnp.ndarray, deterministic: bool):
+	def forward(self, q: jnp.ndarray, kv: jnp.ndarray, q_mask: jnp.ndarray, kv_mask: jnp.ndarray, deterministic: bool):
 
-		context = self.input_dropout(context, deterministic=deterministic)
-		context = self.input_layer(context)
-		context = self.pos_encoding(context)
+		q = self.input_dropout(q, deterministic=deterministic)
+		kv = self.input_dropout(kv, deterministic=deterministic)
+		q = self.pos_encoding(q)
 
 		for block in self.encoder_blocks:  # Todo: Change into lax_fori
-			context = block(x=context, mask=mask, deterministic=deterministic)
+			q = block(q=q, kv=kv, q_mask=q_mask, kv_mask=kv_mask, deterministic=deterministic)
 
-		return context
+		return q
 
-	def get_attention_maps(self, x: jnp.ndarray, mask: jnp.ndarray, deterministic: bool):
-		# A function to return the attention maps within the model for a single application
-		# Used for visualization purpose later
-		attention_maps = []
-
-		for block in self.encoder_blocks:
-			_, attn_map = block.self_attention(x=x, mask=mask)
-			attention_maps.append(attn_map)
-			x = block(x=x, mask=mask, deterministic=deterministic)
-
-		return attention_maps
+	def get_attention_maps(
+		self,
+		q: jnp.ndarray,
+		kv: jnp.ndarray,
+		q_mask: jnp.ndarray,
+		kv_mask: jnp.ndarray,
+		deterministic: bool
+	):
+		"""..."""

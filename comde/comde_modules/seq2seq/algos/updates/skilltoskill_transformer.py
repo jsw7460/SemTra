@@ -11,8 +11,10 @@ from comde.utils.jax_utils.type_aliases import Params
 def skilltoskill_transformer_ce_updt(
 	rng: jnp.ndarray,
 	tr: Model,  # transformer
-	context: jnp.ndarray,  # [b, X, d] : Cancatenation of source skills and language operator (calculated outside)
-	context_mask: jnp.ndarray,  # [b, X, d]
+	encoder_q: jnp.ndarray,  # [b, X, d] : Cancatenation of source skills and language operator (calculated outside)
+	encoder_kv: jnp.ndarray,
+	q_mask: jnp.ndarray,
+	kv_mask: jnp.ndarray,
 	target_skills: jnp.ndarray,
 	target_skills_idxs: jnp.ndarray,
 	observations: jnp.ndarray,
@@ -28,7 +30,6 @@ def skilltoskill_transformer_ce_updt(
 
 	skill_dim = skills.shape[-1]
 	batch_size = n_source_skills.shape[0]
-	context_maxlen = context.shape[1]
 
 	start_token = jnp.broadcast_to(start_token, shape=(batch_size, 1, skill_dim))
 
@@ -47,8 +48,10 @@ def skilltoskill_transformer_ce_updt(
 		model_output = tr.apply_fn(
 			{"params": params},
 			x=input_skills,
-			context=context,
-			mask=context_mask,
+			encoder_q=encoder_q,
+			encoder_kv=encoder_kv,
+			q_mask=q_mask,
+			kv_mask=kv_mask,
 			rngs={"dropout": dropout_key}
 		)
 		pred_skills = model_output["pred_skills"]  # [b, M, n_skills]
@@ -86,7 +89,6 @@ def skilltoskill_transformer_ce_updt(
 			"__s2s/obs": observations,
 			"__s2s/act": actions,
 			"__s2s/maskings": maskings,
-			"__s2s/context_maxlen": context_maxlen,
 			"__skills": skills,
 			"__likelihood": likelihood,
 			"__pred_skills_idxs": pred_skills_idxs,

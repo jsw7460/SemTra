@@ -22,5 +22,4 @@ class CrossAttention(nn.Module):
 		return self.forward(*args, **kwargs)
 
 	def forward(self, q: jnp.ndarray, kv: jnp.ndarray, mask: jnp.ndarray, deterministic: bool):
-		mask = jnp.expand_dims(mask, axis=(-3, -2))
 		return self.mha(input_q=q, input_k=kv, input_v=kv, mask=mask, deterministic=deterministic)

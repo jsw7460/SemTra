@@ -17,21 +17,24 @@ I_INFO = 3
 def evaluate_promptdt(
 	envs: List[SkillHistoryEnv],
 	baseline: VLPromptDT,
-	prompts: np.ndarray,  # [n_envs, n_source_skills, d]
+	prompts: np.ndarray,  # [n_envs, L, d]
 	sequential_requirement: np.ndarray,  # [n_envs, d]
 	non_functionality: np.ndarray,  # [n_envs, d]
 	param_for_skills: np.ndarray,  # [n_envs, n_source_skills, d]
 	rtgs: np.ndarray,  # [n_envs,]
+	prompts_maskings: np.ndarray = None,
 	save_results: bool = False
 ):
 	# Some variables
 	n_envs = len(envs)
 	env_dummy_dim = envs[0].skill_dim
 	subseq_len = envs[0].num_stack_frames
-	prompts_length = prompts.shape[1]
 
 	dummy_parameterized_skills = np.zeros((env_dummy_dim,))
-	prompts_maskings = np.ones((n_envs, prompts_length))
+
+	if prompts_maskings is None:
+		prompts_length = prompts.shape[1]
+		prompts_maskings = np.ones((n_envs, prompts_length))
 
 	# Prepare save
 	eval_infos = {f"env_{k}": defaultdict(list, env_name=envs[k].get_short_str_for_save()) for k in range(n_envs)}

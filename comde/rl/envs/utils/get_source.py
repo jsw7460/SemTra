@@ -13,7 +13,7 @@ def get_source_skills(
 	skill_infos: Dict[str, List[SkillRepresentation]],
 	task: Union[str, List[str]]
 ) -> Union[Dict, None]:
-	task = task[: 3]
+	# task = task[: 3]
 
 	# if type(task) == list:
 	task = [str(t) for t in task]

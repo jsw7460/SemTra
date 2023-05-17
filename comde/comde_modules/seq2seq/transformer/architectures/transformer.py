@@ -55,13 +55,16 @@ class PrimSklToSklIntTransformer(nn.Module):
 	def forward(
 		self,
 		x: jnp.ndarray,  # [b, l, d]
-		context: jnp.ndarray,  # [b, l, d]
-		mask: jnp.ndarray,  # [b, l]
+		encoder_q: jnp.ndarray,
+		encoder_kv: jnp.ndarray,
+		q_mask: jnp.ndarray,
+		kv_mask: jnp.ndarray,
 		deterministic: bool = False,
 		*args, **kwargs  # Do not remove this
 	) -> Dict[str, jnp.ndarray]:
-		context = self.encoder(context, mask, deterministic=deterministic)
-		decoded_x = self.decoder(x, context, mask, deterministic=deterministic)
+
+		context = self.encoder(q=encoder_q, kv=encoder_kv, q_mask=q_mask, kv_mask=kv_mask, deterministic=deterministic)
+		decoded_x = self.decoder(x, context, q_mask, deterministic=deterministic)
 
 		pred_skills = self.pred_skills(decoded_x)  # [b, l, d]
 
