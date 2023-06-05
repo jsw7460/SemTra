@@ -51,6 +51,7 @@ def get_optimal_template(
 	non_functionalities = np.broadcast_to(non_functionalities, semantic_skills_sequence.shape)
 
 	optimal_template = {
+		"optimal_target_skill_idxs": optimal_idxs,
 		"semantic_skills_sequence": semantic_skills_sequence,
 		"non_functionalities": non_functionalities,
 		"params_for_skills": params_for_skills,

@@ -19,8 +19,8 @@ if __name__ == '__main__':
 	# ========= Hyper parameters =========
 	# ====================================
 	data_prefix = Path("/home/jsw7460/comde_save/eval/")
-	date = Path("2023-05-13")
-	model = Path("bcz_kitchen_wind")
+	date = Path("2023-05-16")
+	model = Path("sourcelang_kitchen_wind")
 	data_suffix = Path("eval")
 	data_path = data_prefix / date / model / data_suffix
 	# ====================================

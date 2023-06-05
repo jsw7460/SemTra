@@ -31,9 +31,9 @@ def scaled_dot_product(
 	attn_logits = attn_logits / jnp.sqrt(d_k)  # [b, h, l(q), l(k)]
 
 	attn_logits = jnp.where(mask == 0, -INFTY, attn_logits)	# [b, h, l(q), l(k)]
+
 	attention = jax.nn.softmax(attn_logits, axis=-1)  # [b, h, l(q), l(k)]
 	values = jnp.matmul(attention, v)  # [b, h, l(q), d]
-
 	return values, attention
 
 
@@ -91,14 +91,6 @@ class MultiheadDotProductAttention(nn.Module):
 		mask: jnp.ndarray,  # [b, l]
 		deterministic: bool
 	):
-		# x = jnp.concatenate((input_q, input_k, input_v), axis=-1)
-		# batch_size, seq_len, embed_dim = x.shape
-		# qkv = self.qkv_proj(x, deterministic=deterministic)	# [b, l, 180]
-		#
-		# # Separate Q, K, V from linear output
-		# qkv = qkv.reshape(batch_size, seq_len, self.num_heads, -1)  # [b, l, h, d]	[b, l, 4, 45]
-		# qkv = einops.rearrange(qkv, "b l h d -> b h l d")	# [b h 7 45]
-		# q, k, v = jnp.array_split(qkv, 3, axis=-1)	# [b h 7 15]
 
 		batch_size = input_q.shape[0]
 		l_q = input_q.shape[1]

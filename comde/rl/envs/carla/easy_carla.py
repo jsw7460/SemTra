@@ -54,7 +54,7 @@ class EasyCarla(ComdeSkillEnv):
 		raise NotImplementedError("Implement return-to-go for Carla environment.")
 
 	def get_base_env(self, cfg: Dict) -> gym.Env:
-		from comde.utils.common.pretrained_forward import resnet50_forward
+		from comde.utils.common.pretrained_forwards.th_resnet_50 import resnet50_forward
 		self._img_embedding = resnet50_forward
 		carla_cfg = cfg["carla_cfg"]
 		exp_configs = carla_cfg.pop("config")

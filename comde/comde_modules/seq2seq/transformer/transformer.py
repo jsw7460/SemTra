@@ -1,12 +1,13 @@
 import pickle
 import random
-from typing import Dict, List, Tuple
+from typing import Dict, List, Union, Tuple, Optional
 
 import einops
 import jax.random
 import numpy as np
 import optax
 
+from comde.comde_modules.low_policies.base import BaseLowPolicy
 from comde.comde_modules.seq2seq.algos.forward import skilltoskill_transformer_forward as fwd
 from comde.comde_modules.seq2seq.algos.updates.skilltoskill_transformer import (
 	skilltoskill_transformer_ce_updt as discrete_update
@@ -14,9 +15,14 @@ from comde.comde_modules.seq2seq.algos.updates.skilltoskill_transformer import (
 from comde.comde_modules.seq2seq.base import BaseSeqToSeq
 from comde.comde_modules.seq2seq.transformer.architectures.transformer import PrimSklToSklIntTransformer
 from comde.rl.buffers.type_aliases import ComDeBufferSample
+from comde.utils.common.pretrained_forwards.jax_bert_base import bert_base_forward
+from comde.utils.common.visualization import dump_attention_weights_images
 from comde.utils.jax_utils.general import get_basic_rngs
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
+from comde.utils.save_utils.jax_saves import (
+	load_from_zip_file
+)
 
 
 class SklToSklIntTransformer(BaseSeqToSeq):
@@ -30,20 +36,20 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		)
 		# Source skills: [b, l, d], Target skills: [b, l, d]
 		self.__model = None
-
+		self.save_suffix = self.cfg["save_suffix"]
 		self.decoder_max_len = self.cfg["transformer_cfg"]["decoder_cfg"]["max_len"]
 
-		sentence_embedding_path = cfg["sentence_embedding_path"]
-		with open(sentence_embedding_path, "rb") as f:
-			self.sentence_embedding = pickle.load(f)  # type: Dict[str, Dict[str, np.ndarray]]
+		word_embedding_path = cfg["word_embedding_path"]
+		with open(word_embedding_path, "rb") as f:
+			self.word_embedding = pickle.load(f)  # type: Dict[str, Dict[str, np.ndarray]]
 
-		self.heldout_instructions = {key: [] for key in self.sentence_embedding.keys()}
+		self.heldout_instructions = {key: [] for key in self.word_embedding.keys()}
 		self.reset_heldout_instructions()
 
 		# Compute the max length of sentence.
 		sentence_max_len = 0
-		for key in self.sentence_embedding.values():
-			assert len(key) > 30, "Too little variations."
+		for key in self.word_embedding.values():
+			assert len(key) >= 5, "Too little variations."
 			for var in key.values():
 				sentence_length = var.shape[1]
 				if sentence_length > sentence_max_len:
@@ -62,19 +68,18 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		self.__model = model
 
 	def reset_heldout_instructions(self):
-		for key, value in self.sentence_embedding.items():
-			heldout_sentence = random.choices(list(value.keys()), k=3)
+		for key, value in self.word_embedding.items():
+			heldout_sentence = random.choices(list(value.keys()), k=2)
 			self.heldout_instructions[key] = heldout_sentence
 
 	def build_model(self):
 		transformer_cfg = self.cfg["transformer_cfg"]
 		decoder_maxlen = transformer_cfg["decoder_cfg"]["max_len"]
-		encoder_maxlen = transformer_cfg["encoder_cfg"]["max_len"]
 
 		# Predict discrete token. +2 for start-end tokens.
 		vocab_size = len(self._example_vocabulary)
 		# transformer_cfg.update({"skill_pred_dim": transformer_cfg["decoder_cfg"]["max_len"] + 2})
-		transformer_cfg.update({"skill_pred_dim": vocab_size - 2})  # We don't predict start token.
+		transformer_cfg.update({"skill_pred_dim": vocab_size})  # We don't predict start token.
 
 		transformer = PrimSklToSklIntTransformer(**transformer_cfg)
 		init_x = np.zeros((1, decoder_maxlen, self.inseq_dim))  # 512 dim
@@ -99,6 +104,8 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		training: bool
 	) -> Dict[str, np.ndarray]:
 		"""
+		All inputs are from replay_data in update function.
+
 		Source skills: [b, M, d] (There are zero paddings for axis=1)
 
 		1. From natural_languages, sample sentence tokens	([b, L, d])
@@ -110,19 +117,21 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 
 		sequential_requirements = []
 		pad_lengths = []
+		variations = None
 		for str_seq_req in natural_languages:
 			if training:
-				seq_req = [
-					self.sentence_embedding[str_seq_req][var]
-					for var in self.sentence_embedding[str_seq_req].keys()
+				variations = [
+					var for var in self.word_embedding[str_seq_req].keys()
 					if var not in self.heldout_instructions[str_seq_req]
 				]
+
 			else:
-				seq_req = [
-					self.sentence_embedding[str_seq_req][var]
-					for var in self.sentence_embedding[str_seq_req].keys()
-					if var in self.heldout_instructions[str_seq_req]
+				variations = [
+					var for var in self.word_embedding[str_seq_req].keys()
+					if var not in self.heldout_instructions[str_seq_req]
 				]
+
+			seq_req = [self.word_embedding[str_seq_req][var] for var in variations]
 			seq_req = random.choice(seq_req)
 			seq_req = np.squeeze(seq_req, axis=0)
 
@@ -133,8 +142,8 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 			padded_seq_req = np.concatenate((seq_req, padding), axis=0)
 			sequential_requirements.append(padded_seq_req)
 
-		sequential_requirements = np.array(sequential_requirements)	 # [b, 20, 768]
-		pad_lengths = np.array(pad_lengths).reshape(-1, 1)	# [b, 1]
+		sequential_requirements = np.array(sequential_requirements)  # [b, 20, 768]
+		pad_lengths = np.array(pad_lengths).reshape(-1, 1)  # [b, 1]
 		seq_req_padding_mask = np.arange(self.sentence_max_len)
 		seq_req_padding_mask = np.broadcast_to(seq_req_padding_mask, (b, self.sentence_max_len))
 		seq_req_padding_mask = np.where(seq_req_padding_mask < self.sentence_max_len - pad_lengths, 1, 0)
@@ -144,29 +153,24 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		source_skills_padding_mask = np.where(source_skills_padding_mask < n_source_skills, 1, 0)
 
 		info = {
-			"q": sequential_requirements,
-			"kv": source_skills,
-			"q_mask": seq_req_padding_mask,
-			"kv_mask": source_skills_padding_mask
+			"q": source_skills,
+			"kv": sequential_requirements,
+			"q_mask": source_skills_padding_mask,
+			"kv_mask": seq_req_padding_mask,
+			"natural_language_variations": variations,
+			"natural_language_padding_mask": seq_req_padding_mask,
+			"source_skills_padding_mask": source_skills_padding_mask
 		}
 
 		return info
 
-	def update(self, replay_data: ComDeBufferSample) -> Dict:
-		# Concatenate source skills and language first
-		# return {"__parameterized_skills": None}	# For the present, not used.
+	def update(self, replay_data: ComDeBufferSample, low_policy: Optional[BaseLowPolicy]) -> Dict:
+		qkv_info = bert_base_forward(replay_data.language_guidance)
 
-		info = self.get_qkv_and_mask(
-			source_skills=replay_data.source_skills,
-			n_source_skills=replay_data.n_source_skills,
-			natural_languages=replay_data.str_sequential_requirement,
-			training=True
-		)
-
-		q = info["q"]
-		kv = info["kv"]
-		q_mask = info["q_mask"]
-		kv_mask = info["kv_mask"]
+		q = qkv_info["language_embedding"]
+		kv = qkv_info["language_embedding"]
+		q_mask = qkv_info["attention_mask"]
+		kv_mask = qkv_info["attention_mask"]
 
 		update_fn_inputs = {
 			"rng": self.rng,
@@ -184,13 +188,54 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 			"n_source_skills": replay_data.n_source_skills,
 			"n_target_skills": replay_data.n_target_skills,
 			"start_token": self.start_token.vec,
+			"low_policy": low_policy.model,
+			"coef_low_policy": self.cfg["coef_low_policy"],
+			"prompting_fn": low_policy.get_prompt,
+			"timesteps": replay_data.timesteps
 		}
 
 		new_model, info = discrete_update(**update_fn_inputs)
 
+		self.n_update += 1
 		self.model = new_model
 		self.rng, _ = jax.random.split(self.rng)
 		return info
+
+	def visualize_attention(
+		self,
+		language_guidance: List[str],
+		target: np.ndarray = None
+	):
+		if target is not None:
+			prediction, info = self.predict_w_teacher_forcing(
+				language_guidance=language_guidance,
+				target=target,
+				return_qkv_info=True
+			)
+		else:
+			prediction, info = self.predict(
+				language_guidance=language_guidance,
+				stochastic=True,
+				return_qkv_info=True
+			)
+
+		attentions = prediction["__decoder_attention_weights"][-1][0]
+
+		# attentions = prediction["decoder_attention_weights"][0]  # First layer attention score
+		nl_masks = info["attention_mask"]
+
+		for t, (nl, nl_mask, att) in enumerate(zip(language_guidance, nl_masks, attentions)):
+			nl_length = np.sum(nl_mask)
+			# 1. Average over heads
+			att = np.mean(att, axis=0)
+			# 2. Remove start tokens and remove paddings
+			att = att[:, 2: nl_length]
+
+			dump_attention_weights_images(
+				path=f"/home/jsw7460/comde/visualization/attention_weights/{self.save_suffix}_step{str(self.n_update)}_{t}",
+				natural_language=nl,
+				attention_matrix=att
+			)
 
 	def maybe_done(
 		self,
@@ -224,39 +269,40 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 
 	def predict(
 		self,
-		source_skills: np.ndarray,  # [b, M, d]
-		natural_languages: List[str],
-		n_source_skills: np.ndarray,  # [b,]: Indication of true length of source_skills without zero padding
-		stochastic: bool = False
-	) -> Dict:
+		language_guidance: List[str],
+		stochastic: bool = False,
+		return_qkv_info: bool = False,
+	) -> Union[Tuple, Dict]:
 		"""
 			Given source skills and language operator, this function generate the target skills.
 			This can be done autoregressively.
 		"""
-		batch_size = source_skills.shape[0]
-		skill_dim = source_skills.shape[-1]
-		x = self.start_token.vec
-		x = np.broadcast_to(x, (batch_size, 1, skill_dim))  # [b, 1, d]
 
 		done = False
 
-		info = self.get_qkv_and_mask(
-			source_skills=source_skills,
-			n_source_skills=n_source_skills,
-			natural_languages=natural_languages,
-			training=True
-		)
+		qkv_info = bert_base_forward(language_guidance)
 
-		q = info["q"]
-		kv = info["kv"]
-		q_mask = info["q_mask"]
-		kv_mask = info["kv_mask"]
+		q = qkv_info["language_embedding"]
+		kv = qkv_info["language_embedding"]
+		q_mask = qkv_info["attention_mask"]
+		kv_mask = qkv_info["attention_mask"]
+
+		batch_size = q.shape[0]
+		skill_dim = q.shape[-1]
+
+		x = self.start_token.vec
+		x = np.broadcast_to(x, (batch_size, 1, skill_dim))  # [b, 1, d]
 
 		pred_skills_seq_raw = []
 		pred_skills_seq_quantized = []
 		pred_nearest_idxs_seq = []
+		encoder_attention_weights = None
+		decoder_attention_weights = []
 
 		t = 0
+
+		prev_maybe_done = np.zeros((batch_size,))
+		target_skills_masks = []
 
 		while not done:  # Autoregression
 
@@ -269,12 +315,25 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 				q_mask=q_mask,
 				kv_mask=kv_mask,
 			)
+
+			if encoder_attention_weights is None:
+				encoder_attention_weights = predictions.pop("encoder_attention_weights")
+
+			decoder_attention_weight = predictions.pop("decoder_attention_weights")
+			decoder_attention_weights.append(decoder_attention_weight)
+
 			pred_skills = predictions["pred_skills"][:, -1, ...]  # [b, d]
 			maybe_done, nearest_tokens, nearest_idxs = self.maybe_done(
 				pred_skills,
 				get_nearest_token=True,
 				stochastic_sampling=stochastic
 			)
+
+			# If you once predict done (end token), then we set done for all after that
+			maybe_done = np.logical_or(maybe_done, prev_maybe_done)
+			target_skills_masks.append(1 - maybe_done)
+
+			prev_maybe_done = maybe_done
 
 			pred_skills_seq_raw.append(pred_skills)
 			pred_skills_seq_quantized.append(nearest_tokens)
@@ -286,33 +345,42 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 			done = np.all(maybe_done) or (len(pred_skills_seq_raw) >= self.decoder_max_len)
 			t += 1
 
+		target_skills_masks = np.stack(target_skills_masks, axis=1)
+
 		pred_skills_raw = np.stack(pred_skills_seq_raw, axis=1)
 		pred_skills_quantized = np.stack(pred_skills_seq_quantized, axis=1)
+
+		pred_nearest_idxs = np.array(pred_nearest_idxs_seq)
+		pred_target_skills = einops.rearrange(pred_nearest_idxs, "l b -> b l")
+
 		ret = {
-			"pred_skills_raw": pred_skills_raw,
-			"pred_skills_quantized": pred_skills_quantized,
-			"pred_nearest_idxs": pred_nearest_idxs_seq
+			"__pred_skills_raw": pred_skills_raw,
+			"__pred_skills_quantized": pred_skills_quantized,
+			"__pred_nearest_idxs": pred_nearest_idxs_seq,
+			"__pred_target_skills": pred_target_skills,
+			"__encoder_attention_weights": encoder_attention_weights,
+			"__decoder_attention_weights": decoder_attention_weights,
+			"__target_skills_masks": target_skills_masks,
+			"__language_guidance": q,
+			"__language_guidance_mask": q_mask
 		}
-		return ret
+		if return_qkv_info:
+			return ret, qkv_info
+		else:
+			return ret
 
 	def predict_w_teacher_forcing(
 		self,
-		source_skills: np.ndarray,
-		natural_languages: List[str],
-		n_source_skills: np.ndarray,
-		target: np.ndarray
+		language_guidance: List[str],
+		target: np.ndarray,
+		return_qkv_info: bool = False
 	):
-		info = self.get_qkv_and_mask(
-			source_skills=source_skills,
-			n_source_skills=n_source_skills,
-			natural_languages=natural_languages,
-			training=True
-		)
+		qkv_info = bert_base_forward(language_guidance)
 
-		q = info["q"]
-		kv = info["kv"]
-		q_mask = info["q_mask"]
-		kv_mask = info["kv_mask"]
+		q = qkv_info["language_embedding"]
+		kv = qkv_info["language_embedding"]
+		q_mask = qkv_info["attention_mask"]
+		kv_mask = qkv_info["attention_mask"]
 
 		self.rng, predictions = fwd(
 			rng=self.rng,
@@ -324,19 +392,18 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 			kv_mask=kv_mask,
 			deterministic=True
 		)
-		return predictions
+		if return_qkv_info:
+			return predictions, qkv_info
+		else:
+			return predictions
 
 	def _evaluate_continuous(self, replay_data: ComDeBufferSample) -> Dict:
 		raise NotImplementedError("Continuous mode is obsolete")
 
 	def _evaluate_discrete(self, replay_data: ComDeBufferSample) -> Dict:
-		prediction = self.predict(
-			source_skills=replay_data.source_skills,
-			natural_languages=replay_data.str_sequential_requirement,
-			n_source_skills=replay_data.n_source_skills
-		)
+		prediction = self.predict(language_guidance=replay_data.language_guidance)
 
-		pred_nearest_idxs = np.array(prediction["pred_nearest_idxs"])
+		pred_nearest_idxs = np.array(prediction["__pred_nearest_idxs"])
 		pred_nearest_idxs = einops.rearrange(pred_nearest_idxs, "l b -> b l")  # [b, M]
 
 		target_skills_idxs = replay_data.target_skills_idxs  # [b, M, d]
@@ -348,16 +415,23 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		tgt_mask = np.broadcast_to(tgt_mask, (batch_size, self.decoder_max_len))  # [b, M]
 		tgt_mask = np.where(tgt_mask < n_target_skills[..., np.newaxis], 1, 0)  # [b, M]
 
+		if pred_nearest_idxs.shape[-1] < self.decoder_max_len:
+			# Predict skill done too early
+			pad_len = self.decoder_max_len - pred_nearest_idxs.shape[-1]
+			dummy_skills_idxs = np.zeros((batch_size, pad_len)) - 1
+			pred_nearest_idxs = np.concatenate((pred_nearest_idxs, dummy_skills_idxs), axis=-1)
+
 		pred_nearest_idxs = np.where(tgt_mask == 1, pred_nearest_idxs, -1)
 		target_skills_idxs = np.where(tgt_mask == 1, target_skills_idxs, -2)
 
 		match_ratio = np.sum(pred_nearest_idxs == target_skills_idxs) / np.sum(tgt_mask)
+		return {"s2s/skill_match_ratio": match_ratio, **prediction}
 
-		return {"s2s/skill_match_ratio": match_ratio}
-
-	def evaluate(self, replay_data: ComDeBufferSample) -> Dict:
-		eval_info =  self._evaluate_discrete(replay_data=replay_data)
+	def evaluate(self, replay_data: ComDeBufferSample, visualization: bool = False) -> Dict:
+		eval_info = self._evaluate_discrete(replay_data=replay_data)
+		self.visualize_attention(language_guidance=replay_data.language_guidance)
 		self.reset_heldout_instructions()
+
 		return eval_info
 
 	def _excluded_save_params(self) -> List:

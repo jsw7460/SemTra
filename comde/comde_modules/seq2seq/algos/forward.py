@@ -47,5 +47,5 @@ def skilltoskill_transformer_forward(
 		deterministic=deterministic,
 		rngs={"dropout": dropout_key}
 	)
-	# prediction is of the form {"pred_skills": ..., "pred_intent": ...}.
+	# prediction is of the form {"pred_skills": ..., "encoder_attention_weights": ..., ...}.
 	return rng, prediction

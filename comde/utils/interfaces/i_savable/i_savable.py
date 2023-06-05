@@ -53,6 +53,7 @@ class IJaxSavable(metaclass=ABCMeta):
 	@classmethod
 	def load(cls, path: str):
 		data, params, *_ = load_from_zip_file(path)
+
 		model = cls(seed=data["seed"], cfg=data["cfg"], init_build_model=False)
 
 		# load parameters

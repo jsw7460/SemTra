@@ -26,7 +26,7 @@ class TransformerEncoder(nn.Module):
 	def setup(self) -> None:
 		self.input_dropout = nn.Dropout(self.dropout_prob)
 		self.input_layer = create_mlp(self.input_dim, [])
-		self.pos_encoding = PositionalEncoding(d_model=self.input_dim, max_len=self.max_len + 50)
+		self.pos_encoding = PositionalEncoding(d_model=self.input_dim, max_len=self.max_len + 100)
 		self.encoder_blocks = [
 			EncoderBlock(
 				input_dim=self.input_dim,
@@ -46,18 +46,11 @@ class TransformerEncoder(nn.Module):
 		q = self.input_dropout(q, deterministic=deterministic)
 		kv = self.input_dropout(kv, deterministic=deterministic)
 		q = self.pos_encoding(q)
+		kv = self.pos_encoding(kv)
 
+		attention_weights = []
 		for block in self.encoder_blocks:  # Todo: Change into lax_fori
-			q = block(q=q, kv=kv, q_mask=q_mask, kv_mask=kv_mask, deterministic=deterministic)
+			q, attention_weight = block(q=q, kv=kv, q_mask=q_mask, kv_mask=kv_mask, deterministic=deterministic)
+			attention_weights.append(attention_weight)
 
-		return q
-
-	def get_attention_maps(
-		self,
-		q: jnp.ndarray,
-		kv: jnp.ndarray,
-		q_mask: jnp.ndarray,
-		kv_mask: jnp.ndarray,
-		deterministic: bool
-	):
-		"""..."""
+		return q, attention_weights

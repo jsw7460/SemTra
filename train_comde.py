@@ -1,3 +1,7 @@
+from jax.config import config
+
+config.update("jax_debug_nans", True)
+
 import random
 from typing import Dict, Union
 
@@ -35,17 +39,17 @@ def program(cfg: DictConfig) -> None:
 
 	trainer = trainer_cls(
 		cfg=cfg,
-		skill_infos=env.skill_infos,
+		env=env,
 		**modules_dict
 	)
 
 	for n_iter in range(cfg["max_iter"]):
 		n_iter = (n_iter % len(data_dirs))
 		trajectories = hdf_files[n_iter * dataset_window_size: (n_iter + 1) * dataset_window_size]
+		random.shuffle(trajectories)
 
 		replay_buffer = ComdeBuffer(
-			observation_space=env.observation_space,
-			action_space=env.action_space,
+			env=env,
 			subseq_len=cfg["subseq_len"],
 			cfg=cfg["dataset"]
 		)
@@ -58,8 +62,7 @@ def program(cfg: DictConfig) -> None:
 		)
 		trainer.run(replay_buffer)
 		eval_buffer = ComdeBuffer(
-			observation_space=env.observation_space,
-			action_space=env.action_space,
+			env=env,
 			subseq_len=cfg["subseq_len"],
 			cfg=cfg["dataset"]
 		)

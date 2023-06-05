@@ -1,4 +1,4 @@
-from typing import NamedTuple, List, Dict
+from typing import NamedTuple, List, Dict, Union
 
 import numpy as np
 
@@ -11,7 +11,7 @@ class LanguageRepresentation(NamedTuple):
 
 class SkillRepresentation(NamedTuple):
 	title: str
-	variation: List[str]
+	variation: Union[str, List[str]]
 	vec: np.ndarray
 	index: int = -1	# Null skill
 

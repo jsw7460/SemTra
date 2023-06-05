@@ -41,7 +41,7 @@ def get_env(
 	env_class: Type[gym.Env],
 	task: List,
 	n_target: int,
-	parameterized_skill_dim: int,
+	skill_dim: int,
 	time_limit: int = 1000,
 	history_len: int = 1,
 	seed: int = 0,
@@ -56,14 +56,14 @@ def get_env(
 	env = SkillInfoEnv(env, skill_infos=skill_infos)
 	env.availability_check()
 	env = TimeLimitEnv(env=env, limit=time_limit)
-	env = SkillHistoryEnv(env=env, skill_dim=parameterized_skill_dim, num_stack_frames=history_len)
+	env = SkillHistoryEnv(env=env, skill_dim=skill_dim, num_stack_frames=history_len)
 	return env
 
 def get_batch_env(
 	env_class: Type[gym.Env],
 	tasks: List,
 	n_target: int,
-	parameterized_skill_dim: int,
+	skill_dim: int,
 	time_limit: int = 1000,
 	history_len: int = 1,
 	seed: int = 0,
@@ -79,7 +79,7 @@ def get_batch_env(
 			env_class=env_class,
 			task=task,
 			n_target=n_target,
-			parameterized_skill_dim=parameterized_skill_dim,
+			skill_dim=skill_dim,
 			time_limit=time_limit,
 			history_len=history_len,
 			skill_infos=skill_infos,

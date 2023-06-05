@@ -4,7 +4,6 @@ modules:
   - low_policy
   - seq2seq
   - termination
-#  - intent_emb
 intent_dim: 1024
 save_source_trajectory: False
 save_interval: 5000

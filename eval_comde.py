@@ -11,6 +11,7 @@ import gym
 import hydra
 from hydra.utils import get_class
 from omegaconf import DictConfig
+import numpy as np
 
 from comde.evaluations.utils.optimal_template import get_optimal_template
 from comde.evaluations.utils.get_arguments import get_evaluation_function
@@ -26,8 +27,6 @@ def program(cfg: DictConfig) -> None:
 		pretrained_cfg = pickle.load(f)
 
 	pretrained_models = dict()
-	if "seq2seq" in pretrained_cfg["modules"]:
-		pretrained_cfg["modules"].remove("seq2seq")
 
 	for module in pretrained_cfg["modules"]:
 		module_cls = get_class(pretrained_cfg[module]["_target_"])  # type: Union[type, Type[IJaxSavable]]
@@ -50,6 +49,7 @@ def program(cfg: DictConfig) -> None:
 		non_functionalities = pickle.load(f)
 		non_functionalities = random.choice(list(non_functionalities[cfg.non_functionality].values()))
 
+
 	param_dim = pretrained_cfg["low_policy"]["cfg"]["param_dim"]
 	param_repeats = pretrained_cfg["low_policy"]["cfg"].get("param_repeats", 100)
 	total_param_dim = param_dim * param_repeats
@@ -61,7 +61,7 @@ def program(cfg: DictConfig) -> None:
 		tasks=tasks_for_eval.copy(),
 		n_target=cfg.env.n_target,
 		cfg={**pretrained_cfg["env"], **cfg.env},
-		parameterized_skill_dim=pretrained_cfg["skill_dim"] + pretrained_cfg["non_functionality_dim"] + total_param_dim,
+		skill_dim=pretrained_cfg["skill_dim"],
 		time_limit=cfg.env.timelimit,
 		history_len=subseq_len,
 		seed=cfg.seed
@@ -89,15 +89,14 @@ def program(cfg: DictConfig) -> None:
 		Templatizing language instruction is done here
 		.... (Assume optimally extracted for now)
 	"""
-
+	optimal_template = get_optimal_template(
+		cfg=cfg,
+		envs=envs,
+		skill_infos=skill_infos,
+		non_functionalities=non_functionalities,
+		param_repeats=param_repeats
+	)
 	if cfg.use_optimal_target_skill:
-		optimal_template = get_optimal_template(
-			cfg=cfg,
-			envs=envs,
-			skill_infos=skill_infos,
-			non_functionalities=non_functionalities,
-			param_repeats=param_repeats
-		)
 		"""
 			semantic_skills_sequence: [n_env, n_target_skills, skill_dim]
 			non_functionalities: [n_env, n_target_skills, nonfunctionality_dim]
@@ -107,6 +106,7 @@ def program(cfg: DictConfig) -> None:
 		semantic_skills_sequence = optimal_template["semantic_skills_sequence"]
 		non_functionalities = optimal_template["non_functionalities"]
 		params_for_skills = optimal_template["params_for_skills"]
+		str_skill_pred_accuracy = "100% (Optimal)"
 
 	# 1. semantic skills
 	# 2. non functionality
@@ -116,11 +116,30 @@ def program(cfg: DictConfig) -> None:
 	else:
 		"""
 		"""
-		# Here, we have to predict three vectors
-		# semantic_skills: [n_envs, n_skills(~4), d]
-		# non_functionalities: [n_envs, n_skills(~4), d]
-		# params for skills: [N_TEMPLATES, n_envs, n_skills(~4), param_dim(~1)]
-		raise NotImplementedError("For now, we only use optimal template.")
+		language_guidances = []
+		for t, env in enumerate(envs):
+			language_guidance = env.get_language_guidance_from_template(
+				sequential_requirement=cfg.sequential_requirement,
+				non_functionality=cfg.non_functionality,
+				parameter={1: 25.0, 3: 25.0, 4: 1.5, 6: 25.0},
+				source_skills_idx=source_skills_idx[t]
+			)
+			language_guidances.append(language_guidance)
+
+		seq2seq_info = pretrained_models["seq2seq"].predict(language_guidances)
+		target_skills_idxs = seq2seq_info["__pred_target_skills"]
+		target_skills = []
+		for target_skill_idx, env in zip(target_skills_idxs, envs):
+			target_skill_vec = env.get_skill_vectors_from_idx_list(target_skill_idx.tolist())
+			target_skills.append(target_skill_vec)
+
+		target_skills = np.array(target_skills)
+		optimal_target_skills = optimal_template["optimal_target_skill_idxs"]
+
+		_target_skills_idxs = target_skills_idxs[:, :optimal_target_skills.shape[-1]]
+
+		skill_pred_accuracy = np.mean(optimal_target_skills == _target_skills_idxs)
+		str_skill_pred_accuracy = f"{skill_pred_accuracy * 100} %"
 
 	n_eval = cfg.n_eval
 
@@ -130,7 +149,8 @@ def program(cfg: DictConfig) -> None:
 
 	returns_mean = 0.0
 
-	for _seed, param_for_skill in zip(range(n_eval), params_for_skills):
+	# for _seed, param_for_skill in zip(range(n_eval), params_for_skills):
+	for _seed in range(n_eval):
 
 		evaluation, _info = get_evaluation_function(locals(), custom_seed=_seed)
 		info, eval_fmt = evaluation()
@@ -139,6 +159,7 @@ def program(cfg: DictConfig) -> None:
 		eval_str = "\n" \
 				   + "=" * 30 + "\n" \
 				   + f"seq_req: {_info['sequential_requirement']}, seed: {_seed}, step: {cfg.step}\n" \
+				   + f"skill prediction: {str_skill_pred_accuracy}\n" \
 				   + eval_fmt
 
 		dump_eval_logs(save_path=text_path, eval_str=eval_str)

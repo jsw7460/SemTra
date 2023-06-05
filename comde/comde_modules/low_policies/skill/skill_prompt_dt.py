@@ -1,21 +1,21 @@
-from typing import Dict, List, Union, Tuple
+from typing import Dict, List, Union, Tuple, Optional
 
 import jax
 import numpy as np
 import optax
 
-from comde.comde_modules.low_policies.algos.forwards import skill_decisiontransformer_forward as fwd
-from comde.comde_modules.low_policies.algos.updates.skill_decision_transformer import skill_dt_updt
+from comde.comde_modules.low_policies.algos.forwards import skill_promptdt_forward as fwd
+from comde.comde_modules.low_policies.algos.updates.skill_promptdt import skill_promptdt_updt
 from comde.comde_modules.low_policies.base import BaseLowPolicy
 from comde.rl.buffers.type_aliases import ComDeBufferSample
 from comde.utils.jax_utils.general import get_basic_rngs
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
-from .architectures.skill_decision_transformer import PrimSkillDecisionTransformer
+from .architectures.skill_prompt_dt import PrimSkillPromptDT, get_prompt
 
 
-class SkillDecisionTransformer(BaseLowPolicy):
-	PARAM_COMPONENTS = ["_SkillDecisionTransformer__model"]
+class SkillPromptDT(BaseLowPolicy):
+	PARAM_COMPONENTS = ["_SkillPromptDT__model"]
 
 	def __init__(
 		self,
@@ -23,13 +23,15 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		cfg: Dict,
 		init_build_model: bool = True
 	):
-		super(SkillDecisionTransformer, self).__init__(
+		super(SkillPromptDT, self).__init__(
 			seed=seed,
 			cfg=cfg,
 			init_build_model=init_build_model
 		)
 		self.__model = None
 		self.max_ep_len = cfg["max_ep_len"]
+
+		self.get_prompt = get_prompt
 
 		if init_build_model:
 			self.build_model()
@@ -56,17 +58,15 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		return activation_fn
 
 	def build_model(self):
-		transformer = PrimSkillDecisionTransformer(
+		transformer = PrimSkillPromptDT(
 			gpt2_config=self.cfg["gpt2_config"],
 			obs_dim=self.observation_dim,
 			act_dim=self.action_dim,
-			skill_dim=self.skill_dim,
 			hidden_size=self.cfg["hidden_size"],
 			act_scale=self.cfg["act_scale"],
 			max_ep_len=self.max_ep_len,
 			normalization_mean=self.normalization_mean,
 			normalization_std=self.normalization_std,
-			use_timestep=self.cfg["use_timestep"]
 		)
 		self.rng, rngs = get_basic_rngs(self.rng)
 		self.rng, transformer_dropout = jax.random.split(self.rng)
@@ -74,7 +74,10 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		subseq_len = self.cfg["subseq_len"]
 		init_observations = np.random.normal(size=(1, subseq_len, self.observation_dim))
 		init_actions = np.random.normal(size=(1, subseq_len, self.action_dim))
-		init_skills = np.random.normal(size=(1, subseq_len, self.skill_dim + self.nonfunc_dim + self.total_param_dim))
+		init_skills = np.random.normal(size=(1, subseq_len, self.skill_dim))
+		prompt_len = 48
+		init_prompts = np.random.normal(size=(1, prompt_len, self.skill_dim))
+		init_prompts_maskings = np.zeros((1, prompt_len))
 		init_timesteps = np.zeros((1, self.cfg["subseq_len"]), dtype="i4")
 		init_masks = np.ones((1, self.cfg["subseq_len"]))
 		tx = optax.chain(
@@ -88,26 +91,23 @@ class SkillDecisionTransformer(BaseLowPolicy):
 				init_observations,
 				init_actions,
 				init_skills,
+				init_prompts,
+				init_prompts_maskings,
 				init_timesteps,
 				init_masks,
 			],
 			tx=tx
 		)
 
-	def update(self, replay_data: ComDeBufferSample) -> Dict:
-
-		if self.cfg["use_optimal_lang"]:
-			raise NotImplementedError("Obsolete")
-
-		skills_dict = self.get_parameterized_skills(replay_data)
-		skills = skills_dict["parameterized_skills"]
-
-		new_model, info = skill_dt_updt(
+	def update(self, replay_data: ComDeBufferSample, prompt_dict: Dict) -> Dict:
+		new_model, info = skill_promptdt_updt(
 			rng=self.rng,
 			dt=self.model,
 			observations=replay_data.observations,
 			actions=replay_data.actions,
-			skills=skills,
+			skills=replay_data.skills,
+			prompts=prompt_dict["prompts"],
+			prompts_maskings=prompt_dict["prompts_maskings"],
 			timesteps=replay_data.timesteps.astype("i4"),
 			maskings=replay_data.maskings,
 			action_targets=np.copy(replay_data.actions),
@@ -159,8 +159,13 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		skills: np.ndarray,
 		timesteps: np.ndarray,
 		maskings: Union[np.ndarray] = None,
-		to_np: bool = True
+		to_np: bool = True,
+		prompts_dict: Optional[Dict] = None,
+		seq2seq_info: Optional[Dict] = None
 	) -> np.ndarray:
+
+		assert (prompts_dict is not None) or (seq2seq_info is not None), \
+			"One of prompts_dict or seq2seq_info should be given"
 
 		self.check_shape(observations, actions, skills, timesteps)
 
@@ -180,13 +185,20 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		if maskings is None:
 			maskings = np.ones((1, subseq_len))
 
-		# print("Observation Prediction Mean", np.mean(observations, axis=(0, 1)))
+		if prompts_dict is None:
+			prompts_dict = self.get_prompts_dict_from_seq2seq_info(seq2seq_info)
+
+		prompts = prompts_dict["prompts"]
+		prompts_maskings = prompts_dict["prompts_maskings"]
+
 		self.rng, action_preds = fwd(
 			rng=self.rng,
 			model=self.model,
 			observations=observations,
 			actions=actions,
 			skills=skills,
+			prompts=prompts,
+			prompts_maskings=prompts_maskings,
 			timesteps=timesteps.astype("i4"),
 			maskings=maskings,
 		)
@@ -196,18 +208,32 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		else:
 			return action_preds
 
+	def get_prompts_dict_from_seq2seq_info(self, seq2seq_info: Dict):
+		prompt_ingradient = self.reshape_att_for_prompt(
+			attention_weights=seq2seq_info["__decoder_attention_weights"][-1]
+		)
+		prompts_dict = get_prompt(
+			attention_weights=prompt_ingradient["attention_weights"],
+			language_guidance=seq2seq_info["__language_guidance"],
+			target_skills_mask=seq2seq_info["__target_skills_masks"],
+			language_guidance_mask=seq2seq_info["__language_guidance_mask"]
+		)
+
+		return prompts_dict
+
 	def evaluate(
 		self,
-		replay_data: ComDeBufferSample
+		replay_data: ComDeBufferSample,
+		seq2seq_info: Dict
 	) -> Dict:
 		if self.cfg["use_optimal_lang"]:
 			raise NotImplementedError("Obsolete")
-		# replay_data = replay_data._replace(intents=None)
+
+		prompts_dict = self.get_prompts_dict_from_seq2seq_info(seq2seq_info)
 
 		observations = replay_data.observations
 		actions = replay_data.actions
-		skills_dict = self.get_parameterized_skills(replay_data)
-		skills = skills_dict["parameterized_skills"]
+		skills = replay_data.skills
 		timesteps = replay_data.timesteps
 		maskings = replay_data.maskings
 
@@ -215,6 +241,7 @@ class SkillDecisionTransformer(BaseLowPolicy):
 			observations=observations,
 			actions=actions,
 			skills=skills,
+			prompts_dict=prompts_dict,
 			timesteps=timesteps,
 			maskings=maskings,
 		)
@@ -230,15 +257,22 @@ class SkillDecisionTransformer(BaseLowPolicy):
 
 		return eval_info
 
+	@staticmethod
+	def reshape_att_for_prompt(attention_weights: np.ndarray) -> Dict:
+		"""Output of this function is supposed to be used in low policy"""
+		attention_weights = attention_weights[0]
+		attention_weights = np.mean(attention_weights, axis=1)
+		return {"attention_weights": attention_weights}
+
 	def _excluded_save_params(self) -> List:
-		return SkillDecisionTransformer.PARAM_COMPONENTS
+		return SkillPromptDT.PARAM_COMPONENTS
 
 	def _get_save_params(self) -> Dict[str, Params]:
 		params_dict = {}
-		for component_str in SkillDecisionTransformer.PARAM_COMPONENTS:
+		for component_str in SkillPromptDT.PARAM_COMPONENTS:
 			component = getattr(self, component_str)
 			params_dict[component_str] = component.params
 		return params_dict
 
 	def _get_load_params(self) -> List[str]:
-		return SkillDecisionTransformer.PARAM_COMPONENTS
+		return SkillPromptDT.PARAM_COMPONENTS

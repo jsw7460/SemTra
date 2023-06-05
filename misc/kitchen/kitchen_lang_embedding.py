@@ -9,7 +9,7 @@ if __name__ == "__main__":
 
 	# === Hyper parameters
 	save_dir = "/home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/language_guidance/"
-	topic = "kitchen_seq_rev_rep"
+	topic = "kitchen_word_embedding"
 	main_texts = ["sequential", "reverse"]
 
 	skills_idxs = [str(i) for i in range(7)]
@@ -575,9 +575,10 @@ if __name__ == "__main__":
 			for text in variations:
 				time += 1
 				encoded_input = tokenizer(text, return_tensors='pt').to("cuda:0")
-				output = model(**encoded_input)["last_hidden_state"]
-				sentence_vector = th.mean(output, dim=1).squeeze()
+				sentence_vector = model(**encoded_input)["last_hidden_state"]
 				sentence_vector = sentence_vector.cpu().numpy()
+				print("Sentence vector", sentence_vector.shape)
+				print(sentence_vector.shape)
 				save_dict[key][text] = sentence_vector
 
 	with open(Path(save_dir) / Path(f"{topic}_bert_base_mapping"), "wb") as f:

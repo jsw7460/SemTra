@@ -1,21 +1,22 @@
 import pickle
 import random
+from copy import deepcopy
 from typing import Dict, Optional, Union, Tuple, List
 
-import gym
 import h5py
 import numpy as np
 from jax.tree_util import tree_map
 from stable_baselines3.common.vec_env import VecNormalize
-from copy import deepcopy
 
 from comde.rl.buffers.buffers.episodic import EpisodicMaskingBuffer
 from comde.rl.buffers.episodes.source_target_skill import SourceTargetSkillContainedEpisode
 from comde.rl.buffers.episodes.source_target_state import SourceStateEpisode
 from comde.rl.buffers.type_aliases import ComDeBufferSample
+from comde.rl.envs.base import ComdeSkillEnv
+from comde.rl.envs.utils.skill_to_vec import SkillInfoEnv
 from comde.utils.common.safe_eval import safe_eval_to_float
 
-array = np.array		# DO NOT REMOVE THIS !
+array = np.array  # DO NOT REMOVE THIS !
 
 
 class ComdeBuffer(EpisodicMaskingBuffer):
@@ -25,16 +26,14 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 
 	def __init__(
 		self,
-		observation_space: gym.spaces.Space,
-		action_space: gym.spaces.Space,
+		env: Union[ComdeSkillEnv, SkillInfoEnv],
 		subseq_len: int,
 		cfg: Dict,
 		n_envs: int = 1,
 		buffer_size: int = -1,  # No matter
 	):
 		super(ComdeBuffer, self).__init__(
-			observation_space=observation_space,
-			action_space=action_space,
+			env=env,
 			subseq_len=subseq_len,
 			n_envs=n_envs,
 			buffer_size=buffer_size,
@@ -73,8 +72,6 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		trajectory_paths = paths["trajectory"]
 		sequential_requirements_path = paths["sequential_requirements"]
 		non_functionalities_path = paths["non_functionalities"]
-
-		# num_skills_done_relabel = cfg["num_skills_done_relabel"]
 
 		with open(sequential_requirements_path, "rb") as f:
 			sequential_requirements_mapping = pickle.load(f)
@@ -202,9 +199,11 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			"infos": infos,
 			"source_skills_idxs": source_skills,
 			"target_skills_idxs": target_skills,
+			"language_guidance": None,	# Late binding
 			"sequential_requirement": sequential_requirement_vector,  # Sequential requirements act as an operator.
 			"str_sequential_requirement": sequential_requirement,
 			"non_functionality": non_functionality_vector,
+			"str_non_functionality": non_functionality,
 			"first_observations": first_observations,
 			"skills_done": augmented_skills_done,
 			"skills_order": np.array(trajectory["skills_order"]),
@@ -236,7 +235,9 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		target_skills = []
 		n_source_skills = []
 		n_target_skills = []
+		language_guidances = []
 		str_sequential_requirements = []
+		str_non_functionalities = []
 		sequential_requirements = []
 		non_functionalities = []
 		subtrajectories = []
@@ -247,13 +248,12 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			subtraj = ep.get_numpy_subtrajectory(from_=start_idx, to_=start_idx + self.subseq_len, batch_mode=False)
 			source_parameters.append(subtraj.pop("source_parameter"))
 			parameters.append(subtraj.pop("parameter"))
-			# source_observations.append(subtraj.pop("source_observations"))
-			# source_actions.append(subtraj.pop("source_actions"))
-
 			subtrajectories.append(subtraj)
 			source_skills.append(subtraj.pop("source_skills"))
 			target_skills.append(subtraj.pop("target_skills"))
+			language_guidances.append(subtraj.pop("language_guidance"))
 			str_sequential_requirements.append(subtraj.pop("str_sequential_requirement"))
+			str_non_functionalities.append(subtraj.pop("str_non_functionality"))
 			sequential_requirements.append(random.choice(list(subtraj.pop("sequential_requirement").values())))
 			non_functionalities.append(random.choice(list(subtraj.pop("non_functionality").values())))
 			n_source_skills.append(subtraj.pop("n_source_skills"))
@@ -268,8 +268,10 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			target_skills_idxs=np.array(target_skills),  # This is index. Not dense vector
 			n_source_skills=np.array(n_source_skills),
 			n_target_skills=np.array(n_target_skills),
+			language_guidance=language_guidances,
 			str_sequential_requirement=str_sequential_requirements,
 			sequential_requirement=np.array(sequential_requirements),
+			str_non_functionality=str_non_functionalities,
 			non_functionality=np.array(non_functionalities),
 			source_parameters=source_parameters,
 			parameters=parameters

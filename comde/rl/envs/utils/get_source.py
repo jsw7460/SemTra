@@ -13,7 +13,7 @@ def get_source_skills(
 	skill_infos: Dict[str, List[SkillRepresentation]],
 	task: Union[str, List[str]]
 ) -> Union[Dict, None]:
-	# task = task[: 3]
+	task = task[: 3]
 
 	# if type(task) == list:
 	task = [str(t) for t in task]
@@ -47,8 +47,8 @@ def get_batch_source_skills(  # Evaluation on batch environment
 ) -> Dict:
 	skill_dict_list \
 		= [get_source_skills(task_to_source_skills, sequential_requirement, skill_infos, task) for task in tasks]
-	np_source_skills = [skill_dict["np_source_skills"] for skill_dict in skill_dict_list]
-	source_skill_idxs = [skill_dict["source_skill_idxs"] for skill_dict in skill_dict_list]
+	np_source_skills = [skill_dict["np_source_skills"] for skill_dict in skill_dict_list if skill_dict is not None]
+	source_skill_idxs = [skill_dict["source_skill_idxs"] for skill_dict in skill_dict_list if skill_dict is not None]
 	return {"np_source_skills": np_source_skills, "source_skill_idxs": source_skill_idxs}
 
 

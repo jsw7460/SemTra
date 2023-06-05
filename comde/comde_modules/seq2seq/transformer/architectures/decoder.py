@@ -48,6 +48,8 @@ class TransformerDecoder(nn.Module):
 		"""
 		x = self.input_dropout(x, deterministic=deterministic)
 		x = self.input_layer(x, deterministic=deterministic)
+		attention_weights = []
 		for block in self.decoder_blocks:
-			x = block(q=x, kv=kv, mask=mask, deterministic=deterministic)
-		return x
+			x, attention_weight = block(q=x, kv=kv, mask=mask, deterministic=deterministic)
+			attention_weights.append(attention_weight)
+		return x, attention_weights

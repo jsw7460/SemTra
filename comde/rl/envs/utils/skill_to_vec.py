@@ -26,6 +26,8 @@ class SkillInfoEnv(gym.Wrapper):
 		# NOTE: This entitle onehot representation of each vector
 		skills.sort(key=lambda skill: skill[0].index)
 
+		self.skill_dim = skills[0][0].vec.shape[-1]
+
 		for sk in self.skill_list:
 			self.__idx_skill_list.append(self.onehot_skills_mapping[sk])
 
@@ -47,8 +49,11 @@ class SkillInfoEnv(gym.Wrapper):
 			assert sk.index == self.env.onehot_skills_mapping[sk.title], \
 				f"Skill onehot representation mismatch."
 
-	def get_skill_from_idx(self, idx: int, variation: Union[str, int] = "random") -> SkillRepresentation:
-		sk = self.skill_index_mapping[idx]
+	def get_skill_from_idx(self, idx: int, variation: Union[str, int] = "random") -> Union[SkillRepresentation, None]:
+		sk = self.skill_index_mapping.get(idx, None)
+		if sk is None:
+			return None
+
 		if variation == "random":
 			return random.choice(self.skill_infos[sk])
 		else:
@@ -56,8 +61,12 @@ class SkillInfoEnv(gym.Wrapper):
 
 	def get_skill_vectors_from_idx_list(self, idxs: List[int]) -> np.ndarray:
 		skill_vectors = []
+		dummy_skill = np.zeros((self.skill_dim,))
 		for idx in idxs:
 			skill = self.get_skill_from_idx(idx)
-			skill_vectors.append(skill.vec)
+			if skill is None:
+				skill_vectors.append(dummy_skill)
+			else:
+				skill_vectors.append(skill.vec)
 		skill_vectors = np.array(skill_vectors)
 		return skill_vectors

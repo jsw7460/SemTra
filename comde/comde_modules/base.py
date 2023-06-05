@@ -23,8 +23,6 @@ class ComdeBaseModule:
 	def str_to_activation(self, activation_fn: str):
 		raise NotImplementedError("Obsolete")
 
-	# return str_to_flax_activation(activation_fn)
-
 	def _str_to_activation(self) -> None:
 		def str_to_activation(data: collections.abc.Mapping):
 			for key, value in data.items():

@@ -4,6 +4,8 @@ import numpy as np
 
 from comde.rl.buffers.episodes.skill import SkillContainedEpisode
 
+PAD_IDX_FOR_SKILL = -1	# Do not change this
+
 
 class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 
@@ -16,8 +18,10 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 		self.target_skills = []
 		self.n_target_skills = 0
 
+		self.language_guidance = None	# type: str
 		self.str_sequential_requirement = None	# String. e.g., 'do sequentially', ...
 		self.sequential_requirement = None  # Vector
+		self.str_non_functionality = None	# String. e.g., 'wind', 'speed', ...
 		self.non_functionality = None
 
 		self.source_parameter = None
@@ -39,8 +43,10 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 			infos=episode.infos,
 			source_skills=self.source_skills,
 			target_skills=self.target_skills,
+			language_guidance=self.language_guidance,
 			str_sequential_requirement=self.str_sequential_requirement,
 			sequential_requirement=self.sequential_requirement,
+			str_non_functionality=self.str_non_functionality,
 			non_functionality=self.non_functionality,
 			source_parameter=self.source_parameter,
 			parameter=self.parameter,
@@ -64,8 +70,10 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 		infos: List,
 		source_skills: List = None,
 		target_skills: List = None,
+		language_guidance: str = None,
 		str_sequential_requirement: str = None,
 		sequential_requirement: List = None,
+		str_non_functionality: str = None,
 		non_functionality: List = None,
 		source_parameter: Dict = None,
 		parameter: Dict = None,
@@ -95,8 +103,10 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 		ret.timesteps = timesteps.copy()
 		ret.source_skills = source_skills.copy()
 		ret.target_skills = target_skills.copy()
+		ret.language_guidance = language_guidance
 		ret.str_sequential_requirement = str_sequential_requirement
 		ret.sequential_requirement = sequential_requirement.copy()
+		ret.str_non_functionality = str_non_functionality
 		ret.non_functionality = non_functionality.copy()
 		ret.source_parameter = source_parameter.copy()
 		ret.parameter = parameter.copy()
@@ -108,10 +118,12 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 			= super(SourceTargetSkillContainedEpisode, self).get_numpy_subtrajectory(from_, to_, batch_mode=batch_mode)
 		current_data = {
 			"source_skills": self.source_skills.copy(),
+			"language_guidance": self.language_guidance,
 			"str_sequential_requirement": self.str_sequential_requirement,
 			"sequential_requirement": self.sequential_requirement.copy(),
 			"source_parameter": self.source_parameter.copy(),
 			"parameter": self.parameter.copy(),
+			"str_non_functionality": self.str_non_functionality,
 			"non_functionality": self.non_functionality.copy(),
 			"target_skills": self.target_skills.copy(),
 			"skills_order": np.array(self.skills_orders[from_: to_], dtype="i4"),
@@ -127,6 +139,7 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 		ret = super(SourceTargetSkillContainedEpisode, self).to_numpydict()
 		ret.update({
 			"source_skills": self.source_skills.copy(),
+			"language_guidance": self.language_guidance,
 			"sequential_requirement": self.sequential_requirement.copy(),
 			"non_functionality": self.non_functionality.copy(),
 			"source_parameter": self.source_parameter.copy(),
@@ -142,9 +155,9 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 			f"possible max num of source skills is {max_source_skills} but detect {len(self.source_skills)} skills."
 		assert len(self.target_skills) <= max_target_skills, \
 			f"possible max num of target skills is {max_target_skills} but detect {len(self.target_skills)} skills."
-		[self.source_skills.append(-1) for _ in range(max_source_skills - self.n_source_skills)]
-		[self.target_skills.append(-1) for _ in range(max_target_skills - self.n_target_skills)]
-		[self.skills_orders.append(-1) for _ in range(n_padding)]
+		[self.source_skills.append(PAD_IDX_FOR_SKILL) for _ in range(max_source_skills - self.n_source_skills)]
+		[self.target_skills.append(PAD_IDX_FOR_SKILL) for _ in range(max_target_skills - self.n_target_skills)]
+		[self.skills_orders.append(PAD_IDX_FOR_SKILL) for _ in range(n_padding)]
 
 	def add(
 		self,
@@ -193,8 +206,10 @@ class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 		self.target_skills = dataset["target_skills_idxs"]
 		self.n_target_skills = len(self.target_skills)
 
+		self.language_guidance = dataset["language_guidance"]
 		self.str_sequential_requirement = dataset["str_sequential_requirement"]
 		self.sequential_requirement = dataset["sequential_requirement"]
+		self.str_non_functionality = dataset["str_non_functionality"]
 		self.non_functionality = dataset["non_functionality"]
 		self.parameter = dataset["parameter"].copy()
 		self.source_parameter = dataset["source_parameter"].copy()

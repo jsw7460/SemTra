@@ -9,6 +9,7 @@ from comde.rl.buffers.type_aliases import ReplayBufferSamples, ComDeBufferSample
 from comde.rl.utils.get_shape import get_obs_shape, get_action_dim
 
 from comde.utils.common.timeit import timeit
+from comde.rl.envs.base import ComdeSkillEnv
 
 try:
 	# Check memory used by replay buffer when possible
@@ -30,11 +31,14 @@ class BaseBuffer(ABC):
 	def __init__(
 		self,
 		buffer_size: int,
-		observation_space: spaces.Space,
-		action_space: spaces.Space,
+		env: ComdeSkillEnv,
 		n_envs: int = 1
 	):
 		super(BaseBuffer, self).__init__()
+		observation_space = env.observation_space
+		action_space = env.action_space
+
+		self.env = env
 		self.buffer_size = buffer_size
 		self.observation_space = observation_space
 		self.action_space = action_space

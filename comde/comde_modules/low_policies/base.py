@@ -30,14 +30,6 @@ class BaseLowPolicy(ComdeBaseModule, IJaxSavable, ITrainable):
 		self.nonfunc_dim = cfg["non_functionality_dim"]
 		self.param_dim = cfg["param_dim"]
 		self.param_repeats = cfg.get("param_repeats", None)
-		# self.param_repeats = cfg["param_repeats"]	# type: int
-
-		# ============================================ DEBUG
-		if self.param_repeats is None:	# For the deprecated case.
-			# raise NotImplementedError("Unwrap this code if you really want")
-			self.param_dim = 10
-			self.param_repeats = 1
-
 		self.total_param_dim = self.param_dim * self.param_repeats
 
 		if init_build_model:

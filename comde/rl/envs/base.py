@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 
 import gym
 
@@ -46,3 +46,13 @@ class ComdeSkillEnv(gym.Wrapper):
 
 	def get_buffer_action(self, action: Any):
 		return action
+
+	@abstractmethod
+	def get_language_guidance_from_template(
+		self,
+		sequential_requirement: str,
+		non_functionality: str,
+		parameter: Union[float, Dict],
+		source_skills_idxs: List[int]
+	):
+		raise NotImplementedError()

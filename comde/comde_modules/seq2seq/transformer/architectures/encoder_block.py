@@ -50,16 +50,16 @@ class EncoderBlock(nn.Module):
 		kv_mask: jnp.ndarray,	# [b, len(kv)]
 		deterministic: bool
 	):
-		mask = jnp.matmul(jnp.expand_dims(q_mask, axis=2), jnp.expand_dims(kv_mask, axis=1))
+		# mask = jnp.matmul(jnp.expand_dims(q_mask, axis=2), jnp.expand_dims(kv_mask, axis=1))
+		mask = jnp.logical_and(jnp.expand_dims(q_mask, axis=2), jnp.expand_dims(kv_mask, axis=1))
 		mask = jnp.expand_dims(mask, axis=1)
 
-		x, _ = self.attention(q=q, kv=kv, mask=mask, deterministic=deterministic)
+		x, attention = self.attention(q=q, kv=kv, mask=mask, deterministic=deterministic)
 		x = q + self.dropout(x, deterministic=deterministic)
-
 		x = self.ln1(x)
 
 		x2 = self.linear(x, deterministic=deterministic)
 		x2 = x + self.dropout(x2, deterministic=deterministic)
 		x2 = self.ln2(x2)
 
-		return x2
+		return x2, attention

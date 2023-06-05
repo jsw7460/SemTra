@@ -100,3 +100,33 @@ def skill_ln_mlp_forward(
 		training=False
 	)
 	return rng, prediction
+
+
+@jax.jit
+def skill_promptdt_forward(
+	rng: jnp.ndarray,
+	model: Model,
+	observations: jnp.ndarray,
+	actions: jnp.ndarray,
+	skills: jnp.ndarray,
+	prompts: jnp.ndarray,
+	prompts_maskings: jnp.ndarray,
+	timesteps: jnp.ndarray,
+	maskings: jnp.ndarray,
+	deterministic: bool = True
+) -> Tuple[PRNGKey, jnp.ndarray]:
+	rng, dropout_key = jax.random.split(rng)
+	action_preds = model.apply_fn(
+		{"params": model.params},
+		observations=observations,
+		actions=actions,
+		skills=skills,
+		prompts=prompts,
+		prompts_maskings=prompts_maskings,
+		timesteps=timesteps,
+		maskings=maskings,
+		deterministic=deterministic,
+		rngs={"dropout": dropout_key}
+	)
+
+	return rng, action_preds

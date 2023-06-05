@@ -6,11 +6,13 @@ from typing import Dict
 import time
 
 from comde.utils.superclasses.loggable import Loggable
-
+from comde.rl.envs.utils.skill_to_vec import SkillInfoEnv
 
 class BaseTrainer(Loggable):
-	def __init__(self, cfg: Dict):
+	def __init__(self, cfg: Dict, env: SkillInfoEnv):
 		super(BaseTrainer, self).__init__(cfg=cfg)
+
+		self.env = env
 
 		# ==== time ====
 		self.today = None

@@ -38,8 +38,10 @@ class ComDeBufferSample(NamedTuple):
 	target_skills_idxs: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b, M]
 	n_source_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b,]
 	n_target_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b,]
+	language_guidance: List = []
 	sequential_requirement: Union[np.ndarray, th.tensor] = np.empty(0, )	# [b, d]
 	str_sequential_requirement: List = []		# String
+	str_non_functionality: List = []		# String
 	non_functionality: Union[np.ndarray, th.tensor] = np.empty(0, )	# [b, d]
 	source_parameters: List[Dict] = []
 	parameters: List[Dict] = []

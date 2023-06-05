@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import List
+from typing import List, Dict
 
 import numpy as np
 from jax.tree_util import tree_map
@@ -21,19 +21,10 @@ def evaluate_comde(
 	termination: BaseTermination,
 	target_skills: np.ndarray,
 	termination_pred_interval: int,
+	seq2seq_info: Dict = None,
 	save_results: bool = False,
 	use_optimal_next_skill: bool = False,
 ):
-	"""
-	:param envs:
-	:param low_policy:
-	:param termination:
-	:param target_skills: Length = n (# of envs), each has shape [M, d]
-	:param termination_pred_interval:
-	:param save_results:
-	:param use_optimal_next_skill:
-	:return:
-	"""
 	# Some variables
 	n_envs = len(envs)
 	subseq_len = envs[0].num_stack_frames
@@ -93,11 +84,11 @@ def evaluate_comde(
 			observations=history_observations,
 			actions=history_actions,
 			skills=history_skills,
+			seq2seq_info=seq2seq_info,
 			maskings=history_maskings,
 			timesteps=timesteps,
 			to_np=True
 		)
-
 		step_results = [env.step(act.copy(), cur_skills[i].copy()) for env, act, i in zip(envs, actions, range(n_envs))]
 		obs_list = [result[I_OBS] for result in step_results]
 
@@ -120,8 +111,6 @@ def evaluate_comde(
 		else:
 			for k in range(n_envs):
 				eval_infos[f"env_{k}"]["rewards"].append(rew[k])
-
-
 
 	n_tasks = sum([env.n_target for env in envs])
 	return postprocess(eval_infos=eval_infos, n_tasks=n_tasks)

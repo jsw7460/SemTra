@@ -28,6 +28,7 @@ max_target_skills: 4
 
 state_normalization: False
 skill_dim: ${language_dim}
+update_seq2seq: True
 
 # language_dim: CLIP: 512 / Bert-base: 768 / Bert-large: 1024
 language_dim: 768
