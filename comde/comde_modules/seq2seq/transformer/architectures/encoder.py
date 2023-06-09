@@ -19,13 +19,11 @@ class TransformerEncoder(nn.Module):
 	activation_fn: Callable
 
 	input_dropout = None
-	input_layer = None
 	pos_encoding = None
 	encoder_blocks = None
 
 	def setup(self) -> None:
 		self.input_dropout = nn.Dropout(self.dropout_prob)
-		self.input_layer = create_mlp(self.input_dim, [])
 		self.pos_encoding = PositionalEncoding(d_model=self.input_dim, max_len=self.max_len + 100)
 		self.encoder_blocks = [
 			EncoderBlock(
@@ -42,7 +40,9 @@ class TransformerEncoder(nn.Module):
 		return self.forward(*args, **kwargs)
 
 	def forward(self, q: jnp.ndarray, kv: jnp.ndarray, q_mask: jnp.ndarray, kv_mask: jnp.ndarray, deterministic: bool):
-
+		"""
+			Note: Inputs are word embedding, not word idxs
+		"""
 		q = self.input_dropout(q, deterministic=deterministic)
 		kv = self.input_dropout(kv, deterministic=deterministic)
 		q = self.pos_encoding(q)

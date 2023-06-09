@@ -10,7 +10,8 @@ defaults:
   - env: kitchen
   - mode: comde
   - dataset: base
-  - baseline: retail
+  - baseline: flatbc
+  - prompt_learner: transformer
 
 save_prefix: /home/jsw7460/comde_save/train/
 save_suffix: foo
@@ -34,7 +35,7 @@ update_seq2seq: True
 language_dim: 768
 subseq_len: 5
 batch_size: 256
-max_iter: 200
+max_iter: 500
 step_per_dataset: 5000
 log_interval: 1000
 save_interval: ${mode.save_interval}

@@ -2,14 +2,16 @@ import pickle
 from abc import abstractmethod
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict
-import time
+from typing import Dict, Union, List, Type
 
-from comde.utils.superclasses.loggable import Loggable
 from comde.rl.envs.utils.skill_to_vec import SkillInfoEnv
+from comde.utils.superclasses.loggable import Loggable
+
+AnySkillRelated = Union[List[SkillInfoEnv], List[Type], SkillInfoEnv]
+
 
 class BaseTrainer(Loggable):
-	def __init__(self, cfg: Dict, env: SkillInfoEnv):
+	def __init__(self, cfg: Dict, env: Union[SkillInfoEnv, AnySkillRelated]):
 		super(BaseTrainer, self).__init__(cfg=cfg)
 
 		self.env = env

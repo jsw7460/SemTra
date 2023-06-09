@@ -50,7 +50,6 @@ class EncoderBlock(nn.Module):
 		kv_mask: jnp.ndarray,	# [b, len(kv)]
 		deterministic: bool
 	):
-		# mask = jnp.matmul(jnp.expand_dims(q_mask, axis=2), jnp.expand_dims(kv_mask, axis=1))
 		mask = jnp.logical_and(jnp.expand_dims(q_mask, axis=2), jnp.expand_dims(kv_mask, axis=1))
 		mask = jnp.expand_dims(mask, axis=1)
 

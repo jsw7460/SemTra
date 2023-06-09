@@ -100,6 +100,7 @@ class SkillPromptDT(BaseLowPolicy):
 		)
 
 	def update(self, replay_data: ComDeBufferSample, prompt_dict: Dict) -> Dict:
+
 		new_model, info = skill_promptdt_updt(
 			rng=self.rng,
 			dt=self.model,

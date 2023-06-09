@@ -153,6 +153,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		skills_idxs = np.array(trajectory["skills_idxs"])
 		parameter = str(trajectory["parameter"][()], "utf-8")
 		parameter = self.eval_param(parameter)
+
 		if -1 in parameter.keys():
 			raise LookupError("-1 is for the skill which is padded. Please fix here.")
 		else:

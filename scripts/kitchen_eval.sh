@@ -1,15 +1,15 @@
-for j in {1..10};
+for j in {1..4};
 do
-  for i in {1..10};
+  for i in {1..5};
   do
   ten=$(($j * 10))
   step=$(($(($ten + $i)) * 5000))
   echo $step
   CUDA_VISIBLE_DEVICES=1 python3 eval_comde.py \
-  date=2023-05-15 \
-  pretrained_suffix=comde_kitchen_wind_smallmlp \
+  date=2023-06-08 \
+  pretrained_suffix=kt_skill_promptdt \
   env=kitchen \
-  use_optimal_target_skill=True \
+  use_optimal_target_skill=False \
   non_functionality=wind \
   n_eval=1 \
   step=$step &

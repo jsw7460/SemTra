@@ -121,8 +121,8 @@ def program(cfg: DictConfig) -> None:
 			language_guidance = env.get_language_guidance_from_template(
 				sequential_requirement=cfg.sequential_requirement,
 				non_functionality=cfg.non_functionality,
-				parameter={1: 25.0, 3: 25.0, 4: 1.5, 6: 25.0},
-				source_skills_idx=source_skills_idx[t]
+				source_skills_idx=source_skills_idx[t],
+				parameter=None
 			)
 			language_guidances.append(language_guidance)
 

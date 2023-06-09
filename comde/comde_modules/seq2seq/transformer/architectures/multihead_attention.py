@@ -5,7 +5,7 @@ import jax.numpy as jnp
 
 from comde.comde_modules.common.utils import create_mlp
 
-INFTY = 1e+9
+INFTY = 1e+13
 
 """
 SKIN: Skill-Intent Transformer Encoder

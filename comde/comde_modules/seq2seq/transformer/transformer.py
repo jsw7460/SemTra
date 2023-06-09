@@ -13,16 +13,14 @@ from comde.comde_modules.seq2seq.algos.updates.skilltoskill_transformer import (
 	skilltoskill_transformer_ce_updt as discrete_update
 )
 from comde.comde_modules.seq2seq.base import BaseSeqToSeq
-from comde.comde_modules.seq2seq.transformer.architectures.transformer import PrimSklToSklIntTransformer
+from comde.comde_modules.seq2seq.transformer.architectures.skltoskl_transformer import PrimSklToSklIntTransformer
 from comde.rl.buffers.type_aliases import ComDeBufferSample
+from comde.utils.common.lang_representation import SkillRepresentation as LanguageRepresentation
 from comde.utils.common.pretrained_forwards.jax_bert_base import bert_base_forward
 from comde.utils.common.visualization import dump_attention_weights_images
 from comde.utils.jax_utils.general import get_basic_rngs
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
-from comde.utils.save_utils.jax_saves import (
-	load_from_zip_file
-)
 
 
 class SklToSklIntTransformer(BaseSeqToSeq):
@@ -37,7 +35,6 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		# Source skills: [b, l, d], Target skills: [b, l, d]
 		self.__model = None
 		self.save_suffix = self.cfg["save_suffix"]
-		self.decoder_max_len = self.cfg["transformer_cfg"]["decoder_cfg"]["max_len"]
 
 		word_embedding_path = cfg["word_embedding_path"]
 		with open(word_embedding_path, "rb") as f:
@@ -59,6 +56,40 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		if init_build_model:
 			self.build_model()
 
+	def register_vocabulary(self):
+		with open(self.cfg["skill_infos_path"], "rb") as f:
+			self.tokens = pickle.load(f)
+
+		bos_indicator = "start semantic skills composition."
+		eos_indicator = "end your composition of semantic skills."
+
+		bos_token = bert_base_forward([bos_indicator])
+		bos_token_vec = np.squeeze(bos_token["language_embedding"], axis=0)[0]  # Use [CLS] embedding
+
+		eos_token = bert_base_forward([eos_indicator])
+		eos_token_vec = np.squeeze(eos_token["language_embedding"], axis=0)[0]  # Use [CLS] embedding
+
+		max_skill_index = max([token[0].index for token in self.tokens.values()])
+
+		self.bos_token = LanguageRepresentation(
+			title="begin",
+			variation=bos_indicator,
+			vec=bos_token_vec,
+			index=max_skill_index + 1
+		)
+		self.eos_token = LanguageRepresentation(
+			title="end",
+			variation=eos_indicator,
+			vec=eos_token_vec,
+			index=max_skill_index + 2
+		)
+
+		# Why 'example'?: each skill can have language variations. But we use only one.
+		example_vocabulary = [sk[0] for sk in list(self.tokens.values())]
+		example_vocabulary.extend([self.bos_token, self.eos_token])
+		example_vocabulary.sort(key=lambda sk: sk.index)
+		self.vocabulary = example_vocabulary
+
 	@property
 	def model(self):
 		return self.__model
@@ -77,9 +108,8 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		decoder_maxlen = transformer_cfg["decoder_cfg"]["max_len"]
 
 		# Predict discrete token. +2 for start-end tokens.
-		vocab_size = len(self._example_vocabulary)
-		# transformer_cfg.update({"skill_pred_dim": transformer_cfg["decoder_cfg"]["max_len"] + 2})
-		transformer_cfg.update({"skill_pred_dim": vocab_size})  # We don't predict start token.
+		vocab_size = len(self.vocabulary)
+		transformer_cfg.update({"skill_pred_dim": vocab_size})
 
 		transformer = PrimSklToSklIntTransformer(**transformer_cfg)
 		init_x = np.zeros((1, decoder_maxlen, self.inseq_dim))  # 512 dim
@@ -187,7 +217,7 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 			"maskings": replay_data.maskings,
 			"n_source_skills": replay_data.n_source_skills,
 			"n_target_skills": replay_data.n_target_skills,
-			"start_token": self.start_token.vec,
+			"start_token": self.bos_token.vec,
 			"low_policy": low_policy.model,
 			"coef_low_policy": self.cfg["coef_low_policy"],
 			"prompting_fn": low_policy.get_prompt,
@@ -243,7 +273,7 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		get_nearest_token: bool = True,
 		stochastic_sampling: bool = False,
 	):
-		tokens_vec = np.array([vocab.vec for vocab in self._example_vocabulary])
+		tokens_vec = np.array([vocab.vec for vocab in self.vocabulary])
 
 		_tokens_vec = tokens_vec[np.newaxis, ...]  # [1, M, d]
 		pred_skills = pred_skills[:, np.newaxis, ...]  # [b, 1, d]
@@ -259,7 +289,7 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 
 		min_distance_idx = np.argmin(distance, axis=-1)  # [b, ]
 
-		maybe_done = np.where(min_distance_idx == self.end_token.index, 1, 0)  # [b, ]
+		maybe_done = np.where(min_distance_idx == self.eos_token.index, 1, 0)  # [b, ]
 
 		if get_nearest_token:
 			nearest_tokens = tokens_vec[min_distance_idx]  # [b, d]
@@ -290,7 +320,7 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		batch_size = q.shape[0]
 		skill_dim = q.shape[-1]
 
-		x = self.start_token.vec
+		x = self.bos_token.vec
 		x = np.broadcast_to(x, (batch_size, 1, skill_dim))  # [b, 1, d]
 
 		pred_skills_seq_raw = []

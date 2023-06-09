@@ -8,8 +8,9 @@ from comde.comde_modules.seq2seq.transformer.architectures.decoder_block import 
 from comde.comde_modules.seq2seq.transformer.architectures.positional_encoding import PositionalEncoding
 
 
-class TransformerDecoder(nn.Module):
+class TransformerIndexInputDecoder(nn.Module):
 	num_layers: int
+	vocab_size: int
 	input_dim: int
 	num_heads: int
 	ff_dim: int
@@ -18,12 +19,14 @@ class TransformerDecoder(nn.Module):
 	max_len: int  # Maximum possible length of sequence
 	activation_fn: Callable
 
+	word_embedding = None
 	input_dropout = None
 	pos_encoding = None
 	decoder_blocks = None
 
 	def setup(self) -> None:
 		self.input_dropout = nn.Dropout(self.dropout_prob)
+		self.word_embedding = nn.Embed(self.vocab_size, self.input_dim)
 		self.pos_encoding = PositionalEncoding(d_model=self.input_dim, max_len=self.max_len + 1)
 		self.decoder_blocks = [
 			DecoderBlock(
@@ -41,10 +44,12 @@ class TransformerDecoder(nn.Module):
 
 	def forward(self, x: jnp.ndarray, kv: jnp.ndarray, mask: jnp.ndarray, deterministic: bool):
 		"""
-			Note: Inputs are word embedding, not word idxs
-			x: [batch_size, target_seq_len, dim]: Label
+			Note: Input for decoder is word idxs [b, l]
+			Note: Input for encoder is word embeddings [b, l, d]
+			x: [batch_size, target_seq_len]: Label
 			kv: Context
 		"""
+		x = self.word_embedding(x)
 		x = self.input_dropout(x, deterministic=deterministic)
 		x = self.pos_encoding(x)
 		attention_weights = []

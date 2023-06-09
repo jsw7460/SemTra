@@ -1,0 +1,10 @@
+mode: prompt_learning
+trainer: comde.trainer.prompt_trainer.PromptTrainer
+modules:
+  - prompt_learner
+
+save_interval: 5000
+max_iter: 1_000_000
+batch_size: 128
+save_source_trajectory: False
+datadir_limit: 999999 # No meaning

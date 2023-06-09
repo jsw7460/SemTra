@@ -142,7 +142,7 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 			"termination_pred_interval": cfg["termination_pred_interval"],
 			"seq2seq_info": kwargs["seq2seq_info"]
 		})
-		info.update({"sequential_requirement": "not_used"})
+		info.update({"sequential_requirement": cfg["sequential_requirement"]})
 
 	return arguments, info
 

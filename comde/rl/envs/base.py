@@ -40,19 +40,33 @@ class ComdeSkillEnv(gym.Wrapper):
 	def __str__(self):
 		return self.get_short_str_for_save()
 
-	@abstractmethod
-	def get_default_parameter(self, non_functionality: str):
+	@staticmethod
+	def get_default_parameter(non_functionality: str):
 		raise NotImplementedError()
 
 	def get_buffer_action(self, action: Any):
 		return action
 
-	@abstractmethod
+	@staticmethod
 	def get_language_guidance_from_template(
-		self,
 		sequential_requirement: str,
 		non_functionality: str,
 		parameter: Union[float, Dict],
-		source_skills_idxs: List[int]
+		source_skills_idx: List[int]
 	):
+		raise NotImplementedError()
+
+	@staticmethod
+	def idxs_to_str_skills(skill_index_mapping: Dict, idxs: List[int]) -> List[str]:
+		return [skill_index_mapping[sk] for sk in idxs]
+
+	@staticmethod
+	def replace_idx_so_skill(skill_index_mapping: Dict, sentence: str) -> str:
+		for idx, sk in skill_index_mapping.items():
+			sentence = sentence.replace(str(idx), str(sk))
+
+		return sentence
+
+	@staticmethod
+	def generate_random_language_guidance():
 		raise NotImplementedError()

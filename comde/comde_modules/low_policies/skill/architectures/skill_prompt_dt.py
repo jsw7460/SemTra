@@ -141,9 +141,19 @@ def get_prompt(
 	target_skills_mask: jnp.ndarray,	# [b, n_target_skills]
 	language_guidance_mask: jnp.ndarray	# [b, length_of_language]
 ):
+	# Low attention weights is more important in terms of prompting
+	# (words like 3m/s is less attended when skill composition)
+	attention_weights = - attention_weights
 	attention_weights = jnp.expand_dims(attention_weights, axis=-1)  # [b, n_tar_sk, len_lang, 1]
 	language_guidance = jnp.expand_dims(language_guidance, axis=1)  # [b, 1, len_lang, lang_dim]
 	attention_weights = jnp.where(attention_weights == 0.0, EPS, attention_weights)
+
+	_min = jnp.min(attention_weights, axis=0, keepdims=True)
+	_max = jnp.max(attention_weights, axis=0, keepdims=True)
+
+	norm = jnp.linalg.norm(attention_weights, axis=(1, 2), keepdims=True)
+	attention_weights = attention_weights / norm
+
 	prompt = attention_weights * language_guidance  # [b, n_tar_sk, len_lang, lamg_dim]
 
 	target_skills_mask = jnp.expand_dims(target_skills_mask, axis=-1)
