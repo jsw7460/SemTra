@@ -1,0 +1,4 @@
+jax
+flax
+einops
+optax
