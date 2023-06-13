@@ -3,7 +3,6 @@ from collections import defaultdict
 
 import torch as th
 from transformers import BertTokenizer, BertModel
-
 from comde.utils.common.lang_representation import SkillRepresentation
 
 if __name__ == "__main__":
@@ -54,6 +53,6 @@ if __name__ == "__main__":
 
 				save_dict[key].append(skill_rep)
 
-	with open("/home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/kitchen/bert_base_skills_mapping",
-			  "wb") as f:
-		pickle.dump(save_dict, f)
+	# with open("/home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/kitchen/bert_base_skills_mapping",
+	# 		  "wb") as f:
+	# 	pickle.dump(save_dict, f)

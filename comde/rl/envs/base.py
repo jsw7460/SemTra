@@ -21,6 +21,24 @@ class ComdeSkillEnv(gym.Wrapper):
 		"""
 		self.skill_idx_list = [self.onehot_skills_mapping[key] for key in self.skill_list]
 
+	@staticmethod
+	def ingradients_to_target(non_functionality: str, skill: str, param: str):
+		return " ".join([non_functionality, skill, param])
+
+	@staticmethod
+	def target_to_ingradients(target: str):
+		target = target.split(" ")
+		non_functionality = target[0]
+		skill = target[1]
+		param = "_".join(target[2:])
+		if len(param) == 0:
+			param = "one"
+		return {"non_functionality": non_functionality, "skill": skill, "param": param}
+
+	@abstractmethod
+	def ingradients_to_parameter(self, prompt_extraction: str):
+		raise NotImplementedError()
+
 	@property
 	@abstractmethod
 	def onehot_skills_mapping(self):
@@ -52,7 +70,8 @@ class ComdeSkillEnv(gym.Wrapper):
 		sequential_requirement: str,
 		non_functionality: str,
 		parameter: Union[float, Dict],
-		source_skills_idx: List[int]
+		source_skills_idx: List[int],
+		video_parsing: bool
 	):
 		raise NotImplementedError()
 
@@ -62,10 +81,12 @@ class ComdeSkillEnv(gym.Wrapper):
 
 	@staticmethod
 	def replace_idx_so_skill(skill_index_mapping: Dict, sentence: str) -> str:
-		for idx, sk in skill_index_mapping.items():
-			sentence = sentence.replace(str(idx), str(sk))
+		sentence = sentence.split()
+		for t, word in enumerate(sentence):
+			if word.isdigit():
+				sentence[t] = skill_index_mapping[int(word)]
 
-		return sentence
+		return " ".join(sentence)
 
 	@staticmethod
 	def generate_random_language_guidance():

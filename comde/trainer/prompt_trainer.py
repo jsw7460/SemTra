@@ -4,8 +4,8 @@ from typing import Dict, List, Type
 from comde.comde_modules.seq2seq.base import BaseSeqToSeq
 from comde.rl.envs.base import ComdeSkillEnv
 from comde.trainer.base import BaseTrainer
-from comde.utils.common.pretrained_forwards.jax_bert_base import bert_base_forward
 from comde.utils.common.prompt_templates import prompt_templates
+from comde.utils.common.language_processing import number_to_words
 
 
 class PromptTrainer(BaseTrainer):
@@ -16,9 +16,7 @@ class PromptTrainer(BaseTrainer):
 		envs: List[Type[ComdeSkillEnv]],
 		prompt_learner: BaseSeqToSeq
 	):
-
 		super(PromptTrainer, self).__init__(cfg=cfg, env=envs)
-
 		self.envs = envs
 		del self.env
 		self.prompt_learner = prompt_learner
@@ -32,14 +30,21 @@ class PromptTrainer(BaseTrainer):
 		target_outputs = []
 
 		for env in self.envs:
-			for i in range(64):
+			it = len(env.non_functionalities)
+			for i in range(16 * it):
 				language_guidance, info = env.generate_random_language_guidance()
 				nf = info["non_functionality"]
 				skill = info["param_applied_skill"]
 				param = info["parameter"]
+				if param.lstrip('-').isdigit():
+					param = number_to_words(int(param))
 				prompt = random.choice(prompt_templates)
 				prompt = prompt.format(nf=nf, skill=skill, param=param)
-				target_output = " ".join([nf, skill, param])
+				target_output = ComdeSkillEnv.ingradients_to_target(
+					non_functionality=nf,
+					skill=skill,
+					param=param
+				)
 				prompts.append(prompt)
 				target_inputs.append(language_guidance)
 				target_outputs.append(target_output)
@@ -51,39 +56,32 @@ class PromptTrainer(BaseTrainer):
 			example = " ".join(example)
 			examples.append(example)
 
-		model_inputs = [ex + " " + ti for (ex, ti) in zip(examples, target_inputs)]
-
-		# Shuffle the data
-		combined = list(zip(model_inputs, target_outputs))
-		random.shuffle(combined)
-
-		model_inputs, target_outputs = zip(*combined)
-		model_inputs = list(model_inputs)
-		target_outputs = list(target_outputs)
-
-		label = bert_base_forward(target_outputs)
-		dec_idxs = label["input_ids"]
-		dec_masks = label["attention_mask"]
-
 		info = {
-			"model_inputs": model_inputs,
-			"target_outputs": target_outputs,
-			"dec_idxs": dec_idxs,
-			"dec_masks": dec_masks
+			"examples": examples,
+			"target_inputs": target_inputs,
+			"target_outputs": target_outputs
 		}
 
 		return info
 
 	def run(self, *args, **kwargs):
 		dataset = self._make_batch_training_data()
-		model_inputs = dataset["model_inputs"]
-		decoder_idxs = dataset["dec_idxs"]
-		decoder_masks = dataset["dec_masks"]
-		self.prompt_learner.update(
-			model_inputs=model_inputs,
-			decoder_idxs=decoder_idxs,
-			decoder_masks=decoder_masks
+		examples = dataset["examples"]
+		target_inputs = dataset["target_inputs"]
+		target_outputs = dataset["target_outputs"]
+		info = self.prompt_learner.update(
+			examples=examples,
+			target_inputs=target_inputs,
+			target_outputs=target_outputs
 		)
+		self.record_from_dicts(info, mode="train")
+		self.n_update += 1
+
+		if (self.n_update % self.log_interval) == 0:
+			self.dump_logs(step=self.n_update)
+
+		if (self.n_update % self.save_interval) == 0:
+			self.save()
 
 	def dump_logs(self, step: int):
 		self.record(self.info_records)

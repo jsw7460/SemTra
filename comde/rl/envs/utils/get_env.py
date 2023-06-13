@@ -32,7 +32,8 @@ def get_dummy_env(cfg: Dict) -> SkillInfoEnv:
 
 	with open(Path(cfg["skill_infos_path"]), "rb") as f:
 		skill_infos = pickle.load(f)
-
+	print(skill_infos)
+	exit()
 	env = SkillInfoEnv(env=env, skill_infos=skill_infos)
 	return env
 
@@ -58,6 +59,7 @@ def get_env(
 	env = TimeLimitEnv(env=env, limit=time_limit)
 	env = SkillHistoryEnv(env=env, skill_dim=skill_dim, num_stack_frames=history_len)
 	return env
+
 
 def get_batch_env(
 	env_class: Type[gym.Env],

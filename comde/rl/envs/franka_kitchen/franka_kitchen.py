@@ -3,8 +3,6 @@ from copy import deepcopy
 from itertools import permutations
 from typing import List, Dict, Union
 
-import math
-
 import d4rl
 
 from comde.rl.envs.base import ComdeSkillEnv
@@ -20,9 +18,13 @@ SEQUENTIAL_REQUIREMENTS = [
 for (a, b) in list(permutations(range(7), 2)):
 	SEQUENTIAL_REQUIREMENTS.append(f"replace {a} with {b}")
 
-
-POSSIBLE_WINDS = [-0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3]
-
+POSSIBLE_WINDS = [-0.3, -0.1, 0.0]
+WIND_TO_ADJECTIVE = {
+	-0.3: "flurry",
+	-0.1: "gust",
+	0.0: "breeze"
+}
+ADJECTIVE_TO_WIND = {v: k for k, v in WIND_TO_ADJECTIVE.items()}
 
 
 class FrankaKitchen(ComdeSkillEnv):
@@ -37,6 +39,7 @@ class FrankaKitchen(ComdeSkillEnv):
 	}
 	TASKS_IDXS = [0, 1, 2, 3, 4, 5, 6]
 	skill_index_mapping = {v: k for k, v in onehot_skills_mapping.items()}
+	non_functionalities = ["wind"]
 	wind_default_param = {k: 0.0 for k in range(7)}
 
 	def __init__(self, seed: int, task: List, n_target: int, cfg: Dict = None):
@@ -65,7 +68,7 @@ class FrankaKitchen(ComdeSkillEnv):
 	@staticmethod
 	def get_default_parameter(non_functionality: str):
 		if non_functionality == "wind":
-			return FrankaKitchen.wind_default_param
+			return deepcopy(FrankaKitchen.wind_default_param)
 		else:
 			raise NotImplementedError(f"{non_functionality} is undefined non functionality for franka kitchen.")
 
@@ -75,25 +78,22 @@ class FrankaKitchen(ComdeSkillEnv):
 		non_functionality: str,
 		source_skills_idx: List[int],
 		parameter: Union[float, Dict] = None,
+		video_parsing: bool = True
 	):
 		if parameter is None:
 			parameter = FrankaKitchen.get_default_parameter(non_functionality)
-		source_skills = ComdeSkillEnv.idxs_to_str_skills(FrankaKitchen.skill_index_mapping, source_skills_idx)
-		source_skills = ", and then ".join(source_skills)
+
+		if video_parsing:
+			source_skills = ComdeSkillEnv.idxs_to_str_skills(FrankaKitchen.skill_index_mapping, source_skills_idx)
+			source_skills = ", then ".join(source_skills)
+		else:
+			source_skills = "video"
 
 		if non_functionality == "wind":
 			fmt = random.choice(template["wind"]["non_default"])
 			parameters = list(parameter.values())
 			wind = parameters[0]
-
-			# Wind is + : west -> east // Wind is - : east -> west
-			if wind > 0:
-				_from = "west"
-				_to = "east"
-			else:
-				_from = "east"
-				_to = "west"
-			param = math.fabs(wind)
+			param = WIND_TO_ADJECTIVE[wind]
 
 		else:
 			raise NotImplementedError()
@@ -107,9 +107,7 @@ class FrankaKitchen(ComdeSkillEnv):
 		language_guidance = fmt.format(
 			sequential_requirement=sequential_requirement,
 			video=source_skills,
-			_from=_from,
-			_to=_to,
-			param=int(param * 10)
+			param=param
 		)
 
 		return language_guidance
@@ -121,22 +119,32 @@ class FrankaKitchen(ComdeSkillEnv):
 		non_functionality = "wind"
 		source_skills_idx = random.choice(list(permutations(tasks, 4)))
 
-		param_applied_skill = "all skills"
+		param_applied_skill = "all"
 		wind = random.choice(POSSIBLE_WINDS)
 		parameter = {k: wind for k in tasks}
-		param_for_apply = int(wind * 10)
+		param_for_apply = WIND_TO_ADJECTIVE[wind]
 
 		language_guidance = FrankaKitchen.get_language_guidance_from_template(
 			sequential_requirement=sequential_requirement,
 			non_functionality=non_functionality,
 			source_skills_idx=list(source_skills_idx),
-			parameter=parameter
+			parameter=parameter,
+			video_parsing=False
 		)
 		_info = {
 			"non_functionality": non_functionality,
 			"param_applied_skill": param_applied_skill,
-			"parameter": str(param_for_apply)
+			"parameter": str(param_for_apply),
+			"int_parameter": param_for_apply,
 		}
-		# print(language_guidance, _info)
-		# print("\n\n\n")
 		return language_guidance, _info
+
+	def ingradients_to_parameter(self, ingradients: Dict[str, str]):
+		non_functionality = ingradients["non_functionality"]
+		param_applied_skill = ingradients["skill"]
+		param = ingradients["param"]
+
+		is_wrong = non_functionality not in self.non_functionalities
+
+		parameter = self.wind_default_param
+# if param_applied_skill == "all":

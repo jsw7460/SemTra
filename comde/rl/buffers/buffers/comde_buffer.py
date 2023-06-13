@@ -12,6 +12,7 @@ from comde.rl.buffers.buffers.episodic import EpisodicMaskingBuffer
 from comde.rl.buffers.episodes.source_target_skill import SourceTargetSkillContainedEpisode
 from comde.rl.buffers.episodes.source_target_state import SourceStateEpisode
 from comde.rl.buffers.type_aliases import ComDeBufferSample
+from comde.comde_modules.seq2seq.base import BaseSeqToSeq
 from comde.rl.envs.base import ComdeSkillEnv
 from comde.rl.envs.utils.skill_to_vec import SkillInfoEnv
 from comde.utils.common.safe_eval import safe_eval_to_float
@@ -63,10 +64,14 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 	def add_dict_chunk(self, dataset: Dict, representative: str = None, clear_info: bool = False) -> None:
 		raise NotImplementedError("This is only for pickle file. ComDe does not support it.")
 
-	def add_episodes_from_h5py(self, paths: Dict[str, Union[List, str]]):
+	def add_episodes_from_h5py(
+		self,
+		paths: Dict[str, Union[List, str]],
+		guidance_to_prm: Optional[BaseSeqToSeq] = None
+	):
 		"""
 			## README ##
-			- Each path in paths corresponds to one trajectory.
+			- Each path in paths corresponds to one trajectory. ('done' one time)
 			- "skills" are processed using "skills_idxs" when making minibatch. So we add 'None' skill to buffer.
 		"""
 		trajectory_paths = paths["trajectory"]
@@ -93,6 +98,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 				sequential_requirements_mapping,
 				non_functionalities_mapping,
 				num_skills_done_relabel=self.num_skills_done_relabel,
+				guidance_to_prm=guidance_to_prm
 			)
 			if dataset is None:
 				continue
@@ -117,6 +123,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		sequential_requirements_mapping: Dict[str, Dict[str, np.ndarray]],
 		non_functionalities_mapping: Dict[str, Dict[str, np.ndarray]],
 		num_skills_done_relabel: int,
+		guidance_to_prm: Optional[BaseSeqToSeq] = None
 	) -> Dict:
 		must_loaded_components = self.MUST_LOADED_COMPONENTS.union(set(self.observation_keys))
 		assert must_loaded_components <= trajectory.keys(), \
@@ -151,11 +158,31 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		sequential_requirement = str(trajectory["sequential_requirement"][()], "utf-8")
 		non_functionality = str(trajectory["non_functionality"][()], "utf-8")
 		skills_idxs = np.array(trajectory["skills_idxs"])
-		parameter = str(trajectory["parameter"][()], "utf-8")
-		parameter = self.eval_param(parameter)
+		optimal_parameter = str(trajectory["parameter"][()], "utf-8")
+		optimal_parameter = self.eval_param(optimal_parameter)
+
+		language_guidance = self.env.get_language_guidance_from_template(
+			sequential_requirement=sequential_requirement,
+			non_functionality=non_functionality,
+			parameter=optimal_parameter,
+			source_skills_idx=source_skills
+		)
+
+		# prediction = guidance_to_prm.predict(
+		# 	target_inputs=[language_guidance],
+		# 	skip_special_tokens=True
+		# )
+		# prediction = "speed drawer one hundred thirty"
+		# ingradients = ComdeSkillEnv.target_to_ingradients(prediction[0])
+		"""
+			Note: Here, I have to define 'parameter' variable using the 
+			prediction of prompt learning model.
+		"""
+		# parameter = self.env.ingradients_to_parameter(ingradients)
+		parameter = optimal_parameter
 
 		if -1 in parameter.keys():
-			raise LookupError("-1 is for the skill which is padded. Please fix here.")
+			raise LookupError("Skill index -1 is for the skill which is padded. Please fix here.")
 		else:
 			parameter.update({-1: 0.0})
 

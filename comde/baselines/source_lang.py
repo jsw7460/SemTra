@@ -8,6 +8,7 @@ from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
 
 
+# [state, action] + image (video의 frame) -> 현재 action
 class SourceLanguagePromptDT(VLPromptDT):
 	"""
 	SourceLanguagePromptDT: Video-Language prompt DT

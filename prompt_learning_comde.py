@@ -13,13 +13,12 @@ from omegaconf import DictConfig, OmegaConf
 
 from comde.rl.envs.metaworld.multistage_metaworld import MultiStageMetaWorld
 from comde.rl.envs.franka_kitchen.franka_kitchen import FrankaKitchen
-from comde.utils.common.pretrained_forwards.jax_bert_base import bert_base_forward
+from comde.rl.envs.rlbench.rlbench import RLBench
 from comde.trainer.prompt_trainer import PromptTrainer
 
 
 @hydra.main(version_base=None, config_path="config/train", config_name="comde_base.yaml")
 def program(cfg: DictConfig) -> None:
-
 	cfg = OmegaConf.to_container(cfg, resolve=True)  # type: Dict[str, Union[str, int, Dict]]
 
 	assert cfg["mode"]["mode"] == "prompt_learning", \
@@ -27,7 +26,8 @@ def program(cfg: DictConfig) -> None:
 		"Please add 'mode=prompt_learning' to your command line if you want to train prompt learning"
 	prompt_cfg = cfg["mode"]
 
-	envs = [MultiStageMetaWorld, FrankaKitchen]
+	envs = [MultiStageMetaWorld, FrankaKitchen, RLBench]
+	# envs = [MultiStageMetaWorld]
 	prompt_learner = instantiate(cfg["prompt_learner"])
 	prompt_trainer = PromptTrainer(cfg=cfg, envs=envs, prompt_learner=prompt_learner)
 

@@ -220,7 +220,7 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 			"start_token": self.bos_token.vec,
 			"low_policy": low_policy.model,
 			"coef_low_policy": self.cfg["coef_low_policy"],
-			"prompting_fn": low_policy.get_prompt,
+			"prompting_fn": getattr(low_policy, "get_prompt", None),
 			"timesteps": replay_data.timesteps
 		}
 

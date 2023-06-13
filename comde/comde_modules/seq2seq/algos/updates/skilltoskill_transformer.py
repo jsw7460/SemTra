@@ -1,5 +1,5 @@
-from typing import Dict, Tuple, Callable, Optional
 from functools import partial
+from typing import Dict, Tuple, Callable, Optional
 
 import jax
 from jax import numpy as jnp
@@ -81,20 +81,26 @@ def skilltoskill_transformer_ce_updt(
 
 		loss = skills_loss
 
-		# Use first layer's decoder attention weights
-		attention_weights = model_output["decoder_attention_weights"][0]  # [batch_size, n_head, n_target_skills + 1, len_language_guidance] // +1 for start token
-		attention_weights = attention_weights[:, :, 1:, ...]  # Remove start token's attention weights
-		attention_weights = jnp.mean(attention_weights, axis=1)  # Mean over transformer multi-head // [b, n_tar_sk, len_lang]	TODO: Implement reciprocal of this
-
-		target_skills_mask = tgt_mask_wo_last[..., :-1]  # Remove end token
-
-		prompt_dict = prompting_fn(
-			attention_weights=attention_weights,
-			language_guidance=encoder_q,
-			target_skills_mask=target_skills_mask,
-			language_guidance_mask=q_mask
-		)
+		prompt_dict = {}
+		target_skills_mask = None
+		attention_weights = None
 		if coef_low_policy > 0.0:
+			# Use first layer's decoder attention weights
+			attention_weights = model_output["decoder_attention_weights"][
+				0]  # [batch_size, n_head, n_target_skills + 1, len_language_guidance] // +1 for start token
+			attention_weights = attention_weights[:, :, 1:, ...]  # Remove start token's attention weights
+			attention_weights = jnp.mean(
+				attention_weights,
+				axis=1
+			)  # Mean over transformer multi-head // [b, n_tar_sk, len_lang]	TODO: Implement reciprocal of this
+
+			target_skills_mask = tgt_mask_wo_last[..., :-1]  # Remove end token
+			prompt_dict = prompting_fn(
+				attention_weights=attention_weights,
+				language_guidance=encoder_q,
+				target_skills_mask=target_skills_mask,
+				language_guidance_mask=q_mask
+			)
 
 			prompts = prompt_dict["prompts"]
 			prompts_maskings = prompt_dict["prompts_maskings"]
@@ -152,7 +158,6 @@ def skilltoskill_transformer_ce_updt(
 			"__attention_weights": attention_weights,
 			"__q_mask": q_mask
 		}
-
 
 		return loss, _info
 

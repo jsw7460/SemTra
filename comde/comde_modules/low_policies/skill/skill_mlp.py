@@ -13,6 +13,7 @@ from comde.utils.jax_utils.general import get_basic_rngs
 from comde.utils.jax_utils.general import str_to_flax_activation
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
+from comde.utils.common.timeit import timeit
 
 """
  code is from:
@@ -70,7 +71,6 @@ class SkillMLP(BaseLowPolicy):
 		self.model = Model.create(model_def=mlp, inputs=[rngs, init_obs, init_skills], tx=tx)
 
 	def update(self, replay_data: ComDeBufferSample) -> Dict:
-
 		skills_dict = self.get_parameterized_skills(replay_data)
 		skills = skills_dict["parameterized_skills"]
 		new_model, info = skill_mlp_updt(

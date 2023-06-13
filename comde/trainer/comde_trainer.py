@@ -99,12 +99,14 @@ class ComdeTrainer(BaseTrainer):
 			replay_data = self._preprocess_replay_data(replay_data)
 
 			# NOTE: Do not change the training order of modules.
+
 			if self.cfg["update_seq2seq"]:
 				info = self.seq2seq.update(replay_data=replay_data, low_policy=self.low_policy)
 			else:
 				info = dict()
 			replay_data = replay_data._replace(parameterized_skills=None)
-			info.update(self.low_policy.update(replay_data, info["__prompt_dict"]))
+
+			info.update(self.low_policy.update(replay_data))
 			info.update(self.termination.update(replay_data))
 
 			self.record_from_dicts(info, mode="train")
@@ -129,7 +131,6 @@ class ComdeTrainer(BaseTrainer):
 
 		info2 = self.low_policy.evaluate(
 			replay_data=eval_data._replace(parameterized_skills=parameterized_skills),
-			seq2seq_info=info1
 		)
 		info3 = self.termination.evaluate(replay_data=eval_data)
 

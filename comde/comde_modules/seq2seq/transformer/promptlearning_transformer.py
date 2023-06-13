@@ -1,10 +1,13 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
+import random
 
+import jax.random
 import numpy as np
 import optax
 from transformers import AutoTokenizer
 
 from comde.comde_modules.seq2seq.algos.forward import skilltoskill_transformer_forward as prompt_transformer_forward
+from comde.comde_modules.seq2seq.algos.updates.promptlearning_transformer import promptlearning_transformer_updt as updt
 from comde.comde_modules.seq2seq.base import BaseSeqToSeq
 from comde.comde_modules.seq2seq.transformer.architectures.prompt_transformer import PrimPromptLearningTransformer
 from comde.rl.buffers.type_aliases import ComDeBufferSample
@@ -13,8 +16,7 @@ from comde.utils.common.pretrained_forwards.jax_bert_base import bert_base_forwa
 from comde.utils.jax_utils.general import get_basic_rngs
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
-from comde.comde_modules.seq2seq.algos.updates.promptlearning_transformer import promptlearning_transformer_updt as updt
-import jax.random
+from collections import deque
 
 
 class PromptLearningTransformer(BaseSeqToSeq):
@@ -22,6 +24,7 @@ class PromptLearningTransformer(BaseSeqToSeq):
 
 	def __init__(self, seed: int, cfg: Dict, init_build_model: bool = True):
 		self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+
 		super(PromptLearningTransformer, self).__init__(
 			seed=seed,
 			cfg=cfg,
@@ -30,6 +33,12 @@ class PromptLearningTransformer(BaseSeqToSeq):
 		# Source skills: [b, l, d], Target skills: [b, l, d]
 		self.__model = None
 		self.save_suffix = self.cfg["save_suffix"]
+		self.example_input_conjunction = " Then, extract from this: "
+		self.example_storage = {
+			"speed": deque(maxlen=100),
+			"wind": deque(maxlen=100),
+			"weight": deque(maxlen=100)
+		}
 
 		if init_build_model:
 			self.build_model()
@@ -91,22 +100,43 @@ class PromptLearningTransformer(BaseSeqToSeq):
 
 	def update(
 		self,
-		model_inputs: List[str],
-		decoder_idxs: np.ndarray,
-		decoder_masks: np.ndarray,
+		examples: List[str],
+		target_inputs: List[str],
+		target_outputs: List[str]
 	) -> Dict:
-		"""
-		:param model_inputs: [Concatenation of 'prompt' and 'target_input'] // Length = b
-		:param decoder_idxs: [b, l]
-		:param decoder_masks: [b, l]
-		:return:
-		"""
+
+		# Shuffle the data
+
+		for ex in examples:
+			if "speed" in ex:
+				self.example_storage["speed"].append(ex)
+			elif "wind" in ex:
+				self.example_storage["wind"].append(ex)
+			elif "weight" in ex:
+				self.example_storage["weight"].append(ex)
+			else:
+				raise NotImplementedError(f"{ex} has no appropriate non functionality")
+
+		model_inputs = [ex + self.example_input_conjunction + ti for (ex, ti) in zip(examples, target_inputs)]
+		combined = list(zip(model_inputs, target_outputs))
+		random.shuffle(combined)
+
+		model_inputs, target_outputs = zip(*combined)
+		model_inputs = list(model_inputs)
+		target_outputs = list(target_outputs)
+
+		label = self.tokenizer(target_outputs, return_tensors='np', padding=True)
+		decoder_idxs = label["input_ids"]
+		decoder_masks = label["attention_mask"]
 
 		qkv_info = bert_base_forward(model_inputs)
 		q = qkv_info["language_embedding"]
 		kv = qkv_info["language_embedding"]
 		q_mask = qkv_info["attention_mask"]
 		kv_mask = qkv_info["attention_mask"]
+
+		if self.n_update % 30 == 0:
+			self.predict(target_inputs=target_inputs[:2])
 
 		new_model, info = updt(
 			rng=self.rng,
@@ -118,27 +148,54 @@ class PromptLearningTransformer(BaseSeqToSeq):
 			decoder_idxs=decoder_idxs,
 			decoder_masks=decoder_masks
 		)
+		self.n_update += 1
 		self.model = new_model
 		self.rng, _ = jax.random.split(self.rng)
 
-		print(info["prompt_tr/loss(nl)"])
+		print("NLL:", info["prompt_tr/loss(nl)"])
 
 		prediction = info["__prediction"]
 		prediction = np.argmax(prediction, axis=-1)  # [b, l]
 		for t in range(2):
 			pred = prediction[t].tolist()
 			tgt = decoder_idxs[t].tolist()
-			pred_sentence = self.tokenizer.decode(pred)
-			tgt_sentence = self.tokenizer.decode(tgt)
-			print(pred_sentence, tgt_sentence)
+			pred_sentence = self.tokenizer.decode(pred, skip_special_tokens=True)
+			tgt_sentence = self.tokenizer.decode(tgt, skip_special_tokens=True)
+			print("Training input:", model_inputs[t])
+			print("Training pred:", pred_sentence, pred)
+			print("Training tgt:", tgt_sentence, tgt)
+			print("\n\n\n")
+
+		return info
 
 	def predict(
 		self,
-		language_guidance: List[str],
+		target_inputs: List[str],
+		examples: Optional[List[str]] = None,
 		stochastic: bool = False,
-		return_qkv_info: bool = False
+		return_qkv_info: bool = False,
+		skip_special_tokens: bool = False,
 	) -> np.ndarray:
-		qkv_info = bert_base_forward(language_guidance)
+		if examples is None:
+			examples = []
+			for inp in target_inputs:
+				if "speed" in inp:
+					example = random.choice(self.example_storage["speed"])
+				elif "wind" in inp:
+					example = random.choice(self.example_storage["wind"])
+				elif "weight" in inp:
+					example = random.choice(self.example_storage["weight"])
+				else:
+					raise NotImplementedError(f"{inp} has no non-functionality")
+				examples.append(example)
+
+		model_inputs = [ex + self.example_input_conjunction + ti for (ex, ti) in zip(examples, target_inputs)]
+		random.shuffle(model_inputs)
+
+		pred_thresh = min(len(target_inputs), 2)
+		model_inputs = model_inputs[: pred_thresh]
+		qkv_info = bert_base_forward(model_inputs)
+
 
 		q = qkv_info["language_embedding"]
 		kv = qkv_info["language_embedding"]
@@ -162,11 +219,19 @@ class PromptLearningTransformer(BaseSeqToSeq):
 				kv_mask=kv_mask
 			)  # [b, l, vocab_size]
 			pred = pred["pred"]
-			new_token = np.argmax(pred[:, -1, ...], axis=-1)
-			predictions += new_token.tolist()
-			x = np.concatenate((x, new_token[..., np.newaxis]), axis=-1)
+			new_token = np.argmax(pred[:, -1, ...], axis=-1, keepdims=True)
+			predictions.append(new_token)
+			x = np.concatenate((x, new_token), axis=-1)
 
-		lang_gen = self.tokenizer.decode(predictions)
+		predictions = np.concatenate(predictions, axis=-1)
+		predictions = [pred.tolist() for pred in predictions]
+		lang_gen = self.tokenizer.batch_decode(predictions, skip_special_tokens=skip_special_tokens)
+
+		for t in range(pred_thresh):
+			print("Prediction input:", model_inputs[t])
+			print("Prediction output:", lang_gen[t])
+			print("\n\n\n")
+
 		return lang_gen
 
 	def evaluate(self, replay_data: ComDeBufferSample, visualization: bool = False) -> Dict:
