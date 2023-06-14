@@ -18,7 +18,7 @@ file = h5py.File("/home/jsw7460/mnt/comde_datasets/metaworld/speed/3_target_skil
 wind_file = h5py.File("/home/jsw7460/mnt/comde_datasets/metaworld/wind/3_target_skills/0/data0.hdf5")
 
 # Make keys: [actions, non_functionality, observations, parameter, sequential_requirement, skills_done, skills_idxs, skills_order, source_skills, target_skills]
-WINDS = [-0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3]
+WINDS = [-0.3, -0.1, 0.0]
 
 KITCHEN_SKILL_INDICES = {
 	'bottom burner': 0,
@@ -149,18 +149,18 @@ def template_split_target_to_source(target_skills: list, operators: list, templa
 
 
 if __name__ == "__main__":
-
+	print("1" * 999)
 	operators = ["sequential", "reverse", "replace"]
 
-	with open("/home/jsw7460/0419_kitchen/kitchen_skill_appended_Total_2.pkl", "rb") as f:
+	with open("/home/jsw7460/kitchen_skill_appended_Total.pkl", "rb") as f:
 		dataset = pickle.load(f)
 
 	file_idx = 0
 	folder_idx = 0
-	save_path = f'/home/jsw7460/mnt/comde_datasets/kitchen/wind/4_target_skills'
+	save_path = f'/home/jsw7460/mnt/comde_datasets/kitchen/wind/0613/4_target_skills'
 	folder_path = save_path + '/' + f'{folder_idx}'
 	os.makedirs(folder_path, exist_ok=True)
-
+	print("2" * 999)
 	d_observations = np.array(dataset["observations"])
 	d_actions = np.array(dataset["actions"])
 	d_rewards = np.array(dataset["rewards"])
@@ -171,12 +171,13 @@ if __name__ == "__main__":
 	# d_skill_feat_map = np.array(dataset["skill_feat_map"])
 
 	no_wind_indices = []
+	print("3" * 999)
 	for t, info in enumerate(d_infos):
 		noise = info["action_noise"]
 		if noise.sum() == 0:
 			no_wind_indices.append(t)
 	no_wind_indices = np.array(no_wind_indices, dtype=np.int32)
-
+	print("4" * 999)
 	d_observations = d_observations[no_wind_indices]
 	d_actions = d_actions[no_wind_indices]
 	d_rewards = d_rewards[no_wind_indices]
@@ -186,14 +187,15 @@ if __name__ == "__main__":
 	fake_infos = []
 	for idx in no_wind_indices:
 		fake_infos.append(d_infos[idx])
-
+	print("5" * 999)
 	d_infos = fake_infos
 	# d_skill_feat_map = d_skill_feat_map[no_wind_indices]
 
 	assert len(d_observations) == len(d_actions) == len(d_rewards) == len(d_terminals) == len(d_skills) == len(
 		d_skill_done) == len(d_infos)
-
+	print("6" * 999)
 	prev_done = 0
+
 	for t in range(len(d_observations)):
 		if d_terminals[t]:
 			print(f"Current {t} / {len(d_observations)}")
@@ -231,25 +233,15 @@ if __name__ == "__main__":
 				wind = np.array([wind_mean, 0., 0., 0., 0., 0., 0., 0., 0.]).reshape(1, -1)
 				source_skills = template_split_target_to_source(target_skills, operators, template)
 
-				# for _ in source_skills:
-				# 	print(_)
-				# exit()
-
 				for source_skill in source_skills:
 					wind_appended_actions = actions - wind
-					# print(source_skill)
-					# exit()
-
-					# exit()
 					data_path = os.path.join(folder_path, f'data{file_idx}.hdf5')
-					# data_path = "/home/jsw7460/foo.hdf5"
 					# ========= SAVE =========
 					with h5py.File(data_path, 'w') as f:
 						# source_skill, operator
 						for k, v in source_skill.items():
 							if 'video' in k:
 								print("Video skill type!", type(v))
-								exit()
 								f['source_skills/' + k] = v
 							elif 'template' in k:
 								f.create_dataset('sequential_requirement', data=v.sequential_requirement)

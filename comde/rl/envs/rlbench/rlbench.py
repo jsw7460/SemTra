@@ -1,4 +1,5 @@
 import random
+import gym
 from copy import deepcopy
 from typing import List, Dict, Union
 
@@ -13,7 +14,23 @@ from comde.rl.envs.rlbench.utils import (
 )
 from comde_rlbench.RLBench.comde.comde_env import ComdeEnv as ComdeRLBench
 from comde_rlbench.RLBench.rlbench.comde_const import COMDE_WEIGHTS
-from comde.utils.common.language_guidances import template
+from comde.utils.common.natural_languages.language_guidances import template
+
+class DummyRLBench(gym.Env):
+
+	def __init__(self):
+		super(DummyRLBench, self).__init__()
+		self.observation_space = gym.spaces.Space(shape=(387, ))
+		self.action_space = gym.spaces.Space(shape=(11, ))
+
+	def step(self, action):
+		pass
+
+	def reset(self):
+		pass
+
+	def render(self, mode="human"):
+		pass
 
 
 class RLBench(ComdeSkillEnv):
@@ -21,18 +38,34 @@ class RLBench(ComdeSkillEnv):
 		"open door": 0, "close door": 1, "close fridge": 2,
 		"open drawer": 3, "close drawer": 4, "lamp off": 5,
 		"push button": 6, "lamp on": 7, "press switch": 8,
-		"close microwave": 9, "open box": 10, "slide block to target": 11,
+		"close microwave": 9, "open box": 10, "slide block to target": 11
 	}
 	skill_index_mapping = {v: k for k, v in onehot_skills_mapping.items()}
 	skill_indices = list(skill_index_mapping.keys())
 	non_functionalities = ["weight"]
-	# 0 is the default weight index
 	weight_default_param = {k: v[0] for k, v in COMDE_WEIGHTS.items()}
+	param_evaluator = eval
 
-	def __init__(self, seed: int, task: List[int], n_target: int, cfg: Dict = None):
-		task_class = get_task_class(task)
-		base_env = ComdeRLBench(task_class=task_class, place_seq=task)
+	def __str__(self):
+		return "rlbench"
+
+	def __init__(self, seed: int, task: List[int], n_target: int, cfg: Dict = None, dummy: bool = False):
+		if not dummy:
+			task_class = get_task_class(task)
+			from comde_rlbench.RLBench.rlbench.comde_tasks import ComdeTask8
+			task_class = ComdeTask8
+			base_env = ComdeRLBench(task_class=task_class, place_seq=[3, 1, 2, 4])
+		else:
+			base_env = DummyRLBench()
+
+		if type(task[0]) == int:
+			for i in range(len(task)):
+				task[i] = self.skill_index_mapping[task[i]]
+		base_env.skill_list = deepcopy(task)
 		super(RLBench, self).__init__(env=base_env, seed=seed, task=task, n_target=n_target, cfg=cfg)
+
+	def eval_param(self, param):
+		return eval(param)
 
 	def ingradients_to_parameter(self, prompt_extraction: str):
 		pass
@@ -114,8 +147,6 @@ class RLBench(ComdeSkillEnv):
 			source_skills_idx=source_skills_idx,
 			video_parsing=False
 		)
-
-
 		_info = {
 			"non_functionality": non_functionality,
 			"param_applied_skill": param_applied_skill,

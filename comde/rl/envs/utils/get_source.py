@@ -4,7 +4,7 @@ from typing import Dict, List, Union, Tuple
 import numpy as np
 
 from comde.rl.envs.utils import SkillHistoryEnv
-from comde.utils.common.lang_representation import SkillRepresentation
+from comde.utils.common.natural_languages.lang_representation import SkillRepresentation
 
 
 def get_source_skills(

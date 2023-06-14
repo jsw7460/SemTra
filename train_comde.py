@@ -3,6 +3,7 @@ from jax.config import config
 config.update("jax_debug_nans", True)
 
 import random
+from copy import deepcopy
 from typing import Dict, Union, Type
 from comde.utils.interfaces.i_savable.i_savable import IJaxSavable
 
@@ -41,11 +42,15 @@ def program(cfg: DictConfig) -> None:
 		low_policy_cfgs = cfg["low_policy"]  # type: Dict
 		low_policy_cfgs["cfg"].update({**statistics})
 
-	env = get_dummy_env(cfg["env"])  # Dummy env for obtain an observation and action space.
-	modules_dict = {module: instantiate(cfg[module]) for module in cfg["modules"]}
+	env_name = cfg["env"]["name"].lower()
+	env = get_dummy_env(env_name, cfg["env"])  # Dummy env for obtain an observation and action space.
+	modules_dict = {}
+	for module in cfg["modules"]:
+		if module == "seq2seq":
+			cfg[module].update({"custom_tokens": env.skill_infos})
+		modules_dict[module] = instantiate(cfg[module])
 
 	trainer_cls = get_class(cfg["trainer"])
-
 	trainer = trainer_cls(
 		cfg=cfg,
 		env=env,
@@ -63,11 +68,9 @@ def program(cfg: DictConfig) -> None:
 			cfg=cfg["dataset"]
 		)
 		replay_buffer.add_episodes_from_h5py(
-			paths={
-				"trajectory": trajectories[: -10],
-				"sequential_requirements": cfg["sequential_requirements_path"],
-				"non_functionalities": cfg["non_functionalities_path"]
-			},
+			paths={"trajectory": trajectories[: -10]},
+			sequential_requirements_mapping=deepcopy(env.sequential_requirements_vector_mapping),
+			non_functionalities_mapping=deepcopy(env.non_functionalities_vector_mapping),
 			guidance_to_prm=pretrained_modules["prompt_learner"]
 		)
 		trainer.run(replay_buffer)
@@ -77,11 +80,10 @@ def program(cfg: DictConfig) -> None:
 			cfg=cfg["dataset"]
 		)
 		eval_buffer.add_episodes_from_h5py(
-			paths={
-				"trajectory": trajectories[-10:],
-				"sequential_requirements": cfg["sequential_requirements_path"],
-				"non_functionalities": cfg["non_functionalities_path"]
-			}
+			paths={"trajectory": trajectories[-10:]},
+			sequential_requirements_mapping=deepcopy(env.sequential_requirements_vector_mapping),
+			non_functionalities_mapping=deepcopy(env.non_functionalities_vector_mapping),
+			guidance_to_prm=pretrained_modules["prompt_learner"]
 		)
 		trainer.evaluate(eval_buffer)
 

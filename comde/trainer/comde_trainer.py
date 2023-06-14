@@ -9,7 +9,7 @@ from comde.comde_modules.termination.base import BaseTermination
 from comde.rl.buffers import ComdeBuffer
 from comde.rl.buffers.type_aliases import ComDeBufferSample
 from comde.trainer.base import BaseTrainer
-from comde.utils.common.lang_representation import SkillRepresentation
+from comde.utils.common.natural_languages.lang_representation import SkillRepresentation
 from comde.rl.envs.utils.skill_to_vec import SkillInfoEnv
 
 
@@ -32,14 +32,24 @@ class ComdeTrainer(BaseTrainer):
 		idx to skill: A dictionary, index to (clip) skill
 		This class is not responsible for fulfilling replay buffer.
 		"""
+		self.__last_onehot_skills = None
+		self.skill_infos = env.skill_infos  # type: Dict[str, List[SkillRepresentation]]
 		super(ComdeTrainer, self).__init__(cfg=cfg, env=env)
+
 		self.low_policy = low_policy
 		self.seq2seq = seq2seq
 		self.termination = termination
-		self.skill_infos = env.skill_infos  # type: Dict[str, List[SkillRepresentation]]
 
 		self.info_records = {"info/suffix": self.cfg["save_suffix"]}
-		self.__last_onehot_skills = None
+
+	def prepare_run(self):
+		super(ComdeTrainer, self).prepare_run()
+
+		skills = [random.choice(sk) for sk in list(self.skill_infos.values())]
+		skills.sort(key=lambda sk: sk.index)
+		skills = [sk.vec for sk in skills]
+		self.append_dummy_skill(skills)
+		self.__last_onehot_skills = np.array([sk for sk in skills])
 
 	@staticmethod
 	def append_dummy_skill(skills: List[np.array]):
@@ -48,13 +58,6 @@ class ComdeTrainer(BaseTrainer):
 
 	def _get_skill_from_idxs(self, replay_data: ComDeBufferSample) -> ComDeBufferSample:
 		# Index -> Vector mapping
-		if self.__last_onehot_skills is None:
-			skills = [random.choice(sk) for sk in list(self.skill_infos.values())]
-			skills.sort(key=lambda sk: sk.index)
-			skills = [sk.vec for sk in skills]
-			self.append_dummy_skill(skills)
-			self.__last_onehot_skills = np.array([sk for sk in skills])
-
 		skills_idxs = replay_data.skills_idxs
 		source_skills_idxs = replay_data.source_skills_idxs
 		target_skills_idxs = replay_data.target_skills_idxs

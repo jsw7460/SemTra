@@ -1,7 +1,10 @@
 import random
-from itertools import product, permutations
+from collections import defaultdict
+from itertools import permutations
+from itertools import product
 from typing import List
 
+from comde.utils.common.natural_languages.lang_representation import SkillRepresentation
 from comde_rlbench.RLBench.rlbench import comde_tasks
 from comde_rlbench.RLBench.rlbench.comde_const import COMDE_SKILLS_TO_IDX
 from comde_rlbench.RLBench.rlbench.comde_const import COMDE_WEIGHTS
@@ -21,9 +24,9 @@ from rlbench.tasks.slide_block_to_target import SlideBlockToTarget
 COMDE_IDX_TO_SKILLS = {v: k for k, v in COMDE_SKILLS_TO_IDX.items()}
 COMDE_SKILLS_POSITIONS = {
 	"leftmost": [0, 1, 2],
-	"left": [5, 6, 7],
-	"right": [10, 11, 12],
-	"rightmost": [15, 16, 17]
+	"left": [3, 4, 5],
+	"right": [6, 7, 8],
+	"rightmost": [9, 10, 11]
 }
 
 
@@ -173,3 +176,34 @@ def object_in_task(task: str):
 		return "block"
 	else:
 		raise NotImplementedError(f"{task} has no object identifier")
+
+
+# NOTE: """order matters""". it mapped to one-hot representation.
+main_texts = [
+		"open door",
+		"close door",
+		"close fridge",
+		"open drawer",
+		"close drawer",
+		"lamp off",
+		"push button",
+		"lamp on",
+		"press switch",
+		"close microwave",
+		"open box",
+		"slide block to target",
+	]
+texts_variations = {
+	mt: [mt] for mt in main_texts
+}
+
+skill_infos = defaultdict(list)
+for idx, (key, variations) in enumerate(texts_variations.items()):
+	for text in variations:
+		skill_rep = SkillRepresentation(
+			title=key,
+			variation=text,
+			vec="override this using language model",
+			index=idx
+		)
+		skill_infos[key].append(skill_rep)

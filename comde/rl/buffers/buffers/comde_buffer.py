@@ -58,7 +58,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 				pdict.update({-1: np.zeros_like(np.array(list(pdict.values())[0]))})
 		self.observation_keys = cfg["observation_keys"]
 		# If parameter is numpy -> use eval function, otherwise ast.literal_eval
-		self.eval_param = eval if cfg["np_parameter"] else safe_eval_to_float
+		self.eval_param = self.env.eval_param
 		self.episode_class = SourceStateEpisode if self.save_source_trajectory else SourceTargetSkillContainedEpisode
 
 	def add_dict_chunk(self, dataset: Dict, representative: str = None, clear_info: bool = False) -> None:
@@ -67,7 +67,10 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 	def add_episodes_from_h5py(
 		self,
 		paths: Dict[str, Union[List, str]],
-		guidance_to_prm: Optional[BaseSeqToSeq] = None
+		sequential_requirements_mapping: Dict,
+		non_functionalities_mapping: Dict,
+		guidance_to_prm: Optional[BaseSeqToSeq] = None,
+
 	):
 		"""
 			## README ##
@@ -75,14 +78,6 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			- "skills" are processed using "skills_idxs" when making minibatch. So we add 'None' skill to buffer.
 		"""
 		trajectory_paths = paths["trajectory"]
-		sequential_requirements_path = paths["sequential_requirements"]
-		non_functionalities_path = paths["non_functionalities"]
-
-		with open(sequential_requirements_path, "rb") as f:
-			sequential_requirements_mapping = pickle.load(f)
-
-		with open(non_functionalities_path, "rb") as f:
-			non_functionalities_mapping = pickle.load(f)
 
 		if self.save_source_trajectory:
 			ep: SourceStateEpisode
@@ -239,7 +234,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			"params_for_skills": params_for_skills,
 			"rtgs": rtgs,
 			"source_parameter": source_parameter,
-			"parameter": parameter,
+			"parameter": parameter
 		}
 		if self.save_source_trajectory:
 			source_observations = np.array(trajectory["source_observations"])

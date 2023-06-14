@@ -7,7 +7,6 @@ cfg:
   inseq_dim: ${language_dim} # Input sequence = sequence of skills
   lr: 1e-5
   startend_token_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/tokens/bert_base_start_end_tokens
-  word_embedding_path: ${env.word_embedding_path}
   save_suffix: ${save_suffix}
   encoder_max_len: 200
   decoder_max_len: 9

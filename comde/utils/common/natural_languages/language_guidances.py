@@ -34,7 +34,7 @@ wind_templates = {
 			"During {video}, {sequential_requirement} is maintained as the wind {param} blows.",
 			"While performing {video} and following {sequential_requirement}, the wind {param}.",
 			"The wind {param} blows during {video}, while adhering to {sequential_requirement}.",
-		    "{sequential_requirement} is upheld as the wind {param} blows."
+		    "{sequential_requirement} is upheld while {video} and the wind {param} blows."
 		]
 }
 

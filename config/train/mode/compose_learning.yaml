@@ -1,9 +1,9 @@
 mode: prompt_learning
-trainer: comde.trainer.prompt_trainer.PromptTrainer
+trainer: comde.trainer.compose_trainer.ComposeTrainer
 modules:
-  - prompt_learner
+  - seq2seq
 
-save_interval: 300
+save_interval: 5000
 max_iter: 1_000_000
 batch_size: 256
 save_source_trajectory: False

@@ -14,6 +14,7 @@ def _bert_encode(**kwargs):
 
 
 def bert_base_forward(languages: Union[str, List[str]]) -> Dict[str, Union[np.ndarray, Dict]]:
+
 	encoded_input = tokenizer(languages, return_tensors='np', padding=True)
 	language_embedding = _bert_encode(**encoded_input)
 

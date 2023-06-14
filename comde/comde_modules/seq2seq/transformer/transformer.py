@@ -1,21 +1,19 @@
-import pickle
-import random
-from typing import Dict, List, Union, Tuple, Optional
+from copy import deepcopy
+from typing import Dict, List, Union, Tuple
 
 import einops
 import jax.random
 import numpy as np
 import optax
 
-from comde.comde_modules.low_policies.base import BaseLowPolicy
 from comde.comde_modules.seq2seq.algos.forward import skilltoskill_transformer_forward as fwd
 from comde.comde_modules.seq2seq.algos.updates.skilltoskill_transformer import (
 	skilltoskill_transformer_ce_updt as discrete_update
 )
 from comde.comde_modules.seq2seq.base import BaseSeqToSeq
-from comde.comde_modules.seq2seq.transformer.architectures.skltoskl_transformer import PrimSklToSklIntTransformer
+from comde.comde_modules.seq2seq.transformer.architectures.skltoskl_transformer import PrimSkillCompositionTransformer
 from comde.rl.buffers.type_aliases import ComDeBufferSample
-from comde.utils.common.lang_representation import SkillRepresentation as LanguageRepresentation
+from comde.utils.common.natural_languages.lang_representation import SkillRepresentation as LanguageRepresentation
 from comde.utils.common.pretrained_forwards.jax_bert_base import bert_base_forward
 from comde.utils.common.visualization import dump_attention_weights_images
 from comde.utils.jax_utils.general import get_basic_rngs
@@ -23,11 +21,18 @@ from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
 
 
-class SklToSklIntTransformer(BaseSeqToSeq):
-	PARAM_COMPONENTS = ["_SklToSklIntTransformer__model"]
+class SkillCompositionTransformer(BaseSeqToSeq):
+	PARAM_COMPONENTS = ["_SkillCompositionTransformer__model"]
 
-	def __init__(self, seed: int, cfg: Dict, init_build_model: bool = True):
-		super(SklToSklIntTransformer, self).__init__(
+	def __init__(
+		self, seed: int,
+		cfg: Dict,
+		custom_tokens: Dict[str, LanguageRepresentation],
+		init_build_model: bool = True
+	) -> None:
+
+		self.custom_tokens = custom_tokens
+		super(SkillCompositionTransformer, self).__init__(
 			seed=seed,
 			cfg=cfg,
 			init_build_model=init_build_model
@@ -36,29 +41,13 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 		self.__model = None
 		self.save_suffix = self.cfg["save_suffix"]
 
-		word_embedding_path = cfg["word_embedding_path"]
-		with open(word_embedding_path, "rb") as f:
-			self.word_embedding = pickle.load(f)  # type: Dict[str, Dict[str, np.ndarray]]
-
-		self.heldout_instructions = {key: [] for key in self.word_embedding.keys()}
-		self.reset_heldout_instructions()
-
-		# Compute the max length of sentence.
-		sentence_max_len = 0
-		for key in self.word_embedding.values():
-			assert len(key) >= 5, "Too little variations."
-			for var in key.values():
-				sentence_length = var.shape[1]
-				if sentence_length > sentence_max_len:
-					sentence_max_len = sentence_length
-		self.sentence_max_len = sentence_max_len
-
 		if init_build_model:
 			self.build_model()
 
 	def register_vocabulary(self):
-		with open(self.cfg["skill_infos_path"], "rb") as f:
-			self.tokens = pickle.load(f)
+
+		if self.custom_tokens is not None:
+			self.tokens = deepcopy(self.custom_tokens)
 
 		bos_indicator = "start semantic skills composition."
 		eos_indicator = "end your composition of semantic skills."
@@ -98,20 +87,15 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 	def model(self, model):
 		self.__model = model
 
-	def reset_heldout_instructions(self):
-		for key, value in self.word_embedding.items():
-			heldout_sentence = random.choices(list(value.keys()), k=2)
-			self.heldout_instructions[key] = heldout_sentence
-
 	def build_model(self):
 		transformer_cfg = self.cfg["transformer_cfg"]
 		decoder_maxlen = transformer_cfg["decoder_cfg"]["max_len"]
 
 		# Predict discrete token. +2 for start-end tokens.
 		vocab_size = len(self.vocabulary)
-		transformer_cfg.update({"skill_pred_dim": vocab_size})
+		transformer_cfg.update({"n_skills": vocab_size})
 
-		transformer = PrimSklToSklIntTransformer(**transformer_cfg)
+		transformer = PrimSkillCompositionTransformer(**transformer_cfg)
 		init_x = np.zeros((1, decoder_maxlen, self.inseq_dim))  # 512 dim
 		init_q = np.zeros((1, 7, self.inseq_dim))  # 512 dim
 		init_kv = np.zeros((1, 15, self.inseq_dim))
@@ -126,75 +110,7 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 			tx=tx
 		)
 
-	def get_qkv_and_mask(
-		self,
-		source_skills: np.ndarray,
-		n_source_skills: np.ndarray,
-		natural_languages: List[str],
-		training: bool
-	) -> Dict[str, np.ndarray]:
-		"""
-		All inputs are from replay_data in update function.
-
-		Source skills: [b, M, d] (There are zero paddings for axis=1)
-
-		1. From natural_languages, sample sentence tokens	([b, L, d])
-		2. Concatenate with source skills, which is a context for the Transformer. Thus, shape [b, M + L, d]
-		3. For M + L tokens in each batch, compute the context masking, which has the shape [b, M + L].
-		"""
-		b, m, d = source_skills.shape
-		n_source_skills = n_source_skills.reshape(b, 1)
-
-		sequential_requirements = []
-		pad_lengths = []
-		variations = None
-		for str_seq_req in natural_languages:
-			if training:
-				variations = [
-					var for var in self.word_embedding[str_seq_req].keys()
-					if var not in self.heldout_instructions[str_seq_req]
-				]
-
-			else:
-				variations = [
-					var for var in self.word_embedding[str_seq_req].keys()
-					if var not in self.heldout_instructions[str_seq_req]
-				]
-
-			seq_req = [self.word_embedding[str_seq_req][var] for var in variations]
-			seq_req = random.choice(seq_req)
-			seq_req = np.squeeze(seq_req, axis=0)
-
-			# Apply the zero padding
-			pad_length = self.sentence_max_len - seq_req.shape[0]
-			pad_lengths.append(pad_length)
-			padding = np.zeros((pad_length, self.inseq_dim))
-			padded_seq_req = np.concatenate((seq_req, padding), axis=0)
-			sequential_requirements.append(padded_seq_req)
-
-		sequential_requirements = np.array(sequential_requirements)  # [b, 20, 768]
-		pad_lengths = np.array(pad_lengths).reshape(-1, 1)  # [b, 1]
-		seq_req_padding_mask = np.arange(self.sentence_max_len)
-		seq_req_padding_mask = np.broadcast_to(seq_req_padding_mask, (b, self.sentence_max_len))
-		seq_req_padding_mask = np.where(seq_req_padding_mask < self.sentence_max_len - pad_lengths, 1, 0)
-
-		source_skills_padding_mask = np.arange(m)
-		source_skills_padding_mask = np.broadcast_to(source_skills_padding_mask, (b, m))
-		source_skills_padding_mask = np.where(source_skills_padding_mask < n_source_skills, 1, 0)
-
-		info = {
-			"q": source_skills,
-			"kv": sequential_requirements,
-			"q_mask": source_skills_padding_mask,
-			"kv_mask": seq_req_padding_mask,
-			"natural_language_variations": variations,
-			"natural_language_padding_mask": seq_req_padding_mask,
-			"source_skills_padding_mask": source_skills_padding_mask
-		}
-
-		return info
-
-	def update(self, replay_data: ComDeBufferSample, low_policy: Optional[BaseLowPolicy]) -> Dict:
+	def update(self, replay_data: ComDeBufferSample, **kwargs) -> Dict:
 		qkv_info = bert_base_forward(replay_data.language_guidance)
 
 		q = qkv_info["language_embedding"]
@@ -211,21 +127,11 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 			"kv_mask": kv_mask,
 			"target_skills": replay_data.target_skills,
 			"target_skills_idxs": replay_data.target_skills_idxs,
-			"observations": replay_data.observations,
-			"actions": replay_data.actions,
-			"skills": replay_data.skills,
-			"maskings": replay_data.maskings,
 			"n_source_skills": replay_data.n_source_skills,
 			"n_target_skills": replay_data.n_target_skills,
 			"start_token": self.bos_token.vec,
-			"low_policy": low_policy.model,
-			"coef_low_policy": self.cfg["coef_low_policy"],
-			"prompting_fn": getattr(low_policy, "get_prompt", None),
-			"timesteps": replay_data.timesteps
 		}
-
 		new_model, info = discrete_update(**update_fn_inputs)
-
 		self.n_update += 1
 		self.model = new_model
 		self.rng, _ = jax.random.split(self.rng)
@@ -460,22 +366,21 @@ class SklToSklIntTransformer(BaseSeqToSeq):
 	def evaluate(self, replay_data: ComDeBufferSample, visualization: bool = False) -> Dict:
 		eval_info = self._evaluate_discrete(replay_data=replay_data)
 		self.visualize_attention(language_guidance=replay_data.language_guidance)
-		self.reset_heldout_instructions()
 
 		return eval_info
 
 	def _excluded_save_params(self) -> List:
-		return SklToSklIntTransformer.PARAM_COMPONENTS
+		return SkillCompositionTransformer.PARAM_COMPONENTS
 
 	def _get_save_params(self) -> Dict[str, Params]:
 		params_dict = {}
-		for component_str in SklToSklIntTransformer.PARAM_COMPONENTS:
+		for component_str in SkillCompositionTransformer.PARAM_COMPONENTS:
 			component = getattr(self, component_str)
 			params_dict[component_str] = component.params
 		return params_dict
 
 	def _get_load_params(self) -> List[str]:
-		return SklToSklIntTransformer.PARAM_COMPONENTS
+		return SkillCompositionTransformer.PARAM_COMPONENTS
 
 	def str_to_activation(self, activation_fn: str):
 		pass
