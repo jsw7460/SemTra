@@ -21,7 +21,6 @@ def evaluate_comde(
 	termination: BaseTermination,
 	target_skills: np.ndarray,
 	termination_pred_interval: int,
-	seq2seq_info: Dict = None,
 	save_results: bool = False,
 	use_optimal_next_skill: bool = False,
 ):
@@ -84,7 +83,6 @@ def evaluate_comde(
 			observations=history_observations,
 			actions=history_actions,
 			skills=history_skills,
-			seq2seq_info=seq2seq_info,
 			maskings=history_maskings,
 			timesteps=timesteps,
 			to_np=True

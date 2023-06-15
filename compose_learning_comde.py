@@ -18,6 +18,10 @@ from comde.utils.common.natural_languages.merge_tokens import merge_env_tokens
 def program(cfg: DictConfig) -> None:
 	cfg = OmegaConf.to_container(cfg, resolve=True)  # type: Dict[str, Union[str, int, Dict]]
 
+	assert cfg["mode"]["mode"] == "compose_learning", \
+		f"Your mode is {cfg['mode']['mode']}. " \
+		"Please add 'mode=compose_learning' to your command line if you want to train composition module training"
+
 	metaworld = get_dummy_env("metaworld")
 	kitchen = get_dummy_env("kitchen")
 	rlbench = get_dummy_env("rlbench")

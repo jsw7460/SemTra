@@ -18,13 +18,14 @@ from .utils import (
 	POSSIBLE_SPEEDS,
 	SCALE,
 	SEQUENTIAL_REQUIREMENTS_VARIATIONS,
-	NON_FUNCTIONALITIES_VARIATIONS
+	NON_FUNCTIONALITIES_VARIATIONS,
+	skill_infos
 )
 
 
 class MultiStageMetaWorld(ComdeSkillEnv):
-	MW_OBS_DIM = 140
-	TASKS_IDXS = {"easy": [1, 3, 4, 6]}
+	mw_obs_dim = 140
+	tasks_idxs = {"easy": [1, 3, 4, 6]}
 	onehot_skills_mapping = {
 		"box": 0, "puck": 1, "handle": 2, "drawer": 3, "button": 4, "lever": 5, "door": 6, "stick": 7
 	}
@@ -33,7 +34,10 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 	non_functionalities = ["wind", "speed"]
 	speed_default_param = {1: 25.0, 3: 25.0, 4: 15.0, 6: 25.0}
 	wind_default_param = {1: 0.0, 3: 0.0, 4: 0.0, 6: 0.0}
-	param_evaluator = eval
+
+	sequential_requirements_vector_mapping = None
+	non_functionalities_vector_mapping = None
+	has_been_called = False
 
 	def __str__(self):
 		return "metaworld"
@@ -47,14 +51,22 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 		base_env = SingleTask(seed=seed, task=task)
 		super(MultiStageMetaWorld, self).__init__(env=base_env, seed=seed, task=task, n_target=n_target, cfg=cfg)
 
-		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1, MultiStageMetaWorld.MW_OBS_DIM))
+		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1, MultiStageMetaWorld.mw_obs_dim))
 		if cfg is None:
 			self.difficulty = "easy"
 		else:
 			self.difficulty = cfg.get("difficulty", "easy")
 
-		self.set_sequential_requirements_mapping(SEQUENTIAL_REQUIREMENTS_VARIATIONS)
-		self.set_non_functionalities_mapping(NON_FUNCTIONALITIES_VARIATIONS)
+		if not MultiStageMetaWorld.has_been_called:
+			MultiStageMetaWorld.has_been_called = True
+			mapping = self.get_sequential_requirements_mapping(SEQUENTIAL_REQUIREMENTS_VARIATIONS)
+			MultiStageMetaWorld.sequential_requirements_vector_mapping = mapping
+			mapping = self.get_non_functionalities_mapping(NON_FUNCTIONALITIES_VARIATIONS)
+			MultiStageMetaWorld.non_functionalities_vector_mapping = mapping
+
+	@staticmethod
+	def get_skill_infos():
+		return skill_infos
 
 	def eval_param(self, param):
 		return eval(param)
@@ -69,11 +81,16 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 		return obs, reward, done, info
 
 	@staticmethod
-	def get_default_parameter(non_functionality: str):
+	def get_default_parameter(non_functionality: Union[str, None] = None):
 		if non_functionality == "speed":
 			return deepcopy(MultiStageMetaWorld.speed_default_param)
 		elif non_functionality == "wind":
 			return deepcopy(MultiStageMetaWorld.wind_default_param)
+		elif non_functionality is None:
+			default_param_dict = {
+				nf: MultiStageMetaWorld.get_default_parameter(nf) for nf in MultiStageMetaWorld.non_functionalities
+			}
+			return default_param_dict
 		else:
 			raise NotImplementedError(f"{non_functionality} is undefined non functionality for multistage metaworld.")
 
@@ -147,7 +164,7 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 
 	@staticmethod
 	def generate_random_language_guidance(difficulty: str = "easy") -> Tuple[str, Dict]:
-		tasks = deepcopy(MultiStageMetaWorld.TASKS_IDXS[difficulty])
+		tasks = deepcopy(MultiStageMetaWorld.tasks_idxs[difficulty])
 		sequential_requirement = random.choice(SEQUENTIAL_REQUIREMENTS)
 		non_functionality = random.choices(["speed", "wind"], weights=[100, 10])[0]
 		source_skills_idx = list(random.choice(list(permutations(tasks, 3))))

@@ -1,4 +1,4 @@
-mode: prompt_learning
+mode: compose_learning
 trainer: comde.trainer.compose_trainer.ComposeTrainer
 modules:
   - seq2seq

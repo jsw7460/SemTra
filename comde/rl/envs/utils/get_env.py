@@ -1,9 +1,10 @@
 import pickle
 from pathlib import Path
-from typing import Dict, List, Type
+from typing import Dict, List, Type, Union
 
 import gym
 
+from comde.rl.envs.base import ComdeSkillEnv
 from comde.rl.envs.carla import DummyEasyCarla
 from comde.rl.envs.franka_kitchen import FrankaKitchen, kitchen_skill_infos
 from comde.rl.envs.metaworld import MultiStageMetaWorld, metaworld_skill_infos
@@ -29,7 +30,6 @@ def get_dummy_env(env_name: str, cfg: Dict = None) -> SkillInfoEnv:
 	elif "rlbench" in env_name:
 		env = RLBench(seed=0, task=[0, 3, 6, 9], n_target=4, dummy=True, cfg=cfg)
 		skill_infos = rlbench_skill_infos
-
 	else:
 		raise NotImplementedError(f"Not supported: {env_name}")
 	env = SkillInfoEnv(env=env, skill_infos=skill_infos)
@@ -44,14 +44,10 @@ def get_env(
 	time_limit: int = 1000,
 	history_len: int = 1,
 	seed: int = 0,
-	skill_infos: Dict = None,
 	cfg: Dict = None
 ):
-	if skill_infos is None:
-		with open(Path(cfg["skill_infos_path"]), "rb") as f:
-			skill_infos = pickle.load(f)
-
 	env = env_class(seed=seed, task=task, n_target=n_target, cfg=cfg)
+	skill_infos = env_class.get_skill_infos()
 	env = SkillInfoEnv(env, skill_infos=skill_infos)
 	env.availability_check()
 	env = TimeLimitEnv(env=env, limit=time_limit)
@@ -68,11 +64,11 @@ def get_batch_env(
 	history_len: int = 1,
 	seed: int = 0,
 	cfg: Dict = None,
-) -> List[SkillHistoryEnv]:
+) -> List[Union[SkillHistoryEnv, ComdeSkillEnv]]:
 	envs = []  # type: List[SkillHistoryEnv]
 
-	with open(Path(cfg["skill_infos_path"]), "rb") as f:
-		skill_infos = pickle.load(f)
+	# with open(Path(cfg["skill_infos_path"]), "rb") as f:
+	# 	skill_infos = pickle.load(f)
 
 	for task in tasks:
 		env = get_env(
@@ -82,7 +78,6 @@ def get_batch_env(
 			skill_dim=skill_dim,
 			time_limit=time_limit,
 			history_len=history_len,
-			skill_infos=skill_infos,
 			seed=seed,
 			cfg=cfg
 		)

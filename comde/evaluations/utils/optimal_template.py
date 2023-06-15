@@ -23,7 +23,7 @@ def get_optimal_template(
 
 	templates = templates[cfg.sequential_requirement]
 
-	if cfg.non_functionality in ["speed", "wind", "vehicle"]:
+	if cfg.non_functionality in ["speed", "wind", "weight", "vehicle"]:
 		params_for_skills = []
 		for template in templates:
 

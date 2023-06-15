@@ -1,5 +1,5 @@
 import random
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -19,8 +19,8 @@ class ComdeTrainer(BaseTrainer):
 		cfg: Dict,
 		env: SkillInfoEnv,
 		low_policy: BaseLowPolicy,  # "skill decoder" == "low policy"
-		seq2seq: BaseSeqToSeq,
 		termination: BaseTermination,
+		seq2seq: Optional[BaseSeqToSeq] = None,
 		# skill_infos: Dict[str, List[SkillRepresentation]]
 	):
 		"""
@@ -44,7 +44,6 @@ class ComdeTrainer(BaseTrainer):
 
 	def prepare_run(self):
 		super(ComdeTrainer, self).prepare_run()
-
 		skills = [random.choice(sk) for sk in list(self.skill_infos.values())]
 		skills.sort(key=lambda sk: sk.index)
 		skills = [sk.vec for sk in skills]
@@ -67,7 +66,6 @@ class ComdeTrainer(BaseTrainer):
 			source_skills=self.__last_onehot_skills[source_skills_idxs],
 			target_skills=self.__last_onehot_skills[target_skills_idxs]
 		)
-
 		return replay_data
 
 	def _get_language_guidance_from_template(self, replay_data: ComDeBufferSample) -> ComDeBufferSample:
@@ -102,7 +100,6 @@ class ComdeTrainer(BaseTrainer):
 			replay_data = self._preprocess_replay_data(replay_data)
 
 			# NOTE: Do not change the training order of modules.
-
 			if self.cfg["update_seq2seq"]:
 				info = self.seq2seq.update(replay_data=replay_data, low_policy=self.low_policy)
 			else:

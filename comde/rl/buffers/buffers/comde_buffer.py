@@ -1,4 +1,3 @@
-import pickle
 import random
 from copy import deepcopy
 from typing import Dict, Optional, Union, Tuple, List
@@ -8,14 +7,13 @@ import numpy as np
 from jax.tree_util import tree_map
 from stable_baselines3.common.vec_env import VecNormalize
 
+from comde.comde_modules.seq2seq.base import BaseSeqToSeq
 from comde.rl.buffers.buffers.episodic import EpisodicMaskingBuffer
 from comde.rl.buffers.episodes.source_target_skill import SourceTargetSkillContainedEpisode
 from comde.rl.buffers.episodes.source_target_state import SourceStateEpisode
 from comde.rl.buffers.type_aliases import ComDeBufferSample
-from comde.comde_modules.seq2seq.base import BaseSeqToSeq
 from comde.rl.envs.base import ComdeSkillEnv
 from comde.rl.envs.utils.skill_to_vec import SkillInfoEnv
-from comde.utils.common.safe_eval import safe_eval_to_float
 
 array = np.array  # DO NOT REMOVE THIS !
 
@@ -48,8 +46,9 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		self.max_source_skills = cfg["max_source_skills"]
 		self.max_target_skills = cfg["max_target_skills"]
 		self.save_source_trajectory = cfg["save_source_trajectory"]
-		self.default_source_skills \
-			= cfg["default_source_skills"]  # type: Dict[str, Dict[int, Union[float, np.ndarray]]]
+		self.default_source_skills = env.get_default_parameter()
+		# self.default_source_skills \
+		# 	= cfg["default_source_skills"]  # type: Dict[str, Dict[int, Union[float, np.ndarray]]]
 
 		for nf, pdict in self.default_source_skills.items():
 			if -1 in pdict.keys():
@@ -132,6 +131,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		next_observations = np.zeros_like(observations)
 		next_observations[: -1] = observations[1:]
 		actions = np.array(trajectory["actions"])
+		actions = self.env.get_buffer_action(actions)
 
 		traj_len = len(observations)
 
@@ -156,12 +156,12 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		optimal_parameter = str(trajectory["parameter"][()], "utf-8")
 		optimal_parameter = self.eval_param(optimal_parameter)
 
-		language_guidance = self.env.get_language_guidance_from_template(
-			sequential_requirement=sequential_requirement,
-			non_functionality=non_functionality,
-			parameter=optimal_parameter,
-			source_skills_idx=source_skills
-		)
+		# language_guidance = self.env.get_language_guidance_from_template(
+		# 	sequential_requirement=sequential_requirement,
+		# 	non_functionality=non_functionality,
+		# 	parameter=optimal_parameter,
+		# 	source_skills_idx=source_skills
+		# )
 
 		# prediction = guidance_to_prm.predict(
 		# 	target_inputs=[language_guidance],
@@ -222,7 +222,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			"infos": infos,
 			"source_skills_idxs": source_skills,
 			"target_skills_idxs": target_skills,
-			"language_guidance": None,	# Late binding
+			"language_guidance": None,  # Late binding
 			"sequential_requirement": sequential_requirement_vector,  # Sequential requirements act as an operator.
 			"str_sequential_requirement": sequential_requirement,
 			"non_functionality": non_functionality_vector,

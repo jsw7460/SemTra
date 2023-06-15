@@ -16,6 +16,7 @@ from .utils import (
 	NON_FUNCTIONALITIES_VARIATIONS,
 	WIND_TO_ADJECTIVE,
 	POSSIBLE_WINDS,
+	skill_infos
 )
 
 _ = d4rl
@@ -32,10 +33,14 @@ class FrankaKitchen(ComdeSkillEnv):
 		'microwave': 5,
 		'kettle': 6,
 	}
-	TASKS_IDXS = [0, 1, 2, 3, 4, 5, 6]
+	tasks_idxs = [0, 1, 2, 3, 4, 5, 6]
 	skill_index_mapping = {v: k for k, v in onehot_skills_mapping.items()}
 	non_functionalities = ["wind"]
 	wind_default_param = {k: 0.0 for k in range(7)}
+
+	sequential_requirements_vector_mapping = None
+	non_functionalities_vector_mapping = None
+	has_been_called = False
 
 	def __str__(self):
 		return "kitchen"
@@ -54,11 +59,19 @@ class FrankaKitchen(ComdeSkillEnv):
 		base_env = base_env({"task_elements": tuple(task)})
 		base_env.skill_list = task.copy()
 		base_env._env.seed(seed)
-
 		super(FrankaKitchen, self).__init__(env=base_env, seed=seed, task=task, n_target=n_target, cfg=cfg)
 
-		self.set_sequential_requirements_mapping(SEQUENTIAL_REQUIREMENTS_VARIATIONS)
-		self.set_non_functionalities_mapping(NON_FUNCTIONALITIES_VARIATIONS)
+		if not FrankaKitchen.has_been_called:
+			FrankaKitchen.has_been_called = True
+			mapping = self.get_sequential_requirements_mapping(SEQUENTIAL_REQUIREMENTS_VARIATIONS)
+			FrankaKitchen.sequential_requirements_vector_mapping = mapping
+
+			mapping = self.get_non_functionalities_mapping(NON_FUNCTIONALITIES_VARIATIONS)
+			FrankaKitchen.non_functionalities_vector_mapping = mapping
+
+	@staticmethod
+	def get_skill_infos():
+		return skill_infos
 
 	def eval_param(self, param):
 		return safe_eval_to_float(param)
@@ -71,9 +84,14 @@ class FrankaKitchen(ComdeSkillEnv):
 		return obs, rew, done, info
 
 	@staticmethod
-	def get_default_parameter(non_functionality: str):
+	def get_default_parameter(non_functionality: Union[str, None] = None):
 		if non_functionality == "wind":
 			return deepcopy(FrankaKitchen.wind_default_param)
+		elif non_functionality is None:
+			default_param_dict = {
+				nf: FrankaKitchen.get_default_parameter(nf) for nf in FrankaKitchen.non_functionalities
+			}
+			return default_param_dict
 		else:
 			raise NotImplementedError(f"{non_functionality} is undefined non functionality for franka kitchen.")
 
@@ -121,7 +139,7 @@ class FrankaKitchen(ComdeSkillEnv):
 
 	@staticmethod
 	def generate_random_language_guidance():
-		tasks = deepcopy(FrankaKitchen.TASKS_IDXS)
+		tasks = deepcopy(FrankaKitchen.tasks_idxs)
 		sequential_requirement = random.choice(SEQUENTIAL_REQUIREMENTS)
 		non_functionality = "wind"
 		source_skills_idx = random.choice(list(permutations(tasks, 4)))

@@ -13,7 +13,6 @@ from comde.utils.jax_utils.general import get_basic_rngs
 from comde.utils.jax_utils.general import str_to_flax_activation
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
-from comde.utils.common.timeit import timeit
 
 """
  code is from:
