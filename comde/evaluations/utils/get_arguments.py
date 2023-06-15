@@ -135,10 +135,6 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 	elif mode == "comde":
 		non_functionalities = kwargs["non_functionalities"]
 
-		print("Semantic skills sequence", semantic_skills_sequence.shape)
-		print("non functionalities", non_functionalities.shape)
-		print("param for skill", param_for_skill.shape)
-
 		arguments.update({
 			**kwargs["pretrained_models"],
 			"target_skills": np.concatenate((semantic_skills_sequence, non_functionalities, param_for_skill), axis=-1),

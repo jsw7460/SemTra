@@ -1,5 +1,5 @@
 starts=50000
-n_iter=10
+n_iter=20
 n_parallel=3
 
 for ((iter=0; iter<n_iter; iter++)); do
@@ -8,8 +8,9 @@ for ((iter=0; iter<n_iter; iter++)); do
     step=$((starts + offset + 5000 * j))
     echo $step
     python3 eval_comde.py \
-    date=2023-06-14 \
-    pretrained_suffix=kt_wind_mlp \
+    date=2023-06-15 \
+    pretrained_suffix=kt_wind_bigmlp_5dir \
+    save_suffix=kt_wind_bigmlp_5dir \
     env=kitchen \
     use_optimal_target_skill=True \
     non_functionality=wind \

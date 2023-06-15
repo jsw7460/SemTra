@@ -25,6 +25,7 @@ from comde.evaluations.utils.dump_evaluations import dump_eval_logs
 def program(cfg: DictConfig) -> None:
 	with open(cfg.pretrained_path, "rb") as f:
 		pretrained_cfg = pickle.load(f)
+
 	pretrained_models = dict()
 	if "seq2seq" in pretrained_cfg["modules"]:
 		pretrained_cfg["modules"].remove("seq2seq")
@@ -145,7 +146,7 @@ def program(cfg: DictConfig) -> None:
 
 	returns_mean = 0.0
 
-	for _seed, param_for_skill in zip(range(n_eval), params_for_skills):
+	for n_trial, (_seed, param_for_skill) in enumerate(zip(range(n_eval), params_for_skills)):
 
 		evaluation, _info = get_evaluation_function(locals(), custom_seed=_seed)
 		info, eval_fmt = evaluation()
@@ -161,7 +162,7 @@ def program(cfg: DictConfig) -> None:
 		save_path_dir = Path(cfg.save_prefix) / Path(cfg.date) / Path(cfg.pretrained_suffix)
 
 		if cfg.save_results:
-			save_path = save_path_dir / Path(cfg.save_suffix)
+			save_path = save_path_dir / Path(f"{cfg.save_suffix}_{n_trial}")
 			# 학습 한 모델은 그날 평가할거니깐 학습시킨 날짜로 저장...........
 			save_path_dir.mkdir(parents=True, exist_ok=True)
 			print("=" * 30)

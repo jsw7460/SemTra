@@ -48,7 +48,6 @@ def evaluate_comde(
 	returns = np.array([0.0 for _ in range(n_envs)])
 
 	while not all(done):
-
 		history_observations = obs["observations"]  # [8, 4, 140]
 		history_actions = obs["actions"]  # [8, 4, 4]
 		# history_rewards = obs["rewards"]  # [8, 4]
@@ -106,6 +105,7 @@ def evaluate_comde(
 				eval_infos[f"env_{k}"]["actions"].append(actions[k])
 				eval_infos[f"env_{k}"]["rewards"].append(rew[k])
 				eval_infos[f"env_{k}"]["infos"].append(step_results[k][I_INFO])
+				eval_infos[f"env_{k}"]["dones"].append(done[k])
 		else:
 			for k in range(n_envs):
 				eval_infos[f"env_{k}"]["rewards"].append(rew[k])

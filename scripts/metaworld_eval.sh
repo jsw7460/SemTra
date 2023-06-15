@@ -1,5 +1,5 @@
 starts=50000
-n_iter=10
+n_iter=4
 n_parallel=3
 
 for ((iter=0; iter<n_iter; iter++)); do
@@ -8,14 +8,14 @@ for ((iter=0; iter<n_iter; iter++)); do
     step=$((starts + offset + 5000 * j))
     echo $step
     CUDA_VISIBLE_DEVICES=1 python3 eval_comde.py \
-    date=2023-06-14 \
-    pretrained_suffix=mw_speed_dt \
+    date=2023-06-15 \
+    pretrained_suffix=mw_speed_bigmlp_5dir \
     env=metaworld \
     use_optimal_target_skill=True \
     use_optimal_next_skill=True \
     non_functionality=speed \
     sequential_requirement=sequential \
-    save_suffix=mw_speed_dt \
+    save_suffix=mw_speed_bigmlp_5dir \
     n_eval=1 \
     step=$step &
   done

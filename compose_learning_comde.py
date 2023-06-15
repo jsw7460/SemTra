@@ -31,6 +31,7 @@ def program(cfg: DictConfig) -> None:
 
 	env_datasets = [
 		"/home/jsw7460/mnt/comde_datasets/metaworld/speed/0508/3_target_skills/",  # Meta world
+		"/home/jsw7460/mnt/comde_datasets/metaworld/wind/3_target_skills/"
 		"/home/jsw7460/mnt/comde_datasets/kitchen/wind/4_target_skills/",  # Kitchen
 		"/home/jsw7460/mnt/comde_datasets/rlbench/weight/3_target_skills/",
 		"/home/jsw7460/mnt/comde_datasets/rlbench/weight/4_target_skills/"

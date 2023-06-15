@@ -16,6 +16,7 @@ def get_optimal_template(
 ) -> Dict[str, np.ndarray]:
 
 	param_to_check = envs[0].get_default_parameter(cfg.non_functionality)
+	# param_to_check = {1: 25.0, 3: 25.0, 4: 15.0, 6: 3.0}
 
 	semantic_skills_sequence, optimal_idxs = get_optimal_semantic_skills(envs=envs, skill_infos=skill_infos)
 	with open(cfg.env.template_path, "rb") as f:
@@ -32,8 +33,15 @@ def get_optimal_template(
 
 			raw_param_dim = np.array([list(parameter_dict.values())[0]]).shape[-1]
 			param_for_skill = np.zeros((len(envs), n_max_target_skills, raw_param_dim))
+
+			parameter_dict = param_to_check
+
 			if parameter_dict.keys() != param_to_check.keys() or \
 				np.any(np.array(list(parameter_dict.values())) != np.array(list(param_to_check.values()))):
+
+				print("parameter dict", list(parameter_dict.values()))
+				print("param to check", list(param_to_check.values()))
+
 				continue
 
 			for skill_idx, parameter in parameter_dict.items():
