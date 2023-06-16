@@ -1,6 +1,6 @@
-from jax.config import config
-
-config.update("jax_debug_nans", True)
+# from jax.config import config
+#
+# config.update("jax_debug_nans", True)
 
 import random
 from copy import deepcopy
@@ -22,14 +22,6 @@ from comde.utils.common.normalization import get_observation_statistics
 @hydra.main(version_base=None, config_path="config/train", config_name="comde_base.yaml")
 def program(cfg: DictConfig) -> None:
 	cfg = OmegaConf.to_container(cfg, resolve=True)  # type: Dict[str, Union[str, int, Dict]]
-
-	# pretrained_modules = {}
-	# for prtr in cfg["mode"]["pretrained_modules"]:
-	# 	prtr_module = prtr["module"]
-	# 	prtr_path = prtr["path"]
-	# 	module_cls = get_class(cfg[prtr_module]["_target_"])  # type: Union[type, Type[IJaxSavable]]
-	# 	module_instance = module_cls.load(prtr_path)
-	# 	pretrained_modules[prtr_module] = module_instance
 
 	data_dirs, hdf_files = load_data_paths(cfg)
 
