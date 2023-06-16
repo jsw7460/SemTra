@@ -136,7 +136,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		traj_len = len(observations)
 
 		rtgs = np.zeros((traj_len,))
-		dones = np.zeros((traj_len,), dtype=np.bool)
+		dones = np.zeros((traj_len,), dtype=bool)
 
 		if "infos" in trajectory.keys():
 			assert type(trajectory["infos"]) == List, "undefined info type"
