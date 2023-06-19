@@ -3,12 +3,10 @@ from typing import Optional, Tuple, Union, cast
 
 import flax.linen as nn
 import jax.numpy as jnp
-from transformers.models.t5.modeling_flax_t5 import (
-    FlaxBaseModelOutput, FlaxBaseModelOutputWithPastAndCrossAttentions)
+from transformers.models.t5.modeling_flax_t5 import FlaxBaseModelOutput
 from transformers.models.t5.modeling_flax_t5 import \
     FlaxT5Attention as _T5Attention
-from transformers.models.t5.modeling_flax_t5 import (FlaxT5LayerFF,
-                                                     FlaxT5LayerNorm,
+from transformers.models.t5.modeling_flax_t5 import (FlaxT5LayerNorm,
                                                      FlaxT5PreTrainedModel,
                                                      T5Config, logger)
 

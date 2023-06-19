@@ -1,3 +1,5 @@
+from typing import cast
+
 import flax.linen as nn
 import jax.numpy as jnp
 from transformers.models.t5.modeling_flax_t5 import FlaxT5Model
@@ -5,7 +7,7 @@ from transformers.models.t5.modeling_flax_t5 import FlaxT5Model
 
 class WordEmbedding(nn.Module):
     def setup(self) -> None:
-        model: FlaxT5Model = FlaxT5Model.from_pretrained("t5-base")
+        model = cast(FlaxT5Model, FlaxT5Model.from_pretrained("t5-base"))
         embed_weight: jnp.ndarray = model.params["shared"]["weight"]
         self.embed_dim = embed_weight.shape[-1]
         self.embedding = nn.Embed(
