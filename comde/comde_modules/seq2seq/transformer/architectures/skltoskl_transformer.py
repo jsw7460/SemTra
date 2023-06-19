@@ -12,15 +12,12 @@ LOGITS_MAX = 15.0
 LOGITS_MIN = -4.0
 
 
-class PrimSklToSklIntTransformer(nn.Module):
+class PrimSkillCompositionTransformer(nn.Module):
 	# Output: Skill sequence
 	encoder_cfg: Dict
 	decoder_cfg: Dict
 	input_dropout_prob: float
-	skill_dropout_prob: float
-	skill_pred_dim: int
-	non_functionality_dim: int
-	param_dim: int
+	n_skills: int
 
 	input_dropout = None
 	input_layer = None
@@ -28,8 +25,6 @@ class PrimSklToSklIntTransformer(nn.Module):
 	decoder = None
 
 	pred_skills = None
-	pred_nonfunc = None
-	pred_param = None
 
 	def setup(self) -> None:
 		"""
@@ -46,10 +41,9 @@ class PrimSklToSklIntTransformer(nn.Module):
 		self.decoder = TransformerDecoder(**self.decoder_cfg)
 
 		self.pred_skills = create_mlp(
-			output_dim=self.skill_pred_dim,
+			output_dim=self.n_skills,
 			net_arch=[],
 			layer_norm=True,
-			dropout=self.skill_dropout_prob,
 			squash_output=False
 		)
 

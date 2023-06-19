@@ -14,7 +14,8 @@ class Loggable:
 		self.wandb_logger = wandb.init(
 			project=cfg["wandb"]["project"],
 			entity=cfg["wandb"]["entity"],
-			config=cfg
+			config=cfg,
+			name=cfg["wandb"]["name"]
 		)
 
 		self.terminal_logger = configure(None, format_strings=["stdout"])

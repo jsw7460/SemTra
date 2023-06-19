@@ -22,16 +22,16 @@ def program(cfg: DictConfig) -> None:
 	cfg = OmegaConf.to_container(cfg, resolve=True)  # type: Dict[str, Union[str, int, Dict]]
 
 	assert cfg["mode"]["mode"] == "prompt_learning", \
-		f"Your mode is {cfg['mode']}. " \
+		f"Your mode is {cfg['mode']['mode']}. " \
 		"Please add 'mode=prompt_learning' to your command line if you want to train prompt learning"
+
 	prompt_cfg = cfg["mode"]
 
 	envs = [MultiStageMetaWorld, FrankaKitchen, RLBench]
-	# envs = [MultiStageMetaWorld]
 	prompt_learner = instantiate(cfg["prompt_learner"])
 	prompt_trainer = PromptTrainer(cfg=cfg, envs=envs, prompt_learner=prompt_learner)
 
-	for i in range(prompt_cfg["max_iter"]):
+	for _ in range(prompt_cfg["max_iter"]):
 		prompt_trainer.run()
 
 

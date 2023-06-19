@@ -1,5 +1,4 @@
-from functools import partial
-from typing import Dict, Tuple, Callable, Optional
+from typing import Dict, Tuple
 
 import jax
 from jax import numpy as jnp
@@ -8,7 +7,7 @@ from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
 
 
-@partial(jax.jit, static_argnames=("prompting_fn", "coef_low_policy"))
+@jax.jit
 def skilltoskill_transformer_ce_updt(
 	rng: jnp.ndarray,
 	tr: Model,  # transformer
@@ -16,27 +15,19 @@ def skilltoskill_transformer_ce_updt(
 	encoder_kv: jnp.ndarray,
 	q_mask: jnp.ndarray,
 	kv_mask: jnp.ndarray,
-	target_skills: jnp.ndarray,
-	target_skills_idxs: jnp.ndarray,
-	observations: jnp.ndarray,
-	actions: jnp.ndarray,
-	skills: jnp.ndarray,
-	maskings: jnp.ndarray,
+	target_skills: jnp.ndarray,  # Language embedding. Not an index (Input of transformer decoder)
+	target_skills_idxs: jnp.ndarray,  # Index. (Target of transformer)
 	n_source_skills: jnp.ndarray,  # [b, ]
 	n_target_skills: jnp.ndarray,  # [b, ]
 	start_token: jnp.ndarray,  # [d, ]
-	low_policy: Optional[Model],
-	coef_low_policy: float,
-	prompting_fn: Optional[Callable],
-	timesteps: jnp.ndarray,
 ) -> Tuple[Model, Dict]:
 	rng, dropout_key = jax.random.split(rng)
 	# Note: Target skill을 한 칸 밀어줘야 함 (Due to start token)
 
-	skill_dim = skills.shape[-1]
+	token_dim = start_token.shape[-1]
 	batch_size = n_source_skills.shape[0]
 
-	start_token = jnp.broadcast_to(start_token, shape=(batch_size, 1, skill_dim))
+	start_token = jnp.broadcast_to(start_token, shape=(batch_size, 1, token_dim))
 	input_skills = jnp.concatenate((start_token, target_skills), axis=1)
 
 	# Concatenate with end token
@@ -84,47 +75,6 @@ def skilltoskill_transformer_ce_updt(
 		prompt_dict = {}
 		target_skills_mask = None
 		attention_weights = None
-		if coef_low_policy > 0.0:
-			# Use first layer's decoder attention weights
-			attention_weights = model_output["decoder_attention_weights"][
-				0]  # [batch_size, n_head, n_target_skills + 1, len_language_guidance] // +1 for start token
-			attention_weights = attention_weights[:, :, 1:, ...]  # Remove start token's attention weights
-			attention_weights = jnp.mean(
-				attention_weights,
-				axis=1
-			)  # Mean over transformer multi-head // [b, n_tar_sk, len_lang]	TODO: Implement reciprocal of this
-
-			target_skills_mask = tgt_mask_wo_last[..., :-1]  # Remove end token
-			prompt_dict = prompting_fn(
-				attention_weights=attention_weights,
-				language_guidance=encoder_q,
-				target_skills_mask=target_skills_mask,
-				language_guidance_mask=q_mask
-			)
-
-			prompts = prompt_dict["prompts"]
-			prompts_maskings = prompt_dict["prompts_maskings"]
-
-			action_dim = actions.shape[-1]
-			target = actions.reshape(-1, action_dim) * maskings.reshape(-1, 1)
-
-			action_preds = low_policy.apply_fn(
-				{"params": low_policy.params},
-				observations=observations,
-				actions=actions,
-				skills=skills,
-				prompts=prompts,
-				prompts_maskings=prompts_maskings,
-				timesteps=timesteps,
-				maskings=maskings,
-				deterministic=False,
-				rngs={"dropout": dropout_key}
-			)
-
-			action_preds = action_preds.reshape(-1, action_dim) * maskings.reshape(-1, 1)
-			action_loss = jnp.sum(jnp.mean((action_preds - target) ** 2, axis=-1)) / jnp.sum(maskings)
-
-			loss += action_loss
 
 		pred_skills_idxs = jnp.argmax(pred_skills, axis=-1)  # [b, M]
 		_pred_skills_wo_mask = pred_skills_idxs
@@ -135,17 +85,13 @@ def skilltoskill_transformer_ce_updt(
 
 		_info = {
 			"s2s/skill_loss(ce)": skills_loss,
-			"s2s/match_ratio": match_ratio,
+			"s2s/match_ratio(%)": match_ratio * 100,
 			"__model_output": model_output,
 			"__tgt_mask": tgt_mask,
 			"__tgt_mask_wo_last": tgt_mask_wo_last,
 			"__pred_skills": jnp.log(pred_skills),
 			"__pred_skills_prob": pred_skills_prob,
 			"__tgt_skills": tgt_skills,
-			"__s2s/obs": observations,
-			"__s2s/act": actions,
-			"__s2s/maskings": maskings,
-			"__skills": skills,
 			"__likelihood": likelihood,
 			"__pred_skills_idxs": pred_skills_idxs,
 			"__pred_skills_wo_mask": _pred_skills_wo_mask,

@@ -12,7 +12,7 @@ pretrained_path: ${pretrained_prefix}/${date}/cfg/cfg_${pretrained_suffix}
 sequential_requirement: sequential
 non_functionality: ???
 
-use_optimal_target_skill: False
+use_optimal_target_skill: True
 use_optimal_next_skill: False
 
 save_text: False

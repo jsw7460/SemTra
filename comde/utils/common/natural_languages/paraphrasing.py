@@ -1,5 +1,4 @@
 from typing import NamedTuple
-from comde.utils.common.lang_representation import LanguageRepresentation
 
 import numpy as np
 from transformers import PegasusForConditionalGeneration, PegasusTokenizer

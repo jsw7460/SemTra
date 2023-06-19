@@ -4,8 +4,8 @@ from typing import Dict, List, Type
 from comde.comde_modules.seq2seq.base import BaseSeqToSeq
 from comde.rl.envs.base import ComdeSkillEnv
 from comde.trainer.base import BaseTrainer
-from comde.utils.common.prompt_templates import prompt_templates
-from comde.utils.common.language_processing import number_to_words
+from comde.utils.common.natural_languages.prompt_templates import prompt_templates
+from comde.utils.common.natural_languages.language_processing import number_to_words
 
 
 class PromptTrainer(BaseTrainer):
@@ -69,6 +69,7 @@ class PromptTrainer(BaseTrainer):
 		examples = dataset["examples"]
 		target_inputs = dataset["target_inputs"]
 		target_outputs = dataset["target_outputs"]
+
 		info = self.prompt_learner.update(
 			examples=examples,
 			target_inputs=target_inputs,

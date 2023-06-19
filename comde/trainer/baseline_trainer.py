@@ -7,7 +7,7 @@ from comde.comde_modules.base import ComdeBaseModule
 from comde.rl.buffers import ComdeBuffer
 from comde.rl.buffers.type_aliases import ComDeBufferSample
 from comde.trainer.base import BaseTrainer
-from comde.utils.common.lang_representation import SkillRepresentation
+from comde.utils.common.natural_languages.lang_representation import SkillRepresentation
 
 
 class BaselineTrainer(BaseTrainer):

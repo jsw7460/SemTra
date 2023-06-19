@@ -4,7 +4,7 @@ from typing import Dict, List, Union, Tuple
 import numpy as np
 
 from comde.rl.envs.utils import SkillHistoryEnv
-from comde.utils.common.lang_representation import SkillRepresentation
+from comde.utils.common.natural_languages.lang_representation import SkillRepresentation
 
 
 def get_source_skills(
@@ -71,4 +71,5 @@ def get_optimal_semantic_skills(
 
 	optimal_target_idxs = np.array(optimal_target_idxs)
 	optimal_target_skills = np.array(optimal_target_skills)
+	print("What is optimal target skills shape?", optimal_target_skills.shape)
 	return optimal_target_skills, optimal_target_idxs

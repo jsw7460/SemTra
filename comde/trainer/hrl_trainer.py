@@ -9,7 +9,7 @@ from comde.comde_modules.seq2seq.base import BaseSeqToSeq
 from comde.comde_modules.termination.base import BaseTermination
 from comde.rl.envs.utils import SkillHistoryEnv
 from comde.trainer.comde_trainer import ComdeTrainer
-from comde.utils.common.lang_representation import SkillRepresentation
+from comde.utils.common.natural_languages.lang_representation import SkillRepresentation
 
 I_OBS = 0
 I_REWARD = 1

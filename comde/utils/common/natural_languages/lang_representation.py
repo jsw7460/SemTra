@@ -6,13 +6,13 @@ import numpy as np
 class LanguageRepresentation(NamedTuple):
 	title: str
 	variation: str
-	vec: np.ndarray
+	vec: Union[np.ndarray, str, None]
 
 
 class SkillRepresentation(NamedTuple):
 	title: str
 	variation: Union[str, List[str]]
-	vec: np.ndarray
+	vec: Union[np.ndarray, str, None]
 	index: int = -1	# Null skill
 
 

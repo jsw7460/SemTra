@@ -11,7 +11,7 @@ from comde.comde_modules.seq2seq.algos.updates.promptlearning_transformer import
 from comde.comde_modules.seq2seq.base import BaseSeqToSeq
 from comde.comde_modules.seq2seq.transformer.architectures.prompt_transformer import PrimPromptLearningTransformer
 from comde.rl.buffers.type_aliases import ComDeBufferSample
-from comde.utils.common.lang_representation import SkillRepresentation as LanguageRepresentation
+from comde.utils.common.natural_languages.lang_representation import SkillRepresentation as LanguageRepresentation
 from comde.utils.common.pretrained_forwards.jax_bert_base import bert_base_forward
 from comde.utils.jax_utils.general import get_basic_rngs
 from comde.utils.jax_utils.model import Model
@@ -117,6 +117,18 @@ class PromptLearningTransformer(BaseSeqToSeq):
 			else:
 				raise NotImplementedError(f"{ex} has no appropriate non functionality")
 
+		examples = []
+		for inp in target_inputs:
+			if "speed" in inp:
+				example = random.choice(self.example_storage["speed"])
+			elif "wind" in inp:
+				example = random.choice(self.example_storage["wind"])
+			elif "weight" in inp:
+				example = random.choice(self.example_storage["weight"])
+			else:
+				raise NotImplementedError(f"{inp} has no non-functionality")
+			examples.append(example)
+
 		model_inputs = [ex + self.example_input_conjunction + ti for (ex, ti) in zip(examples, target_inputs)]
 		combined = list(zip(model_inputs, target_outputs))
 		random.shuffle(combined)
@@ -151,20 +163,6 @@ class PromptLearningTransformer(BaseSeqToSeq):
 		self.n_update += 1
 		self.model = new_model
 		self.rng, _ = jax.random.split(self.rng)
-
-		print("NLL:", info["prompt_tr/loss(nl)"])
-
-		prediction = info["__prediction"]
-		prediction = np.argmax(prediction, axis=-1)  # [b, l]
-		for t in range(2):
-			pred = prediction[t].tolist()
-			tgt = decoder_idxs[t].tolist()
-			pred_sentence = self.tokenizer.decode(pred, skip_special_tokens=True)
-			tgt_sentence = self.tokenizer.decode(tgt, skip_special_tokens=True)
-			print("Training input:", model_inputs[t])
-			print("Training pred:", pred_sentence, pred)
-			print("Training tgt:", tgt_sentence, tgt)
-			print("\n\n\n")
 
 		return info
 

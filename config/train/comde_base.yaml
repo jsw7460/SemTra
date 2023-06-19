@@ -12,6 +12,7 @@ defaults:
   - dataset: base
   - baseline: flatbc
   - prompt_learner: transformer
+  - compose_learner: transformer
 
 save_prefix: /home/jsw7460/comde_save/train/
 save_suffix: foo
@@ -29,19 +30,19 @@ max_target_skills: 4
 
 state_normalization: False
 skill_dim: ${language_dim}
-update_seq2seq: True
+update_seq2seq: False
 
 # language_dim: CLIP: 512 / Bert-base: 768 / Bert-large: 1024
 language_dim: 768
-subseq_len: 5
+subseq_len: 20
 batch_size: 256
 max_iter: 500
 step_per_dataset: 5000
-log_interval: 1000
+log_interval: 100
 save_interval: ${mode.save_interval}
-skill_infos_path: ${env.skill_infos_path}
-sequential_requirements_path: ${env.sequential_requirements_path}
-non_functionalities_path: ${env.non_functionalities_path}
+#skill_infos_path: ${env.skill_infos_path}
+#sequential_requirements_path: ${env.sequential_requirements_path}
+#non_functionalities_path: ${env.non_functionalities_path}
 datadir_limit: ${mode.datadir_limit}
 excluded_dirs:
   - videofeature_mapping

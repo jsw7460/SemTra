@@ -36,16 +36,29 @@ def promptlearning_transformer_updt(
 		)
 		prediction = model_output["pred"]  # [b, l, vocab_size]
 
-		logits = jnp.take_along_axis(prediction, decoder_target[..., jnp.newaxis], axis=-1)  # [b, l, 1]
-		logits = jnp.squeeze(logits)		# [b, l]
-		logits = logits * decoder_masks
+		prediction = jax.nn.softmax(prediction, axis=-1)
+		tgt_tokens = decoder_target
 
-		loss = - jnp.mean(logits)
+		likelihood = jnp.log(prediction)		# logprob -> Softmax -> logprob for the stability
+		likelihood = jnp.take_along_axis(likelihood, tgt_tokens[..., jnp.newaxis], axis=-1)
+		likelihood = jnp.squeeze(likelihood, axis=-1)
+
+		ce_loss = -likelihood * decoder_masks
+		ce_loss = jnp.sum(ce_loss) / jnp.sum(decoder_masks)
+
+		loss = ce_loss
+
+		pred_tokens = jnp.argmax(prediction, axis=-1)
+		pred_tokens = jnp.where(decoder_masks == 1, pred_tokens, -1)
+		target_tokens = jnp.where(decoder_masks == 1, tgt_tokens, -2)
+
+		match_ratio = jnp.sum(pred_tokens == target_tokens) / jnp.sum(decoder_masks)
 
 		_info = {
+			"prompt_tr/loss(ce)": ce_loss,
+			"prompt_tr/match_ratio(%)": match_ratio * 100,
 			"__model_output": model_output,
 			"__prediction": prediction,
-			"prompt_tr/loss(nl)": loss
 		}
 
 		return loss, _info

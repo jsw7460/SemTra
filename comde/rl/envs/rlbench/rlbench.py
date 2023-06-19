@@ -2,18 +2,41 @@ import random
 from copy import deepcopy
 from typing import List, Dict, Union
 
+import gym
+import numpy as np
+
 from comde.rl.envs.base import ComdeSkillEnv
 from comde.rl.envs.rlbench.utils import (
+	RLBENCH_ALL_TASKS,
+	SEQUENTIAL_REQUIREMENT,
+	WEIGHT_TO_ADJECTIVE,
+	SEQUENTIAL_REQUIREMENTS_VARIATIONS,
+	NON_FUNCTIONALITIES_VARIATIONS,
 	get_task_class,
 	get_weight,
 	object_in_task,
-	RLBENCH_ALL_TASKS,
-	SEQUENTIAL_REQUIREMENT,
-	WEIGHT_TO_ADJECTIVE
+	skill_infos
 )
+from comde.utils.common.natural_languages.language_guidances import template
 from comde_rlbench.RLBench.comde.comde_env import ComdeEnv as ComdeRLBench
 from comde_rlbench.RLBench.rlbench.comde_const import COMDE_WEIGHTS
-from comde.utils.common.language_guidances import template
+
+
+class DummyRLBench(gym.Env):
+
+	def __init__(self):
+		super(DummyRLBench, self).__init__()
+		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(387,))
+		self.action_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(11,))
+
+	def step(self, action):
+		pass
+
+	def reset(self):
+		pass
+
+	def render(self, mode="human"):
+		pass
 
 
 class RLBench(ComdeSkillEnv):
@@ -21,18 +44,65 @@ class RLBench(ComdeSkillEnv):
 		"open door": 0, "close door": 1, "close fridge": 2,
 		"open drawer": 3, "close drawer": 4, "lamp off": 5,
 		"push button": 6, "lamp on": 7, "press switch": 8,
-		"close microwave": 9, "open box": 10, "slide block to target": 11,
+		"close microwave": 9, "open box": 10, "slide block to target": 11
 	}
 	skill_index_mapping = {v: k for k, v in onehot_skills_mapping.items()}
 	skill_indices = list(skill_index_mapping.keys())
 	non_functionalities = ["weight"]
-	# 0 is the default weight index
 	weight_default_param = {k: v[0] for k, v in COMDE_WEIGHTS.items()}
 
-	def __init__(self, seed: int, task: List[int], n_target: int, cfg: Dict = None):
-		task_class = get_task_class(task)
-		base_env = ComdeRLBench(task_class=task_class, place_seq=task)
+	sequential_requirements_vector_mapping = None
+	non_functionalities_vector_mapping = None
+	has_been_called = False
+
+	def __str__(self):
+		return "rlbench"
+
+	def __init__(self, seed: int, task: List[int], n_target: int, cfg: Dict = None, dummy: bool = False):
+		if not dummy:
+			task_class = get_task_class(task)
+			from comde_rlbench.RLBench.rlbench.comde_tasks import ComdeTask8
+			task_class = ComdeTask8
+			base_env = ComdeRLBench(task_class=task_class, place_seq=[3, 1, 2, 4])
+		else:
+			base_env = DummyRLBench()
+
+		if type(task[0]) == int:
+			for i in range(len(task)):
+				task[i] = self.skill_index_mapping[task[i]]
+		base_env.skill_list = deepcopy(task)
 		super(RLBench, self).__init__(env=base_env, seed=seed, task=task, n_target=n_target, cfg=cfg)
+
+		if not RLBench.has_been_called:
+			RLBench.has_been_called = True
+			mapping = self.get_sequential_requirements_mapping(SEQUENTIAL_REQUIREMENTS_VARIATIONS)
+			RLBench.sequential_requirements_vector_mapping = mapping
+
+			mapping = self.get_non_functionalities_mapping(NON_FUNCTIONALITIES_VARIATIONS)
+			RLBench.non_functionalities_vector_mapping = mapping
+
+	@staticmethod
+	def get_skill_infos():
+		return skill_infos
+
+	def get_buffer_action(self, action: np.ndarray):
+		action = action.copy()
+		tmp0 = action[..., : 7]
+		tmp1 = action[..., -3: ]
+		action[..., : 7] = 2 * tmp0
+		action[..., -3: ] = np.tanh(0.1 * np.log(tmp1))
+		return action
+
+	def get_step_action(self, action: np.ndarray):
+		action = action.copy()
+		tmp0 = action[..., : 7]
+		tmp1 = action[..., -3:]
+		action[..., : 7] = tmp0 / 2
+		action[..., -3:] = np.exp(10 * np.arctanh(tmp1))
+		return action
+
+	def eval_param(self, param):
+		return eval(param)
 
 	def ingradients_to_parameter(self, prompt_extraction: str):
 		pass
@@ -41,9 +111,12 @@ class RLBench(ComdeSkillEnv):
 		raise NotImplementedError()
 
 	@staticmethod
-	def get_default_parameter(non_functionality: str):
+	def get_default_parameter(non_functionality: Union[str, None] = None):
 		if non_functionality == "weight":
 			return deepcopy(RLBench.weight_default_param)
+		elif non_functionality is None:
+			default_param_dict = {nf: RLBench.get_default_parameter(nf) for nf in RLBench.non_functionalities}
+			return default_param_dict
 
 	@staticmethod
 	def get_language_guidance_from_template(
@@ -114,8 +187,6 @@ class RLBench(ComdeSkillEnv):
 			source_skills_idx=source_skills_idx,
 			video_parsing=False
 		)
-
-
 		_info = {
 			"non_functionality": non_functionality,
 			"param_applied_skill": param_applied_skill,

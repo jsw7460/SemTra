@@ -133,16 +133,15 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 		info.update({"sequential_requirement": str_seq_req})
 
 	elif mode == "comde":
-		pretrained_models = kwargs["pretrained_models"]
-		pretrained_models.pop("seq2seq", None)
+		non_functionalities = kwargs["non_functionalities"]
+
 		arguments.update({
-			**pretrained_models,
-			"target_skills": kwargs["target_skills"],
+			**kwargs["pretrained_models"],
+			"target_skills": np.concatenate((semantic_skills_sequence, non_functionalities, param_for_skill), axis=-1),
 			"use_optimal_next_skill": cfg["use_optimal_next_skill"],
-			"termination_pred_interval": cfg["termination_pred_interval"],
-			"seq2seq_info": kwargs["seq2seq_info"]
+			"termination_pred_interval": cfg["termination_pred_interval"]
 		})
-		info.update({"sequential_requirement": cfg["sequential_requirement"]})
+		info.update({"sequential_requirement": "not_used"})
 
 	return arguments, info
 

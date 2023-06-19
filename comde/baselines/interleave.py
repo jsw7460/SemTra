@@ -3,14 +3,12 @@ import random
 from typing import Dict, List
 from collections import defaultdict
 
-import numpy as np
-
 from comde.baselines.prompt_dt import VLPromptDT
 from comde.baselines.utils.interleave_template import template
 from comde.rl.buffers.type_aliases import ComDeBufferSample
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
-from comde.utils.common.lang_representation import SkillRepresentation
+from comde.utils.common.natural_languages.lang_representation import SkillRepresentation
 
 
 class InterleavedPromptDT(VLPromptDT):

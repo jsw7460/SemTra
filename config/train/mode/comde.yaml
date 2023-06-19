@@ -2,7 +2,7 @@ mode: comde
 trainer: comde.trainer.comde_trainer.ComdeTrainer
 modules:
   - low_policy
-  - seq2seq
+#  - seq2seq
   - termination
 
 pretrained_modules:
@@ -12,4 +12,4 @@ pretrained_modules:
 intent_dim: 1024
 save_source_trajectory: False
 save_interval: 5000
-datadir_limit: 5
+datadir_limit: 10

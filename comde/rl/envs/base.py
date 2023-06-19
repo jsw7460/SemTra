@@ -2,24 +2,59 @@ from abc import abstractmethod
 from typing import List, Dict, Any, Union
 
 import gym
+import numpy as np
+
+from comde.utils.common.pretrained_forwards.jax_bert_base import bert_base_forward
 
 
 class ComdeSkillEnv(gym.Wrapper):
 	def __init__(self, env: gym.Env, seed: int, task: List, n_target: int, cfg: Dict = None):
-		if type(task[0]) == int:
-			for i in range(len(task)):
-				task[i] = self.SKILL_INDEX_MAPPING[task[i]]
 
 		super(ComdeSkillEnv, self).__init__(env=env)
 
 		self.seed = seed
 		self.n_target = n_target
 		self.cfg = cfg
+		self.task = task
 		"""
 			e.g., skill_list: ["door", "stick", "box", "lever"] 
 				-> skill_list_idx: [2, 4, 1, 5]  
 		"""
 		self.skill_idx_list = [self.onehot_skills_mapping[key] for key in self.skill_list]
+		# self.sequential_requirements_vector_mapping = None
+		# self.non_functionalities_vector_mapping = None
+
+	def get_sequential_requirements_mapping(self, sequential_requirements: Dict):
+		mapping = {
+			seq_req: dict() for seq_req in sequential_requirements.keys()
+		}
+		for seq_req, variations in sequential_requirements.items():
+			for variation in variations:
+				vec = bert_base_forward(variation)["language_embedding"]
+				_vec = vec[:, 0, ...]
+				del vec
+				_vec = _vec.reshape(-1, )
+				mapping[seq_req][variation] = _vec
+
+		return mapping
+
+	def get_non_functionalities_mapping(self, non_functionalities: Dict):
+		mapping = {
+			seq_req: dict() for seq_req in non_functionalities.keys()
+		}
+		for seq_req, variations in non_functionalities.items():
+			for variation in variations:
+				vec = bert_base_forward(variation)["language_embedding"][:, 0, ...]
+				vec = vec.reshape(-1, )
+				mapping[seq_req][variation] = vec
+
+		return mapping
+
+	@staticmethod
+	@abstractmethod
+	def get_skill_infos():
+		raise NotImplementedError
+
 
 	@staticmethod
 	def ingradients_to_target(non_functionality: str, skill: str, param: str):
@@ -44,6 +79,10 @@ class ComdeSkillEnv(gym.Wrapper):
 	def onehot_skills_mapping(self):
 		raise NotImplementedError()
 
+	@staticmethod
+	def eval_param(self):
+		raise NotImplementedError()
+
 	@property
 	def skill_index_mapping(self):
 		raise NotImplementedError()
@@ -59,7 +98,7 @@ class ComdeSkillEnv(gym.Wrapper):
 		return self.get_short_str_for_save()
 
 	@staticmethod
-	def get_default_parameter(non_functionality: str):
+	def get_default_parameter(non_functionality: Union[str, None] = None):
 		raise NotImplementedError()
 
 	def get_buffer_action(self, action: Any):
@@ -91,3 +130,9 @@ class ComdeSkillEnv(gym.Wrapper):
 	@staticmethod
 	def generate_random_language_guidance():
 		raise NotImplementedError()
+
+	def get_buffer_action(self, action: np.ndarray):
+		return action
+
+	def get_step_action(self, action: np.ndarray):
+		return action

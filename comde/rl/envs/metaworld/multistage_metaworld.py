@@ -1,5 +1,4 @@
 import random
-
 from copy import deepcopy
 from itertools import permutations
 from typing import List, Dict, Union, Tuple
@@ -8,64 +7,40 @@ import gym
 import numpy as np
 
 from comde.rl.envs.base import ComdeSkillEnv
-from comde.utils.common.language_guidances import template
-from comde.utils.common.language_processing import word_to_number
+from comde.utils.common.natural_languages.language_guidances import template
+from comde.utils.common.natural_languages.language_processing import word_to_number
 from meta_world.get_video import SingleTask
-
-SEQUENTIAL_REQUIREMENTS = ["sequential", "reverse"]
-for (a, b) in list(permutations(range(8), 2)):
-	SEQUENTIAL_REQUIREMENTS.append(f"replace {a} with {b}")
-
-POSSIBLE_SPEEDS = {
-	1: {"default": 25.0, "non_default": {"normal": 10.0, "slow": 1.5}},
-	3: {"default": 25.0, "non_default": {"normal": 13.0, "slow": 6.0}},
-	4: {"default": 15.0, "non_default": {"normal": 5.0, "slow": 1.5}},
-	6: {"default": 25.0, "non_default": {"normal": 8.0, "slow": 3.0}}
-}
-SPEED_TO_ADJECTIVE = {
-	1: {25.0: "fast", 10.0: "normal", 1.5: "slow"},
-	3: {25.0: "fast", 13.0: "normal", 6.0: "slow"},
-	4: {15.0: "fast", 5.0: "normal", 1.5: "slow"},
-	6: {25.0: "fast", 8.0: "normal", 3.0: "slow"}
-}
-ADJECTIVE_TO_SPEED = {
-	1: {v: k for k, v in SPEED_TO_ADJECTIVE[1].items()},
-	3: {v: k for k, v in SPEED_TO_ADJECTIVE[3].items()},
-	4: {v: k for k, v in SPEED_TO_ADJECTIVE[4].items()},
-	6: {v: k for k, v in SPEED_TO_ADJECTIVE[6].items()},
-}
-POSSIBLE_WINDS = [
-	-0.3, -0.1, 0.0
-]
-WIND_TO_ADJECTIVE = {
-	-0.3: "flurry",
-	-0.1: "gust",  # Chat gpt가 flurry보다 약하고 breeze보다 강한 애라고 함
-	0.0: "breeze"
-}
-SCALE = 10
+from .utils import (
+	SPEED_TO_ADJECTIVE,
+	WIND_TO_ADJECTIVE,
+	SEQUENTIAL_REQUIREMENTS,
+	POSSIBLE_WINDS,
+	POSSIBLE_SPEEDS,
+	SCALE,
+	SEQUENTIAL_REQUIREMENTS_VARIATIONS,
+	NON_FUNCTIONALITIES_VARIATIONS,
+	skill_infos
+)
 
 
 class MultiStageMetaWorld(ComdeSkillEnv):
-	MW_OBS_DIM = 140
+	mw_obs_dim = 140
+	tasks_idxs = {"easy": [1, 3, 4, 6]}
 	onehot_skills_mapping = {
-		"box": 0,
-		"puck": 1,
-		"handle": 2,
-		"drawer": 3,
-		"button": 4,
-		"lever": 5,
-		"door": 6,
-		"stick": 7
+		"box": 0, "puck": 1, "handle": 2, "drawer": 3, "button": 4, "lever": 5, "door": 6, "stick": 7
 	}
 	skill_index_mapping = {v: k for k, v in onehot_skills_mapping.items()}
+
 	non_functionalities = ["wind", "speed"]
-
-	TASKS_IDXS = {
-		"easy": [1, 3, 4, 6]
-	}
-
 	speed_default_param = {1: 25.0, 3: 25.0, 4: 15.0, 6: 25.0}
 	wind_default_param = {1: 0.0, 3: 0.0, 4: 0.0, 6: 0.0}
+
+	sequential_requirements_vector_mapping = None
+	non_functionalities_vector_mapping = None
+	has_been_called = False
+
+	def __str__(self):
+		return "metaworld"
 
 	def __init__(self, seed: int, task: List, n_target: int, cfg: Dict = None):
 
@@ -76,11 +51,25 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 		base_env = SingleTask(seed=seed, task=task)
 		super(MultiStageMetaWorld, self).__init__(env=base_env, seed=seed, task=task, n_target=n_target, cfg=cfg)
 
-		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1, MultiStageMetaWorld.MW_OBS_DIM))
+		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1, MultiStageMetaWorld.mw_obs_dim))
 		if cfg is None:
 			self.difficulty = "easy"
 		else:
 			self.difficulty = cfg.get("difficulty", "easy")
+
+		if not MultiStageMetaWorld.has_been_called:
+			MultiStageMetaWorld.has_been_called = True
+			mapping = self.get_sequential_requirements_mapping(SEQUENTIAL_REQUIREMENTS_VARIATIONS)
+			MultiStageMetaWorld.sequential_requirements_vector_mapping = mapping
+			mapping = self.get_non_functionalities_mapping(NON_FUNCTIONALITIES_VARIATIONS)
+			MultiStageMetaWorld.non_functionalities_vector_mapping = mapping
+
+	@staticmethod
+	def get_skill_infos():
+		return skill_infos
+
+	def eval_param(self, param):
+		return eval(param)
 
 	def get_rtg(self):
 		return self.n_target
@@ -92,11 +81,16 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 		return obs, reward, done, info
 
 	@staticmethod
-	def get_default_parameter(non_functionality: str):
+	def get_default_parameter(non_functionality: Union[str, None] = None):
 		if non_functionality == "speed":
 			return deepcopy(MultiStageMetaWorld.speed_default_param)
 		elif non_functionality == "wind":
 			return deepcopy(MultiStageMetaWorld.wind_default_param)
+		elif non_functionality is None:
+			default_param_dict = {
+				nf: MultiStageMetaWorld.get_default_parameter(nf) for nf in MultiStageMetaWorld.non_functionalities
+			}
+			return default_param_dict
 		else:
 			raise NotImplementedError(f"{non_functionality} is undefined non functionality for multistage metaworld.")
 
@@ -136,7 +130,9 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 			else:
 				fmt = random.choice(template[non_functionality]["non_default"])
 				applied_param \
-					= SPEED_TO_ADJECTIVE[MultiStageMetaWorld.onehot_skills_mapping[param_applied_skill]][applied_param]
+					= SPEED_TO_ADJECTIVE[
+					MultiStageMetaWorld.onehot_skills_mapping[param_applied_skill]
+				][str(applied_param)]
 		else:
 			raise NotImplementedError(f"Undefined non-functionality {non_functionality}")
 
@@ -148,7 +144,7 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 
 		language_guidance = None
 		if non_functionality == "wind":
-			param = WIND_TO_ADJECTIVE[applied_param]
+			param = WIND_TO_ADJECTIVE[str(applied_param)]
 
 			language_guidance = fmt.format(
 				sequential_requirement=sequential_requirement,
@@ -168,7 +164,7 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 
 	@staticmethod
 	def generate_random_language_guidance(difficulty: str = "easy") -> Tuple[str, Dict]:
-		tasks = deepcopy(MultiStageMetaWorld.TASKS_IDXS[difficulty])
+		tasks = deepcopy(MultiStageMetaWorld.tasks_idxs[difficulty])
 		sequential_requirement = random.choice(SEQUENTIAL_REQUIREMENTS)
 		non_functionality = random.choices(["speed", "wind"], weights=[100, 10])[0]
 		source_skills_idx = list(random.choice(list(permutations(tasks, 3))))
@@ -183,7 +179,7 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 					{param_applied_skill: param_for_apply}
 				)
 				param_for_apply = param_for_apply  # Scaling
-				param_for_apply = SPEED_TO_ADJECTIVE[param_applied_skill][param_for_apply]
+				param_for_apply = SPEED_TO_ADJECTIVE[param_applied_skill][str(param_for_apply)]
 				param_applied_skill = MultiStageMetaWorld.skill_index_mapping[param_applied_skill]
 			else:
 				param_for_apply = "standard"
@@ -192,7 +188,7 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 			param_applied_skill = "all"
 			wind = random.choice(POSSIBLE_WINDS)
 			parameter = {k: wind for k in tasks}
-			param_for_apply = WIND_TO_ADJECTIVE[wind]
+			param_for_apply = WIND_TO_ADJECTIVE[str(wind)]
 
 		else:
 			raise NotImplementedError()

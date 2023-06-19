@@ -1,21 +1,23 @@
-for j in {0..8};
-do
-  for i in {1..5};
-  do
-  ten=$(($j * 10))
-  step=$(($(($ten + $i)) * 5000))
-  echo $step
-  CUDA_VISIBLE_DEVICES=1 python3 eval_comde.py \
-  date=2023-06-06 \
-  pretrained_suffix=mw_speed_big_skpromptdt_easypr \
-  env=metaworld \
-  use_optimal_target_skill=False \
-  use_optimal_next_skill=True \
-  non_functionality=speed \
-  sequential_requirement=sequential \
-  save_suffix=mw_speed_big_skpromptdt_easypr \
-  n_eval=1 \
-  step=$step &
+starts=50000
+n_iter=4
+n_parallel=3
+
+for ((iter=0; iter<n_iter; iter++)); do
+  for ((j=0; j<n_parallel; j++)); do
+    offset=$((iter * (5000 * n_parallel)))
+    step=$((starts + offset + 5000 * j))
+    echo $step
+    CUDA_VISIBLE_DEVICES=1 python3 eval_comde.py \
+    date=2023-06-15 \
+    pretrained_suffix=mw_speed_bigmlp_5dir \
+    env=metaworld \
+    use_optimal_target_skill=True \
+    use_optimal_next_skill=True \
+    non_functionality=speed \
+    sequential_requirement=sequential \
+    save_suffix=mw_speed_bigmlp_5dir \
+    n_eval=1 \
+    step=$step &
   done
   wait
 done

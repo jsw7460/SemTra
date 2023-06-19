@@ -18,9 +18,9 @@ if __name__ == '__main__':
 	# ========= Hyper parameters =========
 	# ====================================
 	data_prefix = Path("/home/jsw7460/comde_save/eval/")
-	date = Path("2023-06-06")
-	model = Path("mw_speed_big_skpromptdt_easypr")
-	data_suffix = Path("drawer")
+	date = Path("2023-06-15")
+	model = Path("mw_speed_bigmlp_5dir")
+	data_suffix = Path("button_0")
 	data_path = data_prefix / date / model / data_suffix
 	# ====================================
 	# ========= Hyper parameters =========
@@ -34,6 +34,7 @@ if __name__ == '__main__':
 	for data in dataset.values():
 		env_name = data["env_name"]
 		returns = sum(data["rewards"])
+		dones = data["dones"]
 		video_save_prefix.mkdir(parents=True, exist_ok=True)
 		video_title = video_save_prefix / Path(f"{returns}_{env_name}")
 
@@ -53,10 +54,10 @@ if __name__ == '__main__':
 		_env.env.skill_list = task
 		_env.reset()
 
-		done = False
+		# done = False
 		mode = 0
 
-		for i, info in tqdm(enumerate(infos)):
+		for i, (done, info) in tqdm(enumerate(zip(dones, infos))):
 			mode += rewards[i]
 			qpos = info["video_info"]["qpos"]
 			qvel = info["video_info"]["qvel"]
@@ -65,10 +66,10 @@ if __name__ == '__main__':
 			bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 			bgr = cv2.putText(bgr, " ".join(task), (0, 20), cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 0), 1)
 			video.write(bgr)
-			if i > 2000:
+			if (i > 1000) or done:
 				break
 		video.release()
-		cv2.destroyAllWindows()
+		# cv2.destroyAllWindows()
 
 		print(f"Save to {video_title}.mp4")
 	exit()

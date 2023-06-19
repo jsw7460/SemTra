@@ -23,7 +23,6 @@ def get_obs_shape(
 		return int(observation_space.n),
 	elif isinstance(observation_space, spaces.Dict):
 		return {key: get_obs_shape(subspace) for (key, subspace) in observation_space.spaces.items()}
-
 	else:
 		raise NotImplementedError(f"{observation_space} observation space is not supported")
 

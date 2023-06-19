@@ -4,7 +4,8 @@ import random
 import gym
 import numpy as np
 
-from comde.utils.common.lang_representation import SkillRepresentation
+from comde.utils.common.natural_languages.lang_representation import SkillRepresentation
+from comde.utils.common.pretrained_forwards.jax_bert_base import bert_base_forward
 
 
 class SkillInfoEnv(gym.Wrapper):
@@ -21,15 +22,28 @@ class SkillInfoEnv(gym.Wrapper):
 		self.__skill_to_vec = None
 		self.__idx_skill_list = []
 
-		skills = list(self.__skill_infos.values())
+		# Override skill vectors. If the skill_infos has a skill vector from 'pytorch' BERT,
+		# then we override it using 'jax' BERT.
+		self._override_skill_vectors()
 
+		skills = list(self.__skill_infos.values())
 		# NOTE: This entitle onehot representation of each vector
 		skills.sort(key=lambda skill: skill[0].index)
-
 		self.skill_dim = skills[0][0].vec.shape[-1]
 
 		for sk in self.skill_list:
 			self.__idx_skill_list.append(self.onehot_skills_mapping[sk])
+
+	def __str__(self):
+		return self.env.__str__()
+	
+	def _override_skill_vectors(self):
+		for skill, representations in self.__skill_infos.items():
+			for i in range(len(representations)):
+				rep = representations[i]
+				bert_vec = bert_base_forward(rep.variation)["language_embedding"][:, 0, ...]
+				rep = rep._replace(vec=np.squeeze(bert_vec))
+				representations[i] = rep
 
 	@property
 	def skill_infos(self):

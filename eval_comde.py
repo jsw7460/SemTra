@@ -27,6 +27,8 @@ def program(cfg: DictConfig) -> None:
 		pretrained_cfg = pickle.load(f)
 
 	pretrained_models = dict()
+	if "seq2seq" in pretrained_cfg["modules"]:
+		pretrained_cfg["modules"].remove("seq2seq")
 
 	for module in pretrained_cfg["modules"]:
 		module_cls = get_class(pretrained_cfg[module]["_target_"])  # type: Union[type, Type[IJaxSavable]]
@@ -41,15 +43,6 @@ def program(cfg: DictConfig) -> None:
 	with open(cfg.env.source_skills_path, "rb") as f:
 		task_to_source_skills = pickle.load(f)
 
-	# skill to vector
-	with open(pretrained_cfg["env"]["skill_infos_path"], "rb") as f:
-		skill_infos = pickle.load(f)
-
-	with open(pretrained_cfg["non_functionalities_path"], "rb") as f:
-		non_functionalities = pickle.load(f)
-		non_functionalities = random.choice(list(non_functionalities[cfg.non_functionality].values()))
-
-
 	param_dim = pretrained_cfg["low_policy"]["cfg"]["param_dim"]
 	param_repeats = pretrained_cfg["low_policy"]["cfg"].get("param_repeats", 100)
 	total_param_dim = param_dim * param_repeats
@@ -61,17 +54,21 @@ def program(cfg: DictConfig) -> None:
 		tasks=tasks_for_eval.copy(),
 		n_target=cfg.env.n_target,
 		cfg={**pretrained_cfg["env"], **cfg.env},
-		skill_dim=pretrained_cfg["skill_dim"],
+		skill_dim=pretrained_cfg["skill_dim"] + pretrained_cfg["non_functionality_dim"] + total_param_dim,
 		time_limit=cfg.env.timelimit,
 		history_len=subseq_len,
 		seed=cfg.seed
 	)
 
+	non_functionalities = envs_candidate[0].non_functionalities_vector_mapping
+	non_functionalities = random.choice(list(non_functionalities[cfg.non_functionality].values()))
+	skill_infos = envs_candidate[0].skill_infos
+
 	source_skills_dict = get_batch_source_skills(
 		task_to_source_skills=task_to_source_skills,
 		sequential_requirement=cfg.sequential_requirement,
 		skill_infos=skill_infos,
-		tasks=deepcopy([env.skill_list for env in envs_candidate]),
+		tasks=deepcopy([env.skill_list[:cfg.env.n_target] for env in envs_candidate]),
 	)
 	source_skills_vec_candidate = source_skills_dict["np_source_skills"]
 	source_skills_idx_candidate = source_skills_dict["source_skill_idxs"]
@@ -149,8 +146,7 @@ def program(cfg: DictConfig) -> None:
 
 	returns_mean = 0.0
 
-	# for _seed, param_for_skill in zip(range(n_eval), params_for_skills):
-	for _seed in range(n_eval):
+	for n_trial, (_seed, param_for_skill) in enumerate(zip(range(n_eval), params_for_skills)):
 
 		evaluation, _info = get_evaluation_function(locals(), custom_seed=_seed)
 		info, eval_fmt = evaluation()
@@ -166,7 +162,7 @@ def program(cfg: DictConfig) -> None:
 		save_path_dir = Path(cfg.save_prefix) / Path(cfg.date) / Path(cfg.pretrained_suffix)
 
 		if cfg.save_results:
-			save_path = save_path_dir / Path(cfg.save_suffix)
+			save_path = save_path_dir / Path(f"{cfg.save_suffix}_{n_trial}")
 			# 학습 한 모델은 그날 평가할거니깐 학습시킨 날짜로 저장...........
 			save_path_dir.mkdir(parents=True, exist_ok=True)
 			print("=" * 30)

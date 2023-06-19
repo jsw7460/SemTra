@@ -5,7 +5,7 @@ import clip
 import numpy as np
 import torch
 
-from comde.utils.common.lang_representation import SkillRepresentation
+from comde.utils.common.natural_languages.lang_representation import SkillRepresentation
 
 AVAILABLE_MODELS = ['RN50',
 					'RN101',
