@@ -2,3 +2,10 @@ jax
 flax
 einops
 optax
+hydra
+hydra-core
+omegaconf
+gym
+stable_baselines3
+transformers
+h5py

@@ -75,7 +75,7 @@ class Model:
 		has_aux: bool = True
 	) -> Union[Tuple['Model', Any], 'Model']:
 
-		assert ((loss_fn is not None) or (grads is not None), 'Either a loss function or grads must be specified.')
+		assert ((loss_fn is not None) or (grads is not None)), 'Either a loss function or grads must be specified.'
 
 		if grads is None:
 			grad_fn = jax.grad(loss_fn, has_aux=has_aux)
@@ -84,7 +84,7 @@ class Model:
 			else:
 				grads = grad_fn(self.params)
 		else:
-			assert (has_aux, 'When grads are provided, expects no aux outputs.')
+			assert has_aux, 'When grads are provided, expects no aux outputs.'
 
 		updates, new_opt_state = self.tx.update(grads, self.opt_state, self.params)
 		new_params = optax.apply_updates(self.params, updates)

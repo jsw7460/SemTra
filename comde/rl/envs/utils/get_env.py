@@ -5,10 +5,6 @@ from typing import Dict, List, Type, Union
 import gym
 
 from comde.rl.envs.base import ComdeSkillEnv
-from comde.rl.envs.carla import DummyEasyCarla
-from comde.rl.envs.franka_kitchen import FrankaKitchen, kitchen_skill_infos
-from comde.rl.envs.metaworld import MultiStageMetaWorld, metaworld_skill_infos
-from comde.rl.envs.rlbench import RLBench, rlbench_skill_infos
 from comde.rl.envs.utils import TimeLimitEnv, SkillHistoryEnv, SkillInfoEnv
 
 
@@ -20,14 +16,18 @@ def get_dummy_env(env_name: str, cfg: Dict = None) -> SkillInfoEnv:
 	skill_infos = None
 	# Task has no meaning here
 	if "metaworld" in env_name:
+		from comde.rl.envs.metaworld import MultiStageMetaWorld, metaworld_skill_infos
 		env = MultiStageMetaWorld(seed=0, task=["box", "handle", "button", "door"], n_target=4)
 		skill_infos = metaworld_skill_infos
 	elif "kitchen" in env_name:
+		from comde.rl.envs.franka_kitchen import FrankaKitchen, kitchen_skill_infos
 		env = FrankaKitchen(seed=0, task=["microwave", "kettle", "bottom burner", "top burner"], n_target=4)
 		skill_infos = kitchen_skill_infos
 	elif "carla" in env_name:
+		from comde.rl.envs.carla import DummyEasyCarla
 		env = DummyEasyCarla(seed=0, task=["straight", "right", "left"], n_target=3, cfg=cfg)
 	elif "rlbench" in env_name:
+		from comde.rl.envs.rlbench import RLBench, rlbench_skill_infos
 		env = RLBench(seed=0, task=[0, 3, 6, 9], n_target=4, dummy=True, cfg=cfg)
 		skill_infos = rlbench_skill_infos
 	else:
