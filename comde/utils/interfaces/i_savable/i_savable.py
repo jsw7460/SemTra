@@ -51,10 +51,10 @@ class IJaxSavable(metaclass=ABCMeta):
 		save_to_zip_file(path, data=data, params=params_to_save)
 
 	@classmethod
-	def load(cls, path: str):
+	def load(cls, path: str, **kwargs):
 		data, params, *_ = load_from_zip_file(path)
 
-		model = cls(seed=data["seed"], cfg=data["cfg"], init_build_model=False)
+		model = cls(seed=data["seed"], cfg=data["cfg"], init_build_model=False, **kwargs)
 
 		# load parameters
 		model.__dict__.update(data)

@@ -36,16 +36,16 @@ class VLPromptDT(BaseLowPolicy):
 		self.sequential_requirements_dim = cfg["sequential_requirements_dim"]
 		self.prompt_dim = cfg["image_dim"]
 
-		firstimage_path = cfg["firstimage_path"]
-		with open(firstimage_path, "rb") as f:
-			firstimage_mapping = pickle.load(f)	# type: Dict[Union[str, int], List]
-
-		if -1 in firstimage_mapping.keys() or "-1" in firstimage_mapping.keys():
-			raise LookupError("-1 is for the padded mapping. Please modify the code here.")
-
-		# We don't want integer key.
-		self.firstimage_mapping = {str(k): v for k, v in firstimage_mapping.items()}
-		self.firstimage_mapping["-1"] = [np.zeros((self.prompt_dim,))]
+		# firstimage_path = cfg["firstimage_path"]
+		# with open(firstimage_path, "rb") as f:
+		# 	firstimage_mapping = pickle.load(f)	# type: Dict[Union[str, int], List]
+		#
+		# if -1 in firstimage_mapping.keys() or "-1" in firstimage_mapping.keys():
+		# 	raise LookupError("-1 is for the padded mapping. Please modify the code here.")
+		#
+		# # We don't want integer key.
+		# self.firstimage_mapping = {str(k): v for k, v in firstimage_mapping.items()}
+		# self.firstimage_mapping["-1"] = [np.zeros((self.prompt_dim,))]
 
 		self.policy = None
 

@@ -21,3 +21,7 @@ save_prefix: /home/jsw7460/comde_save/eval
 text_save_prefix: /home/jsw7460/comde/comde_eval/
 save_suffix: eval
 termination_pred_interval: ${env.termination_pred_interval}
+
+# Define pretrained models (Skill composition and prompting)
+composition: /home/jsw7460/comde_save/train/2023-06-20/seq2seq/compose_mtktrlb_50000.zip
+prompt: /home/jsw7460/comde_save/train/2023-06-20/prompt_learner/prompt_mtktrlb_24000.zip

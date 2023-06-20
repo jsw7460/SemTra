@@ -151,9 +151,10 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		target_skills = list(trajectory["target_skills"])
 
 		sequential_requirement = str(trajectory["sequential_requirement"][()], "utf-8")
-		non_functionality = str(trajectory["non_functionality"][()], "utf-8")
+		non_functionality = str(trajectory["non_functionality"][()], "utf-8")	# "speed"
 		skills_idxs = np.array(trajectory["skills_idxs"])
-		optimal_parameter = str(trajectory["parameter"][()], "utf-8")
+		optimal_parameter = str(trajectory["parameter"][()], "utf-8")	#
+		# {1: 30.0,  3: 15.0, 6: 7.0, 8: 4.5}
 		optimal_parameter = self.eval_param(optimal_parameter)
 
 		# language_guidance = self.env.get_language_guidance_from_template(

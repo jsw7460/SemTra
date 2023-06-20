@@ -34,7 +34,7 @@ update_seq2seq: False
 
 # language_dim: CLIP: 512 / Bert-base: 768 / Bert-large: 1024
 language_dim: 768
-subseq_len: 20
+subseq_len: 5
 batch_size: 256
 max_iter: 500
 step_per_dataset: 5000

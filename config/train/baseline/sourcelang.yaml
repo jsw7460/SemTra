@@ -30,7 +30,7 @@ cfg:
   act_scale: ${act_scale}
   image_dim: 512  # Clip (Not VClip) embedding shape
 
-  firstimage_path: ${env.firstimage_path}
+#  firstimage_path: ${env.firstimage_path}
 
   n_source_video: 1
   n_target_skill: 3

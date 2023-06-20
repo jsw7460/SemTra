@@ -8,7 +8,6 @@ from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
 
 
-# [state, action] + image (video의 frame) -> 현재 action
 class SourceLanguagePromptDT(VLPromptDT):
 	"""
 	SourceLanguagePromptDT: Video-Language prompt DT
@@ -24,7 +23,6 @@ class SourceLanguagePromptDT(VLPromptDT):
 	def __init__(self, seed: int, cfg: Dict, init_build_model: bool = True):
 		super(SourceLanguagePromptDT, self).__init__(seed=seed, cfg=cfg, init_build_model=False)
 		self.prompt_dim = self.skill_dim
-		del self.firstimage_mapping  # Not required for this class
 
 		if init_build_model:
 			self.build_model()

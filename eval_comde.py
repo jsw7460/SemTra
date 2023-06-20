@@ -1,7 +1,7 @@
 import pickle
 import random
 
-random.seed(7)
+random.seed(768)
 
 from copy import deepcopy
 from pathlib import Path
@@ -19,6 +19,9 @@ from comde.rl.envs import get_batch_env
 from comde.rl.envs.utils.get_source import get_batch_source_skills
 from comde.utils.interfaces.i_savable.i_savable import IJaxSavable
 from comde.evaluations.utils.dump_evaluations import dump_eval_logs
+
+from comde.comde_modules.seq2seq.transformer.transformer import SkillCompositionTransformer
+from comde.comde_modules.seq2seq.transformer.promptlearning_transformer import PromptLearningTransformer
 
 
 @hydra.main(version_base=None, config_path="config/eval", config_name="eval_base.yaml")
@@ -111,19 +114,31 @@ def program(cfg: DictConfig) -> None:
 	# --- > target skills
 
 	else:
-		"""
-		"""
+		seq2seq = SkillCompositionTransformer.load(cfg.composition, custom_tokens=envs[0].get_skill_infos())
+		prompt = PromptLearningTransformer.load(cfg.prompt)
+
 		language_guidances = []
+		language_guidances_wo_parsing = []
 		for t, env in enumerate(envs):
 			language_guidance = env.get_language_guidance_from_template(
 				sequential_requirement=cfg.sequential_requirement,
 				non_functionality=cfg.non_functionality,
 				source_skills_idx=source_skills_idx[t],
-				parameter=None
+				parameter=None,
+				video_parsing=True
 			)
 			language_guidances.append(language_guidance)
 
-		seq2seq_info = pretrained_models["seq2seq"].predict(language_guidances)
+			lg_wo_parsing = env.get_language_guidance_from_template(
+				sequential_requirement=cfg.sequential_requirement,
+				non_functionality=cfg.non_functionality,
+				source_skills_idx=source_skills_idx[t],
+				parameter=None,
+				video_parsing=False
+			)
+			language_guidances_wo_parsing.append(lg_wo_parsing)
+
+		seq2seq_info = seq2seq.predict(language_guidances)
 		target_skills_idxs = seq2seq_info["__pred_target_skills"]
 		target_skills = []
 		for target_skill_idx, env in zip(target_skills_idxs, envs):
@@ -134,9 +149,16 @@ def program(cfg: DictConfig) -> None:
 		optimal_target_skills = optimal_template["optimal_target_skill_idxs"]
 
 		_target_skills_idxs = target_skills_idxs[:, :optimal_target_skills.shape[-1]]
-
 		skill_pred_accuracy = np.mean(optimal_target_skills == _target_skills_idxs)
 		str_skill_pred_accuracy = f"{skill_pred_accuracy * 100} %"
+
+		parameter = prompt.predict(language_guidances_wo_parsing, skip_special_tokens=True)
+
+		print("Optimal target skills", optimal_target_skills)
+		print("Target skills idxs", _target_skills_idxs)
+		print("Accuracy", str_skill_pred_accuracy)
+		print(parameter)
+		exit()
 
 	n_eval = cfg.n_eval
 

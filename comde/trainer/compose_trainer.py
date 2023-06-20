@@ -1,6 +1,8 @@
 import random
 from typing import Dict, List, Union
 
+from collections import deque
+
 import h5py
 import numpy as np
 
@@ -35,6 +37,8 @@ class ComposeTrainer(BaseTrainer):
 
 		self.max_source_skills = cfg["max_source_skills"]
 		self.max_target_skills = cfg["max_target_skills"]
+
+		self.buffer = deque(maxlen=100_000)
 
 	def prepare_run(self):
 		super(ComposeTrainer, self).prepare_run()
@@ -121,7 +125,7 @@ class ComposeTrainer(BaseTrainer):
 		n_target_skills = np.array(n_target_skills)
 
 		# Make minibatch dataset
-		n_chunk = len(language_guidances) // self.batch_size
+		n_chunk = max(len(language_guidances) // self.batch_size, 1)
 		_target_skills = np.array_split(target_skills, n_chunk, axis=0)
 		_target_skills_idxs = np.array_split(target_skills_idxs, n_chunk, axis=0)
 		_n_source_skills = np.array_split(n_source_skills, n_chunk, axis=0)
@@ -145,8 +149,11 @@ class ComposeTrainer(BaseTrainer):
 
 	def run(self, trajectories: List[str]):
 		replay_datas = self.make_dataset(trajectories)
+		self.buffer.append(replay_datas[0])
+
 		for _ in range(self.step_per_dataset):
 			for replay_data in replay_datas:
+
 				info = self.seq2seq.update(replay_data=replay_data)
 
 				self.record_from_dicts(info, mode="train")
@@ -157,6 +164,15 @@ class ComposeTrainer(BaseTrainer):
 
 				if (self.n_update % self.save_interval) == 0:
 					self.save()
+
+	def evaluate(self, trajectories: List[str]) -> None:
+		replay_datas = self.make_dataset(trajectories)
+		replay_data = replay_datas[0]
+		eval_info = self.seq2seq.evaluate(replay_data)
+
+		self.record_from_dicts(eval_info, mode="eval")
+		self.dump_logs(step=self.n_update)
+
 
 	def dump_logs(self, step: int):
 		self.record(self.info_records)

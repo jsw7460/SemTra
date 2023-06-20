@@ -101,16 +101,13 @@ class ComdeSkillEnv(gym.Wrapper):
 	def get_default_parameter(non_functionality: Union[str, None] = None):
 		raise NotImplementedError()
 
-	def get_buffer_action(self, action: Any):
-		return action
-
 	@staticmethod
 	def get_language_guidance_from_template(
 		sequential_requirement: str,
 		non_functionality: str,
-		parameter: Union[float, Dict],
 		source_skills_idx: List[int],
-		video_parsing: bool
+		parameter: Union[float, Dict] = None,
+		video_parsing: bool = True
 	):
 		raise NotImplementedError()
 
@@ -131,8 +128,8 @@ class ComdeSkillEnv(gym.Wrapper):
 	def generate_random_language_guidance():
 		raise NotImplementedError()
 
-	def get_buffer_action(self, action: np.ndarray):
-		return action
+	def get_buffer_action(self, action: Any):
+		return action.copy()
 
 	def get_step_action(self, action: np.ndarray):
-		return action
+		return action.copy()

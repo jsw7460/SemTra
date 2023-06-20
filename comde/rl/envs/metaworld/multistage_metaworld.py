@@ -66,7 +66,7 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 
 	@staticmethod
 	def get_skill_infos():
-		return skill_infos
+		return deepcopy(skill_infos)
 
 	def eval_param(self, param):
 		return eval(param)

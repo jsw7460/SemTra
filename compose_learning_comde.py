@@ -31,11 +31,11 @@ def program(cfg: DictConfig) -> None:
 
 	env_datasets = [
 		"/home/jsw7460/mnt/comde_datasets/metaworld/speed/0508/3_target_skills/",  # Meta world
-		"/home/jsw7460/mnt/comde_datasets/metaworld/wind/3_target_skills/"
 		"/home/jsw7460/mnt/comde_datasets/kitchen/wind/4_target_skills/",  # Kitchen
 		"/home/jsw7460/mnt/comde_datasets/rlbench/weight/3_target_skills/",
 		"/home/jsw7460/mnt/comde_datasets/rlbench/weight/4_target_skills/"
 	]
+
 	data_dirs = []
 	hdf_files = []
 	for env_data in env_datasets:
@@ -55,6 +55,8 @@ def program(cfg: DictConfig) -> None:
 		trajectories = hdf_files[n_iter * dataset_window_size: (n_iter + 1) * dataset_window_size]
 		trainer.run(trajectories=trajectories)
 
+		eval_trajectories = random.choices(hdf_files, k=50)
+		trainer.evaluate(eval_trajectories)
 
 if __name__ == "__main__":
 	program()

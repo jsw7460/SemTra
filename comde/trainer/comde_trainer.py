@@ -8,9 +8,9 @@ from comde.comde_modules.seq2seq.base import BaseSeqToSeq
 from comde.comde_modules.termination.base import BaseTermination
 from comde.rl.buffers import ComdeBuffer
 from comde.rl.buffers.type_aliases import ComDeBufferSample
+from comde.rl.envs.utils.skill_to_vec import SkillInfoEnv
 from comde.trainer.base import BaseTrainer
 from comde.utils.common.natural_languages.lang_representation import SkillRepresentation
-from comde.rl.envs.utils.skill_to_vec import SkillInfoEnv
 
 
 class ComdeTrainer(BaseTrainer):
@@ -55,16 +55,20 @@ class ComdeTrainer(BaseTrainer):
 		dummy_skill = np.zeros_like(skills[0])
 		skills.append(dummy_skill)
 
-	def _get_skill_from_idxs(self, replay_data: ComDeBufferSample) -> ComDeBufferSample:
+	@staticmethod
+	def get_skill_from_idxs(
+		replay_data: ComDeBufferSample,
+		last_onehot_skills: Dict
+	) -> ComDeBufferSample:
 		# Index -> Vector mapping
 		skills_idxs = replay_data.skills_idxs
 		source_skills_idxs = replay_data.source_skills_idxs
 		target_skills_idxs = replay_data.target_skills_idxs
 
 		replay_data = replay_data._replace(
-			skills=self.__last_onehot_skills[skills_idxs],
-			source_skills=self.__last_onehot_skills[source_skills_idxs],
-			target_skills=self.__last_onehot_skills[target_skills_idxs]
+			skills=last_onehot_skills[skills_idxs],
+			source_skills=last_onehot_skills[source_skills_idxs],
+			target_skills=last_onehot_skills[target_skills_idxs]
 		)
 		return replay_data
 
@@ -80,7 +84,7 @@ class ComdeTrainer(BaseTrainer):
 			language_guidance = self.env.get_language_guidance_from_template(
 				sequential_requirement=seq_req,
 				non_functionality=nf,
-				parameter={k: v for k, v in prm.items() if k != -1},	# Remove dummy skill
+				parameter={k: v for k, v in prm.items() if k != -1},  # Remove dummy skill
 				source_skills_idx=sources[:n_sk]
 			)
 			language_guidances.append(language_guidance)
@@ -89,7 +93,7 @@ class ComdeTrainer(BaseTrainer):
 		return replay_data
 
 	def _preprocess_replay_data(self, replay_data: ComDeBufferSample) -> ComDeBufferSample:
-		replay_data = self._get_skill_from_idxs(replay_data)
+		replay_data = self.get_skill_from_idxs(replay_data, self.__last_onehot_skills)
 		replay_data = self._get_language_guidance_from_template(replay_data)
 
 		return replay_data
