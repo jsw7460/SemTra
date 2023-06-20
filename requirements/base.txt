@@ -2,10 +2,11 @@ jax
 flax
 einops
 optax
-hydra
 hydra-core
 omegaconf
 gym
 stable_baselines3
 transformers
 h5py
+torchvision
+git+https://github.com/Farama-Foundation/d4rl@master#egg=d4rl
