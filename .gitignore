@@ -197,4 +197,6 @@ comde_eval/
 comde_rlbench/
 !config/env
 !config/**/env
+!config/wandb
+!config/**/wandb
 #misc/
