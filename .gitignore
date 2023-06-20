@@ -196,4 +196,5 @@ misc/
 comde_eval/
 comde_rlbench/
 !config/env
+!config/**/env
 #misc/
