@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple
+from typing import List
 
 import flax.linen as nn
 import jax
@@ -84,43 +84,3 @@ class ObjectEncoder(nn.Module):
     @property
     def output_dim(self):
         return self.transformer_embed_dim
-
-
-class GatoMultiViewRGBEncoder(nn.Module):
-    embed_dim: int
-    views: List[str]
-    img_size: Tuple[int, int]
-    vit_patch_size: int
-    vit_width: int
-    vit_num_layers: int
-    vit_num_heads: int
-    rng: jax.random.KeyArray
-
-    def setup(self) -> None:
-        self.views = sorted(self.views)
-        self.cropped_img_encoder = GatoViTEncoder(
-            img_size=self.img_size,
-            patch_size=self.vit_patch_size,
-            width=self.vit_width,
-            num_layers=self.vit_num_layers,
-            num_heads=self.vit_num_heads,
-            output_dim=self.embed_dim,
-            rng=self.rng,
-        )
-
-    def forward(self, rgb: Dict[str, jnp.ndarray]) -> jnp.ndarray:
-        """
-        input: (..., 3, H, W)
-        output: (..., L * n_views, E)
-        """
-        img_feats = {
-            view: self.cropped_img_encoder(rgb[view]) for view in self._views
-        }  # dict of (..., L, E)
-        out = jnp.concatenate(
-            [img_feats[view] for view in self._views], axis=-2
-        )  # (..., L * n_views, E)
-        return out
-
-    @property
-    def img_patch_len(self):
-        return self.cropped_img_encoder.vit.img_patch_len * len(self._views)
