@@ -9,6 +9,7 @@ from comde.baselines.architectures.vima.nn.utils import identity
 
 class VIMA(nn.Module):
     embed_dim: int
+    prompt_dim: int
     xf_num_layers: int
     sattn_num_heads: int
     xattn_num_heads: int
@@ -22,7 +23,7 @@ class VIMA(nn.Module):
             dropout_rate=0.1,
             xattn_num_heads=self.xattn_num_heads,
             xattn_ff_expanding=4,
-            xattn_num_positions=256,
+            xattn_num_positions=self.prompt_dim,
             use_geglu=True,
         )
 
