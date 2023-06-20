@@ -195,4 +195,5 @@ easy_carla/
 misc/
 comde_eval/
 comde_rlbench/
+!config/env
 #misc/
