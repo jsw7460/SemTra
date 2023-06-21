@@ -129,7 +129,8 @@ class SkillCompositionTransformer(BaseSeqToSeq):
 			"target_skills_idxs": replay_data.target_skills_idxs,
 			"n_source_skills": replay_data.n_source_skills,
 			"n_target_skills": replay_data.n_target_skills,
-			"start_token": self.bos_token.vec,
+			"bos_token": self.bos_token.vec,
+			"eos_token_idx": self.eos_token.index
 		}
 		new_model, info = discrete_update(**update_fn_inputs)
 		self.n_update += 1
@@ -176,7 +177,7 @@ class SkillCompositionTransformer(BaseSeqToSeq):
 	def maybe_done(
 		self,
 		pred_skills: np.ndarray,  # [b, d]
-		get_nearest_token: bool = True,
+		get_prediction_results: bool = True,
 		stochastic_sampling: bool = False,
 	):
 		tokens_vec = np.array([vocab.vec for vocab in self.vocabulary])
@@ -188,18 +189,13 @@ class SkillCompositionTransformer(BaseSeqToSeq):
 			pred_skills = jax.random.categorical(self.rng, logits=pred_skills, axis=-1)
 			pred_skills = pred_skills[..., np.newaxis]
 		else:
-			pred_skills = np.argmax(pred_skills, axis=-1, keepdims=True)  # [b, 1, 1]
-		pred_skills = np.take_along_axis(_tokens_vec, pred_skills, axis=1)  # [b, 1, d]
+			pred_skills = np.argmax(pred_skills, axis=-1)  # [b, 1, 1]
 
-		distance = np.mean((pred_skills - _tokens_vec) ** 2, axis=-1)  # [b, M]
+		pred_skills = np.squeeze(pred_skills)
+		maybe_done = np.where(pred_skills == self.eos_token.index, 1, 0)  # [b, ]
 
-		min_distance_idx = np.argmin(distance, axis=-1)  # [b, ]
-
-		maybe_done = np.where(min_distance_idx == self.eos_token.index, 1, 0)  # [b, ]
-
-		if get_nearest_token:
-			nearest_tokens = tokens_vec[min_distance_idx]  # [b, d]
-			return maybe_done, nearest_tokens, min_distance_idx
+		if get_prediction_results:
+			return maybe_done, pred_skills
 
 		return maybe_done
 
@@ -214,6 +210,7 @@ class SkillCompositionTransformer(BaseSeqToSeq):
 			This can be done autoregressively.
 		"""
 
+		tokens_vec = np.array([vocab.vec for vocab in self.vocabulary])
 		done = False
 
 		qkv_info = bert_base_forward(language_guidance)
@@ -230,19 +227,17 @@ class SkillCompositionTransformer(BaseSeqToSeq):
 		x = np.broadcast_to(x, (batch_size, 1, skill_dim))  # [b, 1, d]
 
 		pred_skills_seq_raw = []
-		pred_skills_seq_quantized = []
-		pred_nearest_idxs_seq = []
 		encoder_attention_weights = None
 		decoder_attention_weights = []
+		predictions = []
+		target_skills_masks = []
 
 		t = 0
 
 		prev_maybe_done = np.zeros((batch_size,))
-		target_skills_masks = []
 
 		while not done:  # Autoregression
-
-			self.rng, predictions = fwd(
+			self.rng, tr_predictions = fwd(
 				rng=self.rng,
 				model=self.model,
 				x=x,
@@ -253,15 +248,15 @@ class SkillCompositionTransformer(BaseSeqToSeq):
 			)
 
 			if encoder_attention_weights is None:
-				encoder_attention_weights = predictions.pop("encoder_attention_weights")
+				encoder_attention_weights = tr_predictions.pop("encoder_attention_weights")
 
-			decoder_attention_weight = predictions.pop("decoder_attention_weights")
+			decoder_attention_weight = tr_predictions.pop("decoder_attention_weights")
 			decoder_attention_weights.append(decoder_attention_weight)
 
-			pred_skills = predictions["pred_skills"][:, -1, ...]  # [b, d]
-			maybe_done, nearest_tokens, nearest_idxs = self.maybe_done(
-				pred_skills,
-				get_nearest_token=True,
+			pred_logits = tr_predictions["pred_logits"][:, -1, ...]  # [b, d]
+			maybe_done, pred_skills = self.maybe_done(
+				pred_logits,
+				get_prediction_results=True,
 				stochastic_sampling=stochastic
 			)
 
@@ -271,29 +266,25 @@ class SkillCompositionTransformer(BaseSeqToSeq):
 
 			prev_maybe_done = maybe_done
 
-			pred_skills_seq_raw.append(pred_skills)
-			pred_skills_seq_quantized.append(nearest_tokens)
-			pred_nearest_idxs_seq.append(nearest_idxs)
+			predictions.append(pred_skills)
 
-			nearest_tokens = nearest_tokens.reshape(batch_size, 1, skill_dim)
-			x = np.concatenate((x, nearest_tokens), axis=1)
+			pred_skills_seq_raw.append(pred_skills)
+			pred_skills_vec = tokens_vec[pred_skills]
+
+			pred_skills_vec = np.expand_dims(pred_skills_vec, axis=1)
+			x = np.concatenate((x, pred_skills_vec), axis=1)
 
 			done = np.all(maybe_done) or (len(pred_skills_seq_raw) >= self.decoder_max_len)
 			t += 1
 
 		target_skills_masks = np.stack(target_skills_masks, axis=1)
-
 		pred_skills_raw = np.stack(pred_skills_seq_raw, axis=1)
-		pred_skills_quantized = np.stack(pred_skills_seq_quantized, axis=1)
 
-		pred_nearest_idxs = np.array(pred_nearest_idxs_seq)
-		pred_target_skills = einops.rearrange(pred_nearest_idxs, "l b -> b l")
+		predictions = einops.rearrange(np.array(predictions), "l b -> b l")  # [b, M]
 
 		ret = {
+			"__pred_skills": predictions,
 			"__pred_skills_raw": pred_skills_raw,
-			"__pred_skills_quantized": pred_skills_quantized,
-			"__pred_nearest_idxs": pred_nearest_idxs_seq,
-			"__pred_target_skills": pred_target_skills,
 			"__encoder_attention_weights": encoder_attention_weights,
 			"__decoder_attention_weights": decoder_attention_weights,
 			"__target_skills_masks": target_skills_masks,
@@ -339,8 +330,8 @@ class SkillCompositionTransformer(BaseSeqToSeq):
 	def _evaluate_discrete(self, replay_data: ComDeBufferSample) -> Dict:
 		prediction = self.predict(language_guidance=replay_data.language_guidance)
 
-		pred_nearest_idxs = np.array(prediction["__pred_nearest_idxs"])
-		pred_nearest_idxs = einops.rearrange(pred_nearest_idxs, "l b -> b l")  # [b, M]
+		pred_skills = np.array(prediction["__pred_skills"])
+		# pred_skills = einops.rearrange(pred_skills, "l b -> b l")  # [b, M]
 
 		target_skills_idxs = replay_data.target_skills_idxs  # [b, M, d]
 		n_target_skills = replay_data.n_target_skills  # [b, M]
@@ -351,17 +342,17 @@ class SkillCompositionTransformer(BaseSeqToSeq):
 		tgt_mask = np.broadcast_to(tgt_mask, (batch_size, self.decoder_max_len))  # [b, M]
 		tgt_mask = np.where(tgt_mask < n_target_skills[..., np.newaxis], 1, 0)  # [b, M]
 
-		if pred_nearest_idxs.shape[-1] < self.decoder_max_len:
+		if pred_skills.shape[-1] < self.decoder_max_len:
 			# Predict skill done too early
-			pad_len = self.decoder_max_len - pred_nearest_idxs.shape[-1]
+			pad_len = self.decoder_max_len - pred_skills.shape[-1]
 			dummy_skills_idxs = np.zeros((batch_size, pad_len)) - 1
-			pred_nearest_idxs = np.concatenate((pred_nearest_idxs, dummy_skills_idxs), axis=-1)
+			pred_skills = np.concatenate((pred_skills, dummy_skills_idxs), axis=-1)
 
-		pred_nearest_idxs = np.where(tgt_mask == 1, pred_nearest_idxs, -1)
+		pred_skills = np.where(tgt_mask == 1, pred_skills, -1)
 		target_skills_idxs = np.where(tgt_mask == 1, target_skills_idxs, -2)
 
-		match_ratio = np.sum(pred_nearest_idxs == target_skills_idxs) / np.sum(tgt_mask)
-		return {"s2s/skill_match_ratio": match_ratio, **prediction}
+		match_ratio = np.sum(pred_skills == target_skills_idxs) / np.sum(tgt_mask)
+		return {"s2s/match_ratio(%)": match_ratio * 100, **prediction}
 
 	def evaluate(self, replay_data: ComDeBufferSample, visualization: bool = False) -> Dict:
 		eval_info = self._evaluate_discrete(replay_data=replay_data)

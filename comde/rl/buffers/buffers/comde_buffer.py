@@ -1,3 +1,5 @@
+import pickle
+from termcolor import colored
 import random
 from copy import deepcopy
 from typing import Dict, Optional, Union, Tuple, List
@@ -14,6 +16,7 @@ from comde.rl.buffers.episodes.source_target_state import SourceStateEpisode
 from comde.rl.buffers.type_aliases import ComDeBufferSample
 from comde.rl.envs.base import ComdeSkillEnv
 from comde.rl.envs.utils.skill_to_vec import SkillInfoEnv
+from comde.utils.common.misc import get_params_for_skills
 
 array = np.array  # DO NOT REMOVE THIS !
 
@@ -154,27 +157,11 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		non_functionality = str(trajectory["non_functionality"][()], "utf-8")	# "speed"
 		skills_idxs = np.array(trajectory["skills_idxs"])
 		optimal_parameter = str(trajectory["parameter"][()], "utf-8")	#
-		# {1: 30.0,  3: 15.0, 6: 7.0, 8: 4.5}
 		optimal_parameter = self.eval_param(optimal_parameter)
-
-		# language_guidance = self.env.get_language_guidance_from_template(
-		# 	sequential_requirement=sequential_requirement,
-		# 	non_functionality=non_functionality,
-		# 	parameter=optimal_parameter,
-		# 	source_skills_idx=source_skills
-		# )
-
-		# prediction = guidance_to_prm.predict(
-		# 	target_inputs=[language_guidance],
-		# 	skip_special_tokens=True
-		# )
-		# prediction = "speed drawer one hundred thirty"
-		# ingradients = ComdeSkillEnv.target_to_ingradients(prediction[0])
 		"""
 			Note: Here, I have to define 'parameter' variable using the 
 			prediction of prompt learning model.
 		"""
-		# parameter = self.env.ingradients_to_parameter(ingradients)
 		parameter = optimal_parameter
 
 		if -1 in parameter.keys():
@@ -184,7 +171,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 
 		source_parameter = self.default_source_skills[non_functionality].copy()
 
-		params_for_skills = self.get_params_for_skills(
+		params_for_skills = get_params_for_skills(
 			skills_idxs=skills_idxs,
 			parameter=parameter
 		)
@@ -302,23 +289,22 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		)
 		return buffer_sample
 
-	@staticmethod
-	def get_params_for_skills(
-		skills_idxs: np.ndarray,  # [l, ]
-		parameter: Dict,
-	) -> np.ndarray:
-		"""
-		:param skills_idxs:	# [sequence length, ]
-		:param parameter:
-		:return: [seq_len, param_dim]
-		"""
-
-		seq_len = skills_idxs.shape[0]
-		raw_param_dim = np.array([list(parameter.values())[0]]).shape[-1]
-		return_parameter = np.zeros((seq_len, raw_param_dim))
-		for skill_idx, param in parameter.items():
-			idxs = np.where(skills_idxs == skill_idx)
-
-			return_parameter[idxs] = param
-
-		return return_parameter
+	# @staticmethod
+	# def get_params_for_skills(
+	# 	skills_idxs: np.ndarray,  # [l, ]
+	# 	parameter: Dict,
+	# ) -> np.ndarray:
+	# 	"""
+	# 	:param skills_idxs:	# [sequence length, ]
+	# 	:param parameter:
+	# 	:return: [seq_len, param_dim]
+	# 	"""
+	#
+	# 	seq_len = skills_idxs.shape[0]
+	# 	raw_param_dim = np.array([list(parameter.values())[0]]).shape[-1]
+	# 	return_parameter = np.zeros((seq_len, raw_param_dim))
+	# 	for skill_idx, param in parameter.items():
+	# 		idxs = np.where(skills_idxs == skill_idx)
+	# 		return_parameter[idxs] = param
+	#
+	# 	return return_parameter

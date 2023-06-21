@@ -1,10 +1,11 @@
 # from jax.config import config
 #
 # config.update("jax_debug_nans", True)
-
+import math
 import random
 from copy import deepcopy
 from typing import Dict, Union
+from termcolor import colored
 
 random.seed(7)
 
@@ -23,19 +24,22 @@ from comde.utils.common.normalization import get_observation_statistics
 def program(cfg: DictConfig) -> None:
 	cfg = OmegaConf.to_container(cfg, resolve=True)  # type: Dict[str, Union[str, int, Dict]]
 
-	data_dirs, hdf_files = load_data_paths(cfg)
+	env_name = cfg["env"]["name"].lower()
+	env = get_dummy_env(env_name, cfg["env"])  # Dummy env for obtain an observation and action space.
 
-	print(f"This program uses {len(hdf_files)} trajectories for the training.")
+	hdf_files = load_data_paths(cfg, env)
+	dataset_window_size = cfg["dataset_window_size"]
+
+	print(colored(f"This program load {len(hdf_files)} trajectories for the training.", "red"))
+	# print(colored(f"Some trajectories containing evaluation tasks will be removed", "red"))
 	cfg["n_trained_trajectory"] = len(hdf_files)
-	dataset_window_size = len(hdf_files) // len(data_dirs)
+	# dataset_window_size = len(hdf_files) // dataset_window_size
 
 	if cfg["state_normalization"]:
+		raise NotImplementedError("Obsolete")
 		statistics = get_observation_statistics(data_dirs)
 		low_policy_cfgs = cfg["low_policy"]  # type: Dict
 		low_policy_cfgs["cfg"].update({**statistics})
-
-	env_name = cfg["env"]["name"].lower()
-	env = get_dummy_env(env_name, cfg["env"])  # Dummy env for obtain an observation and action space.
 
 	modules_dict = {}
 	for module in cfg["modules"]:
@@ -50,8 +54,9 @@ def program(cfg: DictConfig) -> None:
 		**modules_dict
 	)
 
+	n_slide = math.ceil(len(hdf_files) / dataset_window_size)
 	for n_iter in range(cfg["max_iter"]):
-		n_iter = (n_iter % len(data_dirs))
+		n_iter = (n_iter % n_slide)
 		trajectories = hdf_files[n_iter * dataset_window_size: (n_iter + 1) * dataset_window_size]
 		random.shuffle(trajectories)
 

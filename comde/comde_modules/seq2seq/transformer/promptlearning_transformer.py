@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 import random
 
 import jax.random
@@ -173,7 +173,8 @@ class PromptLearningTransformer(BaseSeqToSeq):
 		stochastic: bool = False,
 		return_qkv_info: bool = False,
 		skip_special_tokens: bool = False,
-	) -> np.ndarray:
+		parse: bool = False
+	) -> Union[List[str], List[Dict]]:
 		if examples is None:
 			examples = []
 			for inp in target_inputs:
@@ -190,8 +191,8 @@ class PromptLearningTransformer(BaseSeqToSeq):
 		model_inputs = [ex + self.example_input_conjunction + ti for (ex, ti) in zip(examples, target_inputs)]
 		random.shuffle(model_inputs)
 
-		pred_thresh = min(len(target_inputs), 2)
-		model_inputs = model_inputs[: pred_thresh]
+		# pred_thresh = min(len(target_inputs), 2)
+		# model_inputs = model_inputs[: pred_thresh]
 		qkv_info = bert_base_forward(model_inputs)
 
 
@@ -223,14 +224,24 @@ class PromptLearningTransformer(BaseSeqToSeq):
 
 		predictions = np.concatenate(predictions, axis=-1)
 		predictions = [pred.tolist() for pred in predictions]
-		lang_gen = self.tokenizer.batch_decode(predictions, skip_special_tokens=skip_special_tokens)
+		lang_gen = self.tokenizer.batch_decode(predictions, skip_special_tokens=skip_special_tokens)	# type: List[str]
 
-		for t in range(pred_thresh):
-			print("Prediction input:", model_inputs[t])
-			print("Prediction output:", lang_gen[t])
-			print("\n\n\n")
+		if parse:
+			return PromptLearningTransformer.batch_parse(lang_gen)
 
 		return lang_gen
+
+	@staticmethod
+	def parse(lang: str) -> Dict:
+		parts = lang.split(" ")
+		parse_dict = {"non_functionality": None, "skill": None, "param": None}
+		for key, part in zip(parse_dict.keys(), parts):
+			parse_dict[key] = part
+		return parse_dict
+
+	@staticmethod
+	def batch_parse(langs: List[str]) -> List[Dict]:
+		return [PromptLearningTransformer.parse(lang) for lang in langs]
 
 	def evaluate(self, replay_data: ComDeBufferSample, visualization: bool = False) -> Dict:
 		"""..."""

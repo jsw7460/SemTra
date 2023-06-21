@@ -54,10 +54,10 @@ SPEED_TO_ADJECTIVE = {
 	6: {"25.0": "fast", "8.0": "normal", "3.0": "slow"}
 }
 ADJECTIVE_TO_SPEED = {
-	1: {v: k for k, v in SPEED_TO_ADJECTIVE[1].items()},
-	3: {v: k for k, v in SPEED_TO_ADJECTIVE[3].items()},
-	4: {v: k for k, v in SPEED_TO_ADJECTIVE[4].items()},
-	6: {v: k for k, v in SPEED_TO_ADJECTIVE[6].items()},
+	1: {v: eval(k) for k, v in SPEED_TO_ADJECTIVE[1].items()},
+	3: {v: eval(k) for k, v in SPEED_TO_ADJECTIVE[3].items()},
+	4: {v: eval(k) for k, v in SPEED_TO_ADJECTIVE[4].items()},
+	6: {v: eval(k) for k, v in SPEED_TO_ADJECTIVE[6].items()},
 }
 POSSIBLE_WINDS = [
 	-0.3, -0.1, 0.0
@@ -67,7 +67,7 @@ WIND_TO_ADJECTIVE = {
 	"-0.1": "gust",  # Chat gpt가 flurry보다 약하고 breeze보다 강한 애라고 함
 	"0.0": "breeze"
 }
-SCALE = 10
+SCALE = 1
 
 # text_variations: Key: main_texts // value: variations of main_texts
 SEQUENTIAL_REQUIREMENTS_VARIATIONS = {

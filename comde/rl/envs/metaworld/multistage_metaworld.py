@@ -8,11 +8,11 @@ import numpy as np
 
 from comde.rl.envs.base import ComdeSkillEnv
 from comde.utils.common.natural_languages.language_guidances import template
-from comde.utils.common.natural_languages.language_processing import word_to_number
 from meta_world.get_video import SingleTask
 from .utils import (
 	SPEED_TO_ADJECTIVE,
 	WIND_TO_ADJECTIVE,
+	ADJECTIVE_TO_SPEED,
 	SEQUENTIAL_REQUIREMENTS,
 	POSSIBLE_WINDS,
 	POSSIBLE_SPEEDS,
@@ -104,7 +104,7 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 	) -> str:
 
 		if parameter is None:
-			parameter = {1: 1.5, 3: 25.0, 4: 15.0, 6: 25.0}
+			parameter = MultiStageMetaWorld.get_default_parameter(non_functionality)
 
 		if video_parsing:
 			source_skills = ComdeSkillEnv.idxs_to_str_skills(MultiStageMetaWorld.skill_index_mapping, source_skills_idx)
@@ -210,6 +210,7 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 		return language_guidance, _info
 
 	def ingradients_to_parameter(self, ingradients: Dict[str, str], scale: bool = True):
+
 		non_functionality = ingradients["non_functionality"]
 		param_applied_skill = ingradients["skill"]
 		param = ingradients["param"]
@@ -226,7 +227,7 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 				return parameter
 
 			else:
-				param = word_to_number(param)
+				param = ADJECTIVE_TO_SPEED[self.onehot_skills_mapping[param_applied_skill]][param]
 				if scale:
 					param /= SCALE
 				if param_applied_skill != "all":

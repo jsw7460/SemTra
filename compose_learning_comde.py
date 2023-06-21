@@ -55,7 +55,7 @@ def program(cfg: DictConfig) -> None:
 		trajectories = hdf_files[n_iter * dataset_window_size: (n_iter + 1) * dataset_window_size]
 		trainer.run(trajectories=trajectories)
 
-		eval_trajectories = random.choices(hdf_files, k=50)
+		eval_trajectories = random.choices(hdf_files, k=trainer.batch_size)
 		trainer.evaluate(eval_trajectories)
 
 if __name__ == "__main__":

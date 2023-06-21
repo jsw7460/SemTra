@@ -24,7 +24,7 @@ class PrimSkillCompositionTransformer(nn.Module):
 	encoder = None
 	decoder = None
 
-	pred_skills = None
+	pred_logits = None
 
 	def setup(self) -> None:
 		"""
@@ -40,7 +40,7 @@ class PrimSkillCompositionTransformer(nn.Module):
 		self.encoder = TransformerEncoder(**self.encoder_cfg)
 		self.decoder = TransformerDecoder(**self.decoder_cfg)
 
-		self.pred_skills = create_mlp(
+		self.pred_logits = create_mlp(
 			output_dim=self.n_skills,
 			net_arch=[],
 			layer_norm=True,
@@ -64,9 +64,9 @@ class PrimSkillCompositionTransformer(nn.Module):
 		context, encoder_attention_weights = self.encoder(q=encoder_q, kv=encoder_kv, q_mask=q_mask, kv_mask=kv_mask, deterministic=deterministic)
 		decoded_x, decoder_attention_weights = self.decoder(x, context, q_mask, deterministic=deterministic)
 
-		pred_skills = self.pred_skills(decoded_x)  # [b, l, d]
+		pred_logits = self.pred_logits(decoded_x)  # [b, l, d]
 		info = {
-			"pred_skills": pred_skills,
+			"pred_logits": pred_logits,
 			"encoder_attention_weights": encoder_attention_weights,
 			"decoder_attention_weights": decoder_attention_weights
 		}

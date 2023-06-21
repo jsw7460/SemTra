@@ -13,6 +13,7 @@ from hydra.utils import get_class
 from omegaconf import DictConfig
 import numpy as np
 
+from comde.utils.common.misc import get_params_for_skills
 from comde.evaluations.utils.optimal_template import get_optimal_template
 from comde.evaluations.utils.get_arguments import get_evaluation_function
 from comde.rl.envs import get_batch_env
@@ -96,6 +97,8 @@ def program(cfg: DictConfig) -> None:
 		non_functionalities=non_functionalities,
 		param_repeats=param_repeats
 	)
+	semantic_skills_sequence = optimal_template["semantic_skills_sequence"]
+
 	if cfg.use_optimal_target_skill:
 		"""
 			semantic_skills_sequence: [n_env, n_target_skills, skill_dim]
@@ -139,26 +142,36 @@ def program(cfg: DictConfig) -> None:
 			language_guidances_wo_parsing.append(lg_wo_parsing)
 
 		seq2seq_info = seq2seq.predict(language_guidances)
-		target_skills_idxs = seq2seq_info["__pred_target_skills"]
+		target_skills_idxs = seq2seq_info["__pred_skills"]
+
+		optimal_target_skills = optimal_template["optimal_target_skill_idxs"]
+		target_skills_idxs = target_skills_idxs[:, :optimal_target_skills.shape[-1]]
+		skill_pred_accuracy = np.mean(optimal_target_skills == target_skills_idxs)
+		str_skill_pred_accuracy = f"{skill_pred_accuracy * 100} %"
+
 		target_skills = []
 		for target_skill_idx, env in zip(target_skills_idxs, envs):
 			target_skill_vec = env.get_skill_vectors_from_idx_list(target_skill_idx.tolist())
 			target_skills.append(target_skill_vec)
 
-		target_skills = np.array(target_skills)
-		optimal_target_skills = optimal_template["optimal_target_skill_idxs"]
+		# 1. Semantic skills sequence
+		pred_target_skills = np.array(target_skills)
 
-		_target_skills_idxs = target_skills_idxs[:, :optimal_target_skills.shape[-1]]
-		skill_pred_accuracy = np.mean(optimal_target_skills == _target_skills_idxs)
-		str_skill_pred_accuracy = f"{skill_pred_accuracy * 100} %"
+		# 2. Non functionality
+		non_functionalities = np.expand_dims(non_functionalities, axis=(0, 1))
+		non_functionalities = np.broadcast_to(non_functionalities, pred_target_skills.shape)
 
-		parameter = prompt.predict(language_guidances_wo_parsing, skip_special_tokens=True)
+		ingradients = prompt.predict(language_guidances_wo_parsing, skip_special_tokens=True, parse=True)
 
-		print("Optimal target skills", optimal_target_skills)
-		print("Target skills idxs", _target_skills_idxs)
-		print("Accuracy", str_skill_pred_accuracy)
-		print(parameter)
-		exit()
+		params_for_skills = []
+		for (env, target_skill_idx, ingradient) in zip(envs, target_skills_idxs, ingradients):
+			parameter = env.ingradients_to_parameter(ingradient)
+			param_for_skill = get_params_for_skills(target_skill_idx, parameter, param_repeats)
+			params_for_skills.append(param_for_skill)
+
+		# 3. Parameter
+		params_for_skills = np.array(params_for_skills)
+		params_for_skills = np.repeat(params_for_skills[np.newaxis, ...], repeats=cfg.n_eval, axis=0)
 
 	n_eval = cfg.n_eval
 

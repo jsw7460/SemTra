@@ -43,10 +43,11 @@ class ComposeTrainer(BaseTrainer):
 	def prepare_run(self):
 		super(ComposeTrainer, self).prepare_run()
 
-		skills = [random.choice(sk) for sk in list(self.skill_infos.values())]
+		skills = [sk[0] for sk in list(self.skill_infos.values())]
 		skills.sort(key=lambda sk: sk.index)
 		skills = [sk.vec for sk in skills]
 		ComdeTrainer.append_dummy_skill(skills)
+
 		self.__last_onehot_skills = np.array([sk for sk in skills])
 
 	def _get_env_from_filename(self, filename: str):
@@ -57,15 +58,14 @@ class ComposeTrainer(BaseTrainer):
 		elif "rlbench" in filename:
 			return self.envs["rlbench"]
 
-	def _get_target_skill_vector(self, target_skills_idx: List[int], offset: int) -> np.ndarray:
+	def _get_target_skill_vector(self, target_skills_idx: List[int], offset: int) -> List[int]:
 		"""
 			Because of the offset index, we need to modify it here
 		"""
 		idxs = []
 		for idx in target_skills_idx:
-			idxs.append(idx + offset if idx != -1 else idx)
-		vec = self.__last_onehot_skills[idxs]
-		return vec
+			idxs.append(idx + offset if idx != -1 else -1)
+		return idxs
 
 	def make_dataset(self, trajectories: List[str]) -> List[ComDeBufferSample]:
 		# source_skills = []
@@ -107,10 +107,11 @@ class ComposeTrainer(BaseTrainer):
 
 			n_source_skills.append(n_source_skill)
 			n_target_skills.append(n_target_skill)
-			target_skills_idxs.append(target_skills_idx)
 
 			offset = self.offset_info[str(env)]
-			target_skill = self._get_target_skill_vector(target_skills_idx, offset)
+			target_skills_idx = self._get_target_skill_vector(target_skills_idx, offset)
+			target_skills_idxs.append(target_skills_idx)
+			target_skill = self.__last_onehot_skills[target_skills_idx]
 			target_skills.append(target_skill)
 
 			language_guidances.append(language_guidance)
@@ -150,6 +151,10 @@ class ComposeTrainer(BaseTrainer):
 	def run(self, trajectories: List[str]):
 		replay_datas = self.make_dataset(trajectories)
 		self.buffer.append(replay_datas[0])
+
+		previous_datas = random.choices(self.buffer, k=len(replay_datas))
+		replay_datas = replay_datas + previous_datas
+		random.shuffle(replay_datas)
 
 		for _ in range(self.step_per_dataset):
 			for replay_data in replay_datas:

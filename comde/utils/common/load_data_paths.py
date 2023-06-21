@@ -1,11 +1,17 @@
-from typing import Dict
 import os
+import pickle
+import random
 from os.path import join, isfile
 from pathlib import Path
-import random
+from typing import Dict, Union
+
+import h5py
+
+from comde.rl.envs.base import ComdeSkillEnv
+from comde.rl.envs.utils.skill_to_vec import SkillInfoEnv
 
 
-def load_data_paths(cfg: Dict):
+def load_data_paths(cfg: Dict, env: Union[ComdeSkillEnv, SkillInfoEnv], rm_eval_tasks: bool = True):
 	data_dirs = [
 		Path(cfg["dataset_path"]) / Path(name)
 		for name in os.listdir(cfg["dataset_path"]) if name not in cfg["excluded_dirs"]
@@ -18,4 +24,32 @@ def load_data_paths(cfg: Dict):
 	if cfg["dataset"]["shuffle_dataset"]:
 		random.shuffle(hdf_files)
 
-	return data_dirs, hdf_files
+	with open(cfg["env"]["eval_tasks_path"], "rb") as f:
+		str_eval_tasks = pickle.load(f)
+
+	eval_tasks = []
+	for eval_task in str_eval_tasks:
+		idx_eval_task = env.str_to_idxs_skills(env.onehot_skills_mapping, eval_task, to_str=True)
+		eval_tasks.append(idx_eval_task)
+
+	if not rm_eval_tasks:
+		return hdf_files
+
+	file_wo_eval_tasks = []
+	for path in hdf_files:
+		trajectory = h5py.File(path, "r")
+
+		target_skills = list(trajectory["target_skills"])
+		_train_task = "".join([str(tar_sk) for tar_sk in target_skills])
+
+		add = True
+		for eval_task in eval_tasks:
+			_eval_task = "".join(eval_task)
+			if _train_task in _eval_task:
+				add = False
+				continue
+		if add:
+			file_wo_eval_tasks.append(path)
+
+	del hdf_files
+	return file_wo_eval_tasks

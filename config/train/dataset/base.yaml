@@ -6,6 +6,7 @@ save_source_trajectory: ${mode.save_source_trajectory}
 default_source_skills: ${env.default_source_skills}
 np_parameter: ${env.np_parameter}
 shuffle_dataset: ${env.shuffle_dataset}
+eval_tasks_path: ${env.eval_tasks_path}
 task_masking:
 language_masking:
   -

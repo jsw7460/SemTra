@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import List, Dict, Any, Union
+from typing import List, Dict, Any, Union, Tuple
 
 import gym
 import numpy as np
@@ -8,6 +8,7 @@ from comde.utils.common.pretrained_forwards.jax_bert_base import bert_base_forwa
 
 
 class ComdeSkillEnv(gym.Wrapper):
+
 	def __init__(self, env: gym.Env, seed: int, task: List, n_target: int, cfg: Dict = None):
 
 		super(ComdeSkillEnv, self).__init__(env=env)
@@ -21,8 +22,6 @@ class ComdeSkillEnv(gym.Wrapper):
 				-> skill_list_idx: [2, 4, 1, 5]  
 		"""
 		self.skill_idx_list = [self.onehot_skills_mapping[key] for key in self.skill_list]
-		# self.sequential_requirements_vector_mapping = None
-		# self.non_functionalities_vector_mapping = None
 
 	def get_sequential_requirements_mapping(self, sequential_requirements: Dict):
 		mapping = {
@@ -54,7 +53,6 @@ class ComdeSkillEnv(gym.Wrapper):
 	@abstractmethod
 	def get_skill_infos():
 		raise NotImplementedError
-
 
 	@staticmethod
 	def ingradients_to_target(non_functionality: str, skill: str, param: str):
@@ -112,8 +110,19 @@ class ComdeSkillEnv(gym.Wrapper):
 		raise NotImplementedError()
 
 	@staticmethod
-	def idxs_to_str_skills(skill_index_mapping: Dict, idxs: List[int]) -> List[str]:
+	def idxs_to_str_skills(skill_index_mapping: Dict, idxs: Union[List[int], Tuple[int]]) -> List[str]:
 		return [skill_index_mapping[sk] for sk in idxs]
+
+	@staticmethod
+	def str_to_idxs_skills(
+		onehot_skills_mapping: Dict,
+		skills: Union[List[str], Tuple[str]],
+		to_str: bool = False
+	) -> Union[List[int], List[str]]:
+		if to_str:
+			return [str(onehot_skills_mapping[sk]) for sk in skills]
+		else:
+			return [onehot_skills_mapping[sk] for sk in skills]
 
 	@staticmethod
 	def replace_idx_so_skill(skill_index_mapping: Dict, sentence: str) -> str:

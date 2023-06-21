@@ -5,9 +5,10 @@ from jax import numpy as jnp
 
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
+from functools import partial
 
 
-@jax.jit
+@partial(jax.jit, static_argnames=("eos_token_idx", ))
 def skilltoskill_transformer_ce_updt(
 	rng: jnp.ndarray,
 	tr: Model,  # transformer
@@ -19,19 +20,23 @@ def skilltoskill_transformer_ce_updt(
 	target_skills_idxs: jnp.ndarray,  # Index. (Target of transformer)
 	n_source_skills: jnp.ndarray,  # [b, ]
 	n_target_skills: jnp.ndarray,  # [b, ]
-	start_token: jnp.ndarray,  # [d, ]
+	bos_token: jnp.ndarray,  # [d, ]
+	eos_token_idx: int,
 ) -> Tuple[Model, Dict]:
 	rng, dropout_key = jax.random.split(rng)
 	# Note: Target skill을 한 칸 밀어줘야 함 (Due to start token)
 
-	token_dim = start_token.shape[-1]
+	token_dim = bos_token.shape[-1]
 	batch_size = n_source_skills.shape[0]
 
-	start_token = jnp.broadcast_to(start_token, shape=(batch_size, 1, token_dim))
-	input_skills = jnp.concatenate((start_token, target_skills), axis=1)
+	bos_token = jnp.broadcast_to(bos_token, shape=(batch_size, 1, token_dim))
+	input_skills = jnp.concatenate((bos_token, target_skills), axis=1)
 
 	# Concatenate with end token
-	target_skills_idxs = jnp.concatenate((target_skills_idxs, -1 + jnp.zeros((batch_size, 1), dtype="i4")), axis=-1)
+	target_skills_idxs = jnp.concatenate(
+		(target_skills_idxs, eos_token_idx + jnp.zeros((batch_size, 1), dtype="i4")),
+		axis=-1
+	)
 	target_max = target_skills_idxs.shape[1]
 
 	def loss_fn(params: Params) -> Tuple[jnp.ndarray, Dict[str, jnp.ndarray]]:
@@ -50,7 +55,7 @@ def skilltoskill_transformer_ce_updt(
 			kv_mask=kv_mask,
 			rngs={"dropout": dropout_key}
 		)
-		pred_skills = model_output["pred_skills"]  # [b, M, n_skills]
+		pred_skills = model_output["pred_logits"]  # [b, M, n_skills]
 		pred_skills_prob = pred_skills
 		# Learn target skills.
 		pred_skills = jax.nn.softmax(pred_skills, axis=-1)  # [b, M, n_skills] (Probability vec)
