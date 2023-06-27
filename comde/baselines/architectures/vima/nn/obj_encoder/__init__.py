@@ -1,4 +1,3 @@
-from comde.baselines.architectures.vima.nn.obj_encoder.main import (
-    GatoMultiViewRGBEncoder, ObjectEncoder)
+from comde.baselines.architectures.vima.nn.obj_encoder.main import ObjectEncoder
 
-__all__ = ["ObjectEncoder", "GatoMultiViewRGBEncoder"]
+__all__ = ["ObjectEncoder"]

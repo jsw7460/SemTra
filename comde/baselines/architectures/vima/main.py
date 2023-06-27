@@ -13,7 +13,6 @@ class VIMA(nn.Module):
     xf_num_layers: int
     sattn_num_heads: int
     xattn_num_heads: int
-    rng: jax.random.KeyArray
 
     def setup(self) -> None:
         self.xattn_gpt = vnn.XAttnGPT(
@@ -27,21 +26,20 @@ class VIMA(nn.Module):
             use_geglu=True,
         )
 
-        self.object_encoder = vnn.ObjectEncoder(
-            transformer_embed_dim=self.embed_dim,
-            views=["front", "top"],
-            vit_output_dim=768,
-            vit_resolution=32,
-            vit_patch_size=16,
-            vit_width=768,
-            vit_num_layers=4,
-            vit_num_heads=24,
-            bbox_mlp_hidden_dim=768,
-            bbox_mlp_hidden_depth=2,
-            rng=self.rng,
-        )
+        # self.object_encoder = vnn.ObjectEncoder(
+        #     transformer_embed_dim=self.embed_dim,
+        #     views=["front", "top"],
+        #     vit_output_dim=768,
+        #     vit_resolution=32,
+        #     vit_patch_size=16,
+        #     vit_width=768,
+        #     vit_num_layers=4,
+        #     vit_num_heads=24,
+        #     bbox_mlp_hidden_dim=768,
+        #     bbox_mlp_hidden_depth=2,
+        # )
 
-        self.end_effector_encoder = vnn.Embedding(num_embeddings=2, features=2)
+        # self.end_effector_encoder = vnn.Embedding(num_embeddings=2, features=2)
 
         self.obs_fusion_layer = nn.Dense(features=self.embed_dim)
 
@@ -73,20 +71,18 @@ class VIMA(nn.Module):
 
         self.action_decoder = vnn.ActionDecoder(
             action_dims={
-                "pose0_position": [50, 100],
-                "pose0_rotation": [50] * 4,
-                "pose1_position": [50, 100],
-                "pose1_rotation": [50] * 4,
+                "pose0_position": 1,
+                "pose0_rotation": 1,
+                "pose1_position": 1,
+                "pose1_rotation": 1,
             },
             hidden_dim=512,
             hidden_depth=2,
             activation="relu",
             norm_type=None,
             last_layer_gain=0.01,
-            rng=self.rng,
         )
 
-        self.prompt_embedding = vnn.WordEmbedding()
         self.prompt_encoder = vnn.T5PromptEncoder()
         self.prompt_encoder_post_layer = (
             identity if self.embed_dim == self.prompt_encoder.output_dim
@@ -105,51 +101,75 @@ class VIMA(nn.Module):
         self._num_discrete_z_bins = 50
         self._num_discrete_rot_bins = 50
 
-    def forward(
+    def __call__(
         self,
-        observations: jnp.ndarray,
+        observations: jnp.ndarray,  # d_o
         observations_mask: jnp.ndarray,
-        actions: jnp.ndarray,
+        actions: jnp.ndarray,   # d_a
         prompt: jnp.ndarray,
+        prompt_assets: jnp.ndarray,
         prompt_mask: jnp.ndarray,
+        prompt_assets_mask: jnp.ndarray,
+        deterministic: bool,
     ) -> jnp.ndarray:
-        L_obs, B = observations.shape[:2]
-        L_action = 0 if actions is None else actions.shape[0]
-        n_max_objs = observations.shape[-2]
-        L = L_obs * n_max_objs + L_action
+        B, L_obs = observations.shape[:2]
+        L_act = actions.shape[1]
+        L = max(L_obs, L_act) * 2
 
-        tokens = jnp.empty(shape=(L, B, self.embed_dim), dtype=jnp.float32)
-        tokens = jax.device_put(tokens, observations.device())
+        obs_tokens = self.obs_fusion_layer(observations)
+        act_tokens = self.action_encoder({
+            "pose0_position": actions[..., 0, jnp.newaxis],
+            "pose0_rotation": actions[..., 1, jnp.newaxis],
+            "pose1_position": actions[..., 2, jnp.newaxis],
+            "pose1_rotation": actions[..., 3, jnp.newaxis],
+        })
 
-        masks = jnp.ones(shape=(L, B), dtype=jnp.bool_)
-        masks = jax.device_put(masks, observations.device())
+        tokens = jnp.empty(shape=(B, L, self.embed_dim), dtype=jnp.float32)
+        masks = jnp.ones(shape=(B, L), dtype=jnp.bool_)
 
-        obs_token = einops.rearrange(observations, "L B Q E -> B L Q E")
-        obs_token = einops.rearrange(obs_token, "B L Q E -> B (L Q) E")
-        obs_token = einops.rearrange(obs_token, "B L E -> L B E")
-
-        obs_mask = einops.rearrange(observations_mask, "L B Q -> B L Q")
-        obs_mask = einops.rearrange(obs_mask, "B L Q -> B (L Q)")
-        obs_mask = einops.rearrange(obs_mask, "B L -> L B")
-
-        for q in range(n_max_objs):
-            tokens[q :: n_max_objs + 1] = obs_token[q::n_max_objs]
-            masks[q :: n_max_objs + 1] = obs_mask[q::n_max_objs]
+        tokens = tokens.at[:, 0::2, :].set(obs_tokens)
+        masks = masks.at[:, 0::2].set(observations_mask)
         if actions is not None:
-            tokens[n_max_objs::(n_max_objs + 1)] = actions
+            tokens = tokens.at[:, 1::2, :].set(act_tokens)
+
+        prompt = self.prompt_encoder(prompt, batch_first=True)
+        prompt = self.prompt_encoder_post_layer(prompt)
+        prompt = jnp.concatenate([
+            prompt,
+            prompt_assets,
+        ], axis=-2)
+
+        if prompt_mask.dtype != jnp.bool_:
+            prompt_mask = prompt_mask > 0.5
+
+        if prompt_assets_mask.dtype != jnp.bool_:
+            prompt_assets_mask = prompt_assets_mask > 0.5
+
+        prompt_mask = jnp.concatenate([
+            prompt_mask,
+            prompt_assets_mask,
+        ], axis=-1)
 
         position_ids = jnp.cumsum(masks, axis=0) - 1
         position_ids = position_ids.astype(jnp.int64)
-        prompt_position_ids = jnp.cumsum(prompt_mask, axis=1) - 1
+        prompt_position_ids = (jnp.cumsum(prompt_mask, axis=1) - 1).astype(jnp.int64)
 
         tokens_out = self.xattn_gpt(
             obs_action_tokens=tokens,
             prompt_tokens=prompt,
             prompt_mask=prompt_mask,
-            obs_action_masks=masks.transpose(0, 1),
-            obs_action_position_ids=position_ids.transpose(0, 1),
+            obs_action_masks=masks,
+            obs_action_position_ids=position_ids,
             prompt_position_ids=prompt_position_ids,
+            batch_first=True,
+            deterministic=deterministic,
         )
 
-        predicted_action_tokens = tokens_out[n_max_objs - 1 :: n_max_objs + 1]
-        return predicted_action_tokens
+        predicted_action_tokens = tokens_out[:, 0::2, :]
+        outputs = self.action_decoder(predicted_action_tokens)
+        return jnp.stack([
+            outputs["pose0_position"],
+            outputs["pose0_rotation"],
+            outputs["pose1_position"],
+            outputs["pose1_rotation"],
+        ], axis=-1)

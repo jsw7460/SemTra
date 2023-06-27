@@ -9,4 +9,6 @@ stable_baselines3
 transformers
 h5py
 torchvision
+opencv-python
+wandb
 git+https://github.com/Farama-Foundation/d4rl@master#egg=d4rl

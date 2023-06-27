@@ -1,13 +1,15 @@
 import random
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import numpy as np
 
 from comde.comde_modules.base import ComdeBaseModule
 from comde.rl.buffers import ComdeBuffer
 from comde.rl.buffers.type_aliases import ComDeBufferSample
-from comde.trainer.base import BaseTrainer
-from comde.utils.common.natural_languages.lang_representation import SkillRepresentation
+from comde.rl.envs.utils.skill_to_vec import SkillInfoEnv
+from comde.trainer.base import BaseTrainer, SkillRelatedEnv
+from comde.utils.common.natural_languages.lang_representation import \
+    SkillRepresentation
 
 
 class BaselineTrainer(BaseTrainer):
@@ -15,6 +17,7 @@ class BaselineTrainer(BaseTrainer):
 		self,
 		cfg: Dict,
 		baseline: ComdeBaseModule,  # "skill decoder" == "low policy"
+		env: Union[SkillInfoEnv, SkillRelatedEnv],
 		skill_infos: Dict[str, List[SkillRepresentation]]
 	):
 		"""
@@ -26,7 +29,7 @@ class BaselineTrainer(BaseTrainer):
 		idx to skill: A dictionary, index to (clip) skill
 		This class is not responsible for fulfilling replay buffer.
 		"""
-		super(BaselineTrainer, self).__init__(cfg)
+		super(BaselineTrainer, self).__init__(cfg, env=env)
 		self.baseline = baseline
 		self.skill_infos = skill_infos  # type: Dict[str, List[SkillRepresentation]]
 		self.info_records = {"info/suffix": self.cfg["save_suffix"]}

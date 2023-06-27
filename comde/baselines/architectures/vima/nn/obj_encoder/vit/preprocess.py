@@ -77,9 +77,8 @@ def jax_normalize(
         x = x.copy()
 
     dtype = x.dtype
-    device = x.device()
-    _mean: jnp.ndarray = jax.device_put(jnp.asarray(mean, dtype=dtype), device=device)
-    _std: jnp.ndarray = jax.device_put(jnp.array(std, dtype=dtype), device=device)
+    _mean: jnp.ndarray = jnp.asarray(mean, dtype=dtype)
+    _std: jnp.ndarray = jnp.array(std, dtype=dtype)
 
     if (_std == 0).any():
         raise ValueError(

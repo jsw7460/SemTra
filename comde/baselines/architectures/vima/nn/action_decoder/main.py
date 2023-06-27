@@ -12,7 +12,6 @@ class ActionDecoder(nn.Module):
     action_dims: Dict[str, Union[int, List[int]]]
     hidden_dim: int
     hidden_depth: int
-    rng: jax.random.KeyArray
     activation: Union[str, Activation] = "relu"
     norm_type: Optional[Literal["batchnorm", "layernorm"]] = None
     last_layer_gain: Optional[float] = 0.01
@@ -32,7 +31,6 @@ class ActionDecoder(nn.Module):
                     activation=self.activation,
                     norm_type=self.norm_type,
                     last_layer_gain=self.last_layer_gain,
-                    rng=self.rng,
                 )
                 if isinstance(action_dim, int)
                 else MultiCategoricalNet(
@@ -42,13 +40,12 @@ class ActionDecoder(nn.Module):
                     activation=self.activation,
                     norm_type=self.norm_type,
                     last_layer_gain=self.last_layer_gain,
-                    rng=self.rng,
                 )
             )
             for key, action_dim in self.action_dims.items()
         }
 
-    def forward(self, x: jnp.ndarray) -> Dict[str, jnp.ndarray]:
+    def __call__(self, x: jnp.ndarray) -> Dict[str, jnp.ndarray]:
         return {key: decoder(x) for key, decoder in self.decoders.items()}
 
 
@@ -99,7 +96,6 @@ class CategoricalNet(nn.Module):
     action_dim: int
     hidden_dim: int
     hidden_depth: int
-    rng: jax.random.KeyArray
     activation: Union[str, Activation] = "relu"
     norm_type: Optional[Literal["batchnorm", "layernorm"]] = None
     last_layer_gain: Optional[float] = 0.01
@@ -113,9 +109,9 @@ class CategoricalNet(nn.Module):
             norm_type=self.norm_type,
             last_layer_gain=self.last_layer_gain,
         )
-        self.head = CategoricalHead(self.rng)
+        self.head = CategoricalHead()
 
-    def forward(self, x):
+    def __call__(self, x):
         return self.head(self.mlp(x))
 
 
@@ -134,7 +130,6 @@ class MultiCategoricalNet(nn.Module):
     action_dims: List[int]
     hidden_dim: int
     hidden_depth: int
-    rng: jax.random.KeyArray
     activation: Union[str, Activation] = "relu"
     norm_type: Optional[Literal["batchnorm", "layernorm"]] = None
     last_layer_gain: Optional[float] = 0.01
@@ -151,32 +146,31 @@ class MultiCategoricalNet(nn.Module):
             )
             for action_dim in self.action_dims
         ]
-        self.head = MultiCategoricalHead(self.rng, self.action_dims)
+        self.head = MultiCategoricalHead(self.action_dims)
 
-    def forward(self, x):
+    def __call__(self, x):
         return self.head(jnp.concatenate([mlp(x) for mlp in self.mlps], axis=-1))
 
 
 class CategoricalHead(nn.Module):
-    rng: jax.random.KeyArray
+    def setup(self) -> None:
+        self.categorical_rng = self.make_rng("dist")
 
-    def forward(self, x: jnp.ndarray) -> jnp.ndarray:
-        return jax.random.categorical(self.rng, logits=x)
+    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
+        return jax.random.categorical(self.categorical_rng, logits=x)
 
 
 class MultiCategoricalHead(nn.Module):
     action_dims: List[int]
-    rng: jax.random.KeyArray
 
     def setup(self) -> None:
-        assert self.logits.ndim >= 2, self.logits.shape
-        self._action_dims = tuple(self.ction_dims)
-        assert self.logits.shape[-1] == sum(
-            self._action_dims
-        ), f"sum of action dims {self._action_dims} != {self.logits.shape[-1]}"
+        self._action_dims = tuple(self.action_dims)
+        self.categorical_rngs = [
+            self.make_rng("dist") for _ in range(len(self._action_dims))
+        ]
 
-    def forward(self, x: jnp.ndarray) -> jnp.ndarray:
+    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
         return jnp.concatenate([
-            jax.random.categorical(self.rng, logits=split)
-            for split in jnp.split(self.logits, self._action_dims, axis=-1)
+            jax.random.categorical(self.categorical_rngs[i], logits=split)
+            for i, split in enumerate(jnp.split(x, self._action_dims, axis=-1))
         ])

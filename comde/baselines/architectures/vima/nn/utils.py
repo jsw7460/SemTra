@@ -143,7 +143,7 @@ def get_initializer(
         except ValueError:
             gain = 1.0
         return nn.initializers.orthogonal(scale=gain)
-    return getattr(nn.initializers, method)()
+    return getattr(nn.initializers, method)
 
 
 def calculate_gain(nonlinearity: Activation, param=None):

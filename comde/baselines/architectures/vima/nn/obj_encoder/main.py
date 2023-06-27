@@ -4,8 +4,7 @@ import flax.linen as nn
 import jax
 import jax.numpy as jnp
 
-from comde.baselines.architectures.vima.nn.obj_encoder.vit.main import \
-    ViTEncoder
+from comde.baselines.architectures.vima.nn.obj_encoder.vit import ViTEncoder
 from comde.baselines.architectures.vima.nn.utils import build_mlp
 
 
@@ -20,7 +19,6 @@ class ObjectEncoder(nn.Module):
     vit_output_dim: int
     bbox_mlp_hidden_dim: int
     bbox_mlp_hidden_depth: int
-    rng: jax.random.KeyArray
 
     bbox_max_height: int = 128
     bbox_max_width: int = 256
@@ -34,7 +32,6 @@ class ObjectEncoder(nn.Module):
             width=self.vit_width,
             num_layers=self.vit_num_layers,
             num_heads=self.vit_num_heads,
-            rng=self.rng,
         )
         self.bbox_mlp = {
             view: build_mlp(
@@ -49,7 +46,7 @@ class ObjectEncoder(nn.Module):
             for view in self.views
         }
 
-    def forward(self, cropped_images: jnp.ndarray, bboxes: jnp.ndarray) -> jnp.ndarray:
+    def __call__(self, cropped_images: jnp.ndarray, bboxes: jnp.ndarray) -> jnp.ndarray:
         image_features = {
             view: self.cropped_image_encoder(cropped_images[view])
             for view in self.views
@@ -62,7 +59,6 @@ class ObjectEncoder(nn.Module):
             [self.bbox_max_width, self.bbox_max_height, self.bbox_max_height, self.bbox_max_width],
             dtype=bboxes[self.views[0]].dtype,
         )
-        _normalizer = jax.device_put(_normalizer, device=bboxes[self.views[0]].device())
         bbox_features = {
             view: bbox_features[view] / _normalizer
             for view in self.views

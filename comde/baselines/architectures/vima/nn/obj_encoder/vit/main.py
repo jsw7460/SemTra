@@ -1,11 +1,13 @@
 from typing import Optional, Tuple
+
 import flax.linen as nn
 import jax
 import jax.numpy as jnp
 
 from comde.baselines.architectures.vima.nn.obj_encoder.vit.preprocess import \
     basic_image_array_preprocess
-from comde.comde_modules.seq2seq.transformer.architectures.multihead_attention import MultiheadDotProductAttention
+from comde.comde_modules.seq2seq.transformer.architectures.multihead_attention import \
+    MultiheadDotProductAttention
 
 VIMA_IMG_MEAN = (0.3471, 0.3429, 0.3383)
 VIMA_IMG_STD = (0.3011, 0.2961, 0.2956)
@@ -18,7 +20,6 @@ class ViTEncoder(nn.Module):
     width: int
     num_layers: int
     num_heads: int
-    rng: jax.random.KeyArray
 
     def setup(self) -> None:
         self.vit = VisionTransformer(
@@ -28,10 +29,9 @@ class ViTEncoder(nn.Module):
             num_layers=self.num_layers,
             num_heads=self.num_heads,
             output_dim=self.output_dim,
-            rng=self.rng,
         )
 
-    def forward(self, x: jnp.ndarray) -> jnp.ndarray:
+    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
         """
         x: (..., 3, H, W)
         """
@@ -51,7 +51,6 @@ class VisionTransformer(nn.Module):
     num_layers: int
     num_heads: int
     output_dim: int
-    rng: jax.random.KeyArray
 
     def setup(self) -> None:
         self.conv1 = nn.Conv(
@@ -61,15 +60,15 @@ class VisionTransformer(nn.Module):
             use_bias=False,
         )
 
-        scale = self.width ** (-0.5)
         self.cls_token = self.param(
             "token_embed",
-            lambda: jax.random.normal(self.rng, (self.width,)),
+            lambda: jax.random.normal(self.make_rng("token_embed_key"), (self.width,)),
         )
         self.pos_embed = self.param(
             "pos_embed",
             lambda: jax.random.normal(
-                self.rng, ((self.resolution // self.patch_size) ** 2 + 1, self.width)
+                self.make_rng("pos_embed_key"),
+                ((self.resolution // self.patch_size) ** 2 + 1, self.width),
             )
         )
         self.ln_pre = nn.LayerNorm()
@@ -80,10 +79,13 @@ class VisionTransformer(nn.Module):
         self.ln_post = nn.LayerNorm()
         self.projection = self.param(
             "projection",
-            lambda: jax.random.normal(self.rng, (self.width, self.output_dim)),
+            lambda: jax.random.normal(
+                self.make_rng("projection_key"),
+                (self.width, self.output_dim),
+            ),
         )
 
-    def forward(self, x: jnp.ndarray) -> jnp.ndarray:
+    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
         x = self.conv1(x)  # shape = [*, width, grid, grid]
         B = x.shape[0]
         x = x.reshape(B, x.shape[1], -1)  # shape = [*, width, grid ** 2]
@@ -107,7 +109,7 @@ class VisionTransformer(nn.Module):
 
 
 class QuickGELU(nn.Module):
-    def forward(self, x: jnp.ndarray) -> jnp.ndarray:
+    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
         return x * nn.sigmoid(1.702 * x)
 
 
@@ -129,12 +131,10 @@ class ResidualAttentionBlock(nn.Module):
         self.ln_2 = nn.LayerNorm(self.embed_dim)
         self.attn_mask = self.attention_mask
 
-    def attention(self, x: jnp.ndarray):
+    def __call__(self, x: jnp.ndarray):
         original_dtype = x.dtype
         self.attn_mask = (
-            jax.device_put(
-                self.attn_mask.astype(dtype=x.dtype), x.device(),
-            )
+            self.attn_mask.astype(dtype=x.dtype)
             if self.attn_mask is not None
             else None
         )
@@ -171,7 +171,7 @@ class ViTEncoderRectangular(nn.Module):
             output_dim=self.output_dim,
         )
 
-    def forward(self, x: jnp.ndarray) -> jnp.ndarray:
+    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
         """
         x: (..., 3, H, W)
         """
@@ -200,17 +200,17 @@ class VisionTransformerRectangular(nn.Module):
             use_bias=False,
         )
 
-        scale = self.width ** (-0.5)
         self.cls_token = self.param(
             "cls_token",
-            lambda: jax.random.normal(self.rng, (self.width,)),
+            lambda: jax.random.normal(self.make_rng("cls_token_key"), (self.width,)),
         )
         n_patches_height = self.img_size[0] // self.patch_size
         n_patches_width = self.img_size[1] // self.patch_size
         self.pos_embed = self.param(
             "pos_embed",
             lambda: jax.random.normal(
-                self.rng, (n_patches_height * n_patches_width + 1, self.width)
+                self.make_rng("pos_embed_key"),
+                (n_patches_height * n_patches_width + 1, self.width),
             )
         )
         self.ln_pre = nn.LayerNorm()
@@ -221,10 +221,12 @@ class VisionTransformerRectangular(nn.Module):
         self.ln_post = nn.LayerNorm()
         self.projection = self.param(
             "projection",
-            lambda: jax.random.normal(self.rng, (self.width, self.output_dim)),
+            lambda: jax.random.normal(
+                self.make_rng("projection_key"), (self.width, self.output_dim)
+            ),
         )
 
-    def forward(self, x: jnp.ndarray) -> jnp.ndarray:
+    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
         x = self.conv1(x)  # shape = [*, width, grid, grid]
         B = x.shape[0]
         x = x.reshape(B, x.shape[1], -1)  # shape = [*, width, grid ** 2]

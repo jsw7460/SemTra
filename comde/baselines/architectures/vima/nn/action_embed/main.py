@@ -1,7 +1,9 @@
-from typing import Dict
+from typing import Any, Callable, Dict, Optional, Union
 
 import flax.linen as nn
 import jax.numpy as jnp
+from flax.core.scope import CollectionFilter, FrozenVariableDict
+from flax.linen.module import Module, PRNGKey, RNGSequences
 
 from comde.baselines.architectures.vima.nn.utils import build_mlp, identity
 
@@ -18,12 +20,21 @@ class ActionEmbedding(nn.Module):
             identity if self.output_dim == embed_dict_output_dim
             else nn.Dense(self.output_dim)
         )
-        self._input_fields_checked = False
 
-    def forward(self, x_dict: Dict[str, jnp.ndarray]) -> jnp.ndarray:
-        if not self._input_fields_checked:
-            assert set(x_dict.keys()) == set(self.embed_dict.keys())
-            self._input_fields_checked = True
+    def init(
+        self,
+        rngs: Union[PRNGKey, RNGSequences],
+        x_dict: Dict[str, jnp.ndarray],
+        **kwargs,
+    ) -> Union[FrozenVariableDict, Dict[str, Any]]:
+        assert set(x_dict.keys()) == set(self.embed_dict.keys())
+        return super().init(
+            rngs,
+            x_dict,
+            **kwargs,
+        )
+
+    def __call__(self, x_dict: Dict[str, jnp.ndarray]) -> jnp.ndarray:
         return self.post_layer(
             jnp.concatenate(
                 [
@@ -47,5 +58,5 @@ class ContinuousActionEmbedding(nn.Module):
             hidden_depth=self.hidden_depth,
         )
 
-    def forward(self, x: jnp.ndarray) -> jnp.ndarray:
+    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
         return self._layer(x)

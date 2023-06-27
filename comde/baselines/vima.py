@@ -1,13 +1,15 @@
+import pickle
 import random
 from typing import Dict, List
 
-import jax.random
+import jax.numpy as jnp
 import jax.random
 import numpy as np
 import optax
+from click import prompt
+from transformers.models.t5.tokenization_t5 import T5Tokenizer as Tokenizer
 
-from comde.baselines.algos.updates.prompt_dt import promptdt_update
-from comde.baselines.algos.forwards import promptdt_forward as forward
+from comde.baselines.algos.updates.vima import vima_update as policy_update
 from comde.baselines.architectures.vima import VIMA as _VIMA
 from comde.baselines.utils.get_episode_skills import get_episodic_level_skills
 from comde.comde_modules.low_policies.base import BaseLowPolicy
@@ -26,6 +28,7 @@ class VIMA(BaseLowPolicy):
             Note that this (2) is the way how VIMA formulates visual imitation learning.
     """
     PARAM_COMPONENTS = ["policy"]
+    _PREFIX = "Follow this video:"
 
     def __str__(self):
         return "VIMA"
@@ -39,6 +42,18 @@ class VIMA(BaseLowPolicy):
         self.sattn_num_heads = cfg["sattn_num_heads"]
         self.xattn_num_heads = cfg["xattn_num_heads"]
 
+        firstimage_path = cfg["firstimage_path"]
+        with open(firstimage_path, "rb") as f:
+            firstimage_mapping = pickle.load(f)	# type: Dict[Union[str, int], List]
+
+        if -1 in firstimage_mapping.keys() or "-1" in firstimage_mapping.keys():
+            raise LookupError("-1 is for the padded mapping. Please modify the code here.")
+
+        # We don't want integer key.
+        self.firstimage_mapping = {str(k): v for k, v in firstimage_mapping.items()}
+        self.firstimage_mapping["-1"] = [np.zeros((self.prompt_dim,))]
+
+        self.prefix = None
         self.policy = None
 
         if init_build_model:
@@ -47,19 +62,18 @@ class VIMA(BaseLowPolicy):
     def build_model(self):
         b = 3
         l = 7
-        init_obs = np.zeros((b, l, self.observation_dim))
-        init_act = np.zeros((b, l, self.action_dim))
-        init_rtg = np.zeros((b, l, 1))
-        init_prompt = np.zeros((b, 4, self.prompt_dim))
-        init_prompt_maskings = np.ones((b, 4))
-        init_seq = np.zeros((b, self.sequential_requirements_dim))
-        init_nf = np.zeros((b, self.nonfunc_dim))
-        init_prm = np.zeros((b, 4, self.total_param_dim))
-        init_timesteps = np.zeros((b, l), dtype="i4")
-        maskings = np.ones((b, l))
+        init_obs = jnp.zeros((b, l, self.observation_dim))
+        init_act = jnp.zeros((b, l, self.action_dim))
+        init_prompt = jnp.zeros((b, 4))
+        init_prompt_assets = jnp.zeros((b, 4, self.prompt_dim))
+        init_prompt_maskings = jnp.ones((b, 4))
+        init_prompt_assets_maskings = jnp.ones((b, 4))
+        maskings = jnp.ones((b, l))
 
-        self.rng, rngs = get_basic_rngs(self.rng)
         tx = optax.adam(self.cfg["lr"])
+        self.rng, rngs = get_basic_rngs(self.rng)
+        self.rng, dist_key = jax.random.split(self.rng, 2)
+        rngs = {**rngs, "dist": dist_key}
         self.policy = Model.create(
             model_def=_VIMA(
                 embed_dim=self.embed_dim,
@@ -67,24 +81,23 @@ class VIMA(BaseLowPolicy):
                 xf_num_layers=self.xf_num_layers,
                 sattn_num_heads=self.sattn_num_heads,
                 xattn_num_heads=self.xattn_num_heads,
-                rng=self.rng,
             ),
             inputs=[
                 rngs,
                 init_obs,
-                init_act,
-                init_rtg,
-                init_prompt,
-                init_prompt_maskings,
-                init_seq,
-                init_nf,
-                init_prm,
-                init_timesteps,
                 maskings,
-                False
+                init_act,
+                init_prompt,
+                init_prompt_assets,
+                init_prompt_maskings,
+                init_prompt_assets_maskings,
+                False,
             ],
             tx=tx
         )
+
+        tokenizer = Tokenizer.from_pretrained("t5-base")
+        self.prefix = tokenizer(self._PREFIX, return_tensors="np").input_ids[:, :-1]
 
     def get_param_for_skills(self, replay_data: ComDeBufferSample):
         skill_param_dict = get_episodic_level_skills(replay_data, param_repeats=self.param_repeats)
@@ -100,37 +113,35 @@ class VIMA(BaseLowPolicy):
             prompts.append(tmp_prompts)
         prompts = np.array(prompts)
 
+        prefix = np.tile(self.prefix, (prompts.shape[0], 1))
+        prefix_maskings = np.ones_like(prefix)
+
         batch_size = source_skills.shape[0]
         prompts_maskings = np.arange(source_skills.shape[1]).reshape(1, -1)  # [1, M]
         prompts_maskings = np.repeat(prompts_maskings, repeats=batch_size, axis=0)  # [b, M]
         prompts_maskings = np.where(prompts_maskings < n_source_skills, 1, 0)
 
-        return prompts, prompts_maskings
+        return prefix, prompts, prefix_maskings, prompts_maskings
 
     def update(self, replay_data: ComDeBufferSample) -> Dict:
-
-        param_for_source_skills = self.get_param_for_skills(replay_data)
-        prompts, prompts_maskings = self.get_prompts(replay_data)
+        prefix, prompts, prefix_maskings, prompts_maskings = self.get_prompts(replay_data)
 
         rtgs = replay_data.rtgs
         rtgs = rtgs.reshape((*rtgs.shape, 1))
 
-        new_policy, info = promptdt_update(
-            rng=self.rng,
+        new_policy, info = policy_update(
             policy=self.policy,
+            rng=self.rng,
             observations=replay_data.observations,
+            maskings=replay_data.maskings,
             actions=replay_data.actions,
-            rtgs=rtgs,
-            prompts=prompts,
-            prompts_maskings=prompts_maskings,
-            sequential_requirement=replay_data.sequential_requirement,
-            non_functionality=replay_data.non_functionality,
-            param_for_skills=param_for_source_skills,
-            timesteps=replay_data.timesteps,
-            maskings=replay_data.maskings
+            prompts=prefix,
+            prompt_assets=prompts,
+            prompts_maskings=prefix_maskings,
+            prompt_assets_maskings=prompts_maskings,
         )
-        self.policy = new_policy
         self.rng, _ = jax.random.split(self.rng)
+        self.policy = new_policy
         return info
 
     def predict(
@@ -148,19 +159,14 @@ class VIMA(BaseLowPolicy):
         to_np: bool = True,
     ) -> np.ndarray:
         rtgs = rtgs[..., np.newaxis]
-        self.rng, actions = forward(
-            rng=self.rng,
-            model=self.model,
+        self.rng, _ = jax.random.split(self.rng)
+        actions = self.model.apply_fn(
             observations=observations,
+            observations_mask=maskings,
             actions=actions,
-            rtgs=rtgs,
-            prompts=prompts,
-            prompts_maskings=prompts_maskings,
-            sequential_requirement=sequential_requirement,
-            non_functionality=non_functionality,
-            param_for_skills=param_for_skills,
-            timesteps=timesteps,
-            maskings=maskings
+            prompt=prompts,
+            prompt_mask=prompts_maskings,
+            deterministic=True,
         )
         actions = actions[:, -1, ...]
         if to_np:
@@ -172,7 +178,7 @@ class VIMA(BaseLowPolicy):
         return dict()
 
     @property
-    def model(self) -> Model:
+    def model(self):
         return self.policy
 
     def _excluded_save_params(self) -> List:
