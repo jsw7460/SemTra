@@ -1,11 +1,7 @@
-from typing import Any, Callable, Dict, Optional, Tuple, Union, cast
+from typing import cast
 
 import flax.linen as nn
 import jax.numpy as jnp
-from flax.core import freeze, unfreeze
-from flax.core.scope import (CollectionFilter, DenyList, FrozenVariableDict,
-                             VariableDict)
-from flax.linen.module import Module, PRNGKey, RNGSequences
 from transformers.models.t5.modeling_flax_t5 import FlaxT5Model
 
 

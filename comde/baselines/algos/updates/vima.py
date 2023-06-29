@@ -7,7 +7,7 @@ from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
 
 
-@jax.jit
+# @jax.jit
 def vima_update(
 	rng: jnp.ndarray,
 	policy: Model,
@@ -42,7 +42,7 @@ def vima_update(
 
 		action_loss = jnp.sum(jnp.mean((action_preds - target_actions) ** 2, axis=-1)) / jnp.sum(maskings)
 
-		_infos = {"promptdt/bc_loss": action_loss}
+		_infos = {"vima/loss": action_loss}
 
 		return action_loss, _infos
 

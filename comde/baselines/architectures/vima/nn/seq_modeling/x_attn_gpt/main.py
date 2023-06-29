@@ -1,8 +1,9 @@
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import flax.linen as nn
+import jax
 import jax.numpy as jnp
-from flax.core.scope import CollectionFilter, FrozenVariableDict
+from flax.core.scope import FrozenVariableDict
 
 from comde.baselines.architectures.vima.nn.seq_modeling.x_attn_gpt.components import (
     Block, XAttention)
@@ -59,7 +60,7 @@ class XAttnGPT(nn.Module):
 
     def init(
         self,
-        rngs: Union[nn.module.PRNGKey, nn.module.RNGSequences],
+        rngs: jax.random.KeyArray,
         *,
         obs_action_tokens: jnp.ndarray,
         prompt_tokens: jnp.ndarray,

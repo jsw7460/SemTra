@@ -1,9 +1,9 @@
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Dict, Union
 
 import flax.linen as nn
+import jax
 import jax.numpy as jnp
-from flax.core.scope import CollectionFilter, FrozenVariableDict
-from flax.linen.module import Module, PRNGKey, RNGSequences
+from flax.core.scope import FrozenVariableDict
 
 from comde.baselines.architectures.vima.nn.utils import build_mlp, identity
 
@@ -23,7 +23,7 @@ class ActionEmbedding(nn.Module):
 
     def init(
         self,
-        rngs: Union[PRNGKey, RNGSequences],
+        rngs: jax.random.KeyArray,
         x_dict: Dict[str, jnp.ndarray],
         **kwargs,
     ) -> Union[FrozenVariableDict, Dict[str, Any]]:

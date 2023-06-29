@@ -6,20 +6,21 @@ import random
 from copy import deepcopy
 from typing import Dict, Union
 
+from comde.trainer.baseline_trainer import BaselineTrainer
+
 random.seed(7)
 
-from comde.utils.common.load_data_paths import load_data_paths
-
 import hydra
-from hydra.utils import instantiate, get_class
+from hydra.utils import get_class, instantiate
 from omegaconf import DictConfig, OmegaConf
 
 from comde.rl.buffers import ComdeBuffer
 from comde.rl.envs import get_dummy_env
+from comde.utils.common.load_data_paths import load_data_paths
 from comde.utils.common.normalization import get_observation_statistics
 
 
-@hydra.main(version_base=None, config_path="config/train", config_name="comde_base.yaml")
+@hydra.main(version_base=None, config_path="config/train", config_name="vima.yaml")
 def program(cfg: DictConfig) -> None:
 	cfg = OmegaConf.to_container(cfg, resolve=True)  # type: Dict[str, Union[str, int, Dict]]
 
@@ -44,11 +45,19 @@ def program(cfg: DictConfig) -> None:
 		modules_dict[module] = instantiate(cfg[module])
 
 	trainer_cls = get_class(cfg["trainer"])
-	trainer = trainer_cls(
-		cfg=cfg,
-		env=env,
-		**modules_dict
-	)
+	if trainer_cls == BaselineTrainer:
+		trainer = trainer_cls(
+			cfg=cfg,
+			env=env,
+			baseline=modules_dict["baseline"],
+			skill_infos=env.skill_infos
+		)
+	else:
+		trainer = trainer_cls(
+			cfg=cfg,
+			env=env,
+			**modules_dict
+		)
 
 	for n_iter in range(cfg["max_iter"]):
 		n_iter = (n_iter % len(data_dirs))

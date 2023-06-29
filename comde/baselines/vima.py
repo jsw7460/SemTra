@@ -2,11 +2,11 @@ import pickle
 import random
 from typing import Dict, List
 
+import flax.linen as nn
 import jax.numpy as jnp
 import jax.random
 import numpy as np
 import optax
-from click import prompt
 from transformers.models.t5.tokenization_t5 import T5Tokenizer as Tokenizer
 
 from comde.baselines.algos.updates.vima import vima_update as policy_update
@@ -17,6 +17,47 @@ from comde.rl.buffers.type_aliases import ComDeBufferSample
 from comde.utils.jax_utils.general import get_basic_rngs
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
+
+
+class TestMLP(nn.Module):
+    embed_dim: int
+    prompt_dim: int
+    xf_num_layers: int
+    sattn_num_heads: int
+    xattn_num_heads: int
+
+    @nn.compact
+    def __call__(
+        self,
+        observations: jnp.ndarray,  # d_o
+        observations_mask: jnp.ndarray,
+        actions: jnp.ndarray,   # d_a
+        prompt: jnp.ndarray,
+        prompt_assets: jnp.ndarray,
+        prompt_mask: jnp.ndarray,
+        prompt_assets_mask: jnp.ndarray,
+        deterministic: bool,
+    ):
+        batch_size, q_len, action_dim = actions.shape
+        # q_len *= 2
+
+        # obs_tokens = nn.Dense(features=self.embed_dim)(observations)
+        # act_tokens = nn.Dense(features=self.embed_dim)(actions)
+
+        # query = jnp.zeros((batch_size, q_len, self.embed_dim))
+        # query.at[:, 0::2, :].set(obs_tokens)
+        # query.at[:, 1::2, :].set(act_tokens)
+
+        # prompt_tokens = nn.Dense(features=self.embed_dim)(prompt[..., jnp.newaxis])
+        # prompt_assets_tokens = nn.Dense(features=self.embed_dim)(prompt_assets)
+        # key = jnp.concatenate([prompt_tokens, prompt_assets_tokens], axis=-2)
+
+        # result = query @ key.transpose((0, 2, 1))
+        # result /= jnp.sqrt(self.embed_dim)
+        # result @= key
+        # result = nn.Dense(features=action_dim)(result)
+        # return result[:, ::2, :]
+        return nn.Dense(features=action_dim)(observations)
 
 
 class VIMA(BaseLowPolicy):
@@ -70,12 +111,12 @@ class VIMA(BaseLowPolicy):
         init_prompt_assets_maskings = jnp.ones((b, 4))
         maskings = jnp.ones((b, l))
 
-        tx = optax.adam(self.cfg["lr"])
+        tx = optax.adam(0.1)
         self.rng, rngs = get_basic_rngs(self.rng)
         self.rng, dist_key = jax.random.split(self.rng, 2)
         rngs = {**rngs, "dist": dist_key}
         self.policy = Model.create(
-            model_def=_VIMA(
+            model_def=TestMLP(
                 embed_dim=self.embed_dim,
                 prompt_dim=self.prompt_dim,
                 xf_num_layers=self.xf_num_layers,
