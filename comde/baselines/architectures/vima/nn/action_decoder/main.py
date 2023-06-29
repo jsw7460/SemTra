@@ -109,10 +109,9 @@ class CategoricalNet(nn.Module):
             norm_type=self.norm_type,
             last_layer_gain=self.last_layer_gain,
         )
-        self.head = CategoricalHead()
 
     def __call__(self, x):
-        return self.head(self.mlp(x))
+        return self.mlp(x)
 
 
 class MultiCategoricalNet(nn.Module):
@@ -146,31 +145,6 @@ class MultiCategoricalNet(nn.Module):
             )
             for action_dim in self.action_dims
         ]
-        self.head = MultiCategoricalHead(self.action_dims)
 
     def __call__(self, x):
-        return self.head(jnp.concatenate([mlp(x) for mlp in self.mlps], axis=-1))
-
-
-class CategoricalHead(nn.Module):
-    def setup(self) -> None:
-        self.categorical_rng = self.make_rng("dist")
-
-    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
-        return jax.random.categorical(self.categorical_rng, logits=x)
-
-
-class MultiCategoricalHead(nn.Module):
-    action_dims: List[int]
-
-    def setup(self) -> None:
-        self._action_dims = tuple(self.action_dims)
-        self.categorical_rngs = [
-            self.make_rng("dist") for _ in range(len(self._action_dims))
-        ]
-
-    def __call__(self, x: jnp.ndarray) -> jnp.ndarray:
-        return jnp.concatenate([
-            jax.random.categorical(self.categorical_rngs[i], logits=split)
-            for i, split in enumerate(jnp.split(x, self._action_dims, axis=-1))
-        ])
+        return jnp.concatenate([mlp(x) for mlp in self.mlps], axis=-1)

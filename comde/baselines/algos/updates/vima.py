@@ -7,7 +7,7 @@ from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
 
 
-# @jax.jit
+@jax.jit
 def vima_update(
 	rng: jnp.ndarray,
 	policy: Model,

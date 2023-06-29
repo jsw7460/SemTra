@@ -39,14 +39,12 @@ class TestMLP(nn.Module):
         deterministic: bool,
     ):
         batch_size, q_len, action_dim = actions.shape
-        # q_len *= 2
 
-        # obs_tokens = nn.Dense(features=self.embed_dim)(observations)
-        # act_tokens = nn.Dense(features=self.embed_dim)(actions)
+        obs_tokens = nn.Dense(features=self.embed_dim)(observations)
+        act_tokens = nn.Dense(features=self.embed_dim)(actions)
 
-        # query = jnp.zeros((batch_size, q_len, self.embed_dim))
-        # query.at[:, 0::2, :].set(obs_tokens)
-        # query.at[:, 1::2, :].set(act_tokens)
+        indices = jnp.arange(q_len * 2).reshape(q_len, 2).T.reshape(-1)
+        query = jnp.concatenate((obs_tokens, act_tokens), axis=-2)[:, indices, :]
 
         # prompt_tokens = nn.Dense(features=self.embed_dim)(prompt[..., jnp.newaxis])
         # prompt_assets_tokens = nn.Dense(features=self.embed_dim)(prompt_assets)
@@ -57,7 +55,7 @@ class TestMLP(nn.Module):
         # result @= key
         # result = nn.Dense(features=action_dim)(result)
         # return result[:, ::2, :]
-        return nn.Dense(features=action_dim)(observations)
+        return nn.Dense(features=action_dim)(query)[:, ::2, :]
 
 
 class VIMA(BaseLowPolicy):
@@ -116,7 +114,7 @@ class VIMA(BaseLowPolicy):
         self.rng, dist_key = jax.random.split(self.rng, 2)
         rngs = {**rngs, "dist": dist_key}
         self.policy = Model.create(
-            model_def=TestMLP(
+            model_def=_VIMA(
                 embed_dim=self.embed_dim,
                 prompt_dim=self.prompt_dim,
                 xf_num_layers=self.xf_num_layers,
