@@ -124,25 +124,17 @@ class VIMA(nn.Module):
             "pose1_rotation": actions[..., 3, jnp.newaxis],
         })
 
-        tokens = jnp.empty(shape=(B, L * 2, self.embed_dim), dtype=jnp.float32)
-        masks = jnp.ones(shape=(B, L * 2), dtype=jnp.bool_)
+        obs_pad = L - L_obs
+        act_pad = L - L_act
+        indices = jnp.arange(L * 2).reshape(L, 2).T.reshape(-1)
 
-        tokens = tokens.at[:, 0::2, :].set(obs_tokens)
-        masks = masks.at[:, 0::2].set(observations_mask)
-        if actions is not None:
-            tokens = tokens.at[:, 1::2, :].set(act_tokens)
+        obs_tokens = jnp.pad(obs_tokens, ((0, 0), (0, obs_pad), (0, 0)))
+        act_tokens = jnp.pad(act_tokens, ((0, 0), (0, act_pad), (0, 0)))
+        tokens = jnp.concatenate((obs_tokens, act_tokens), axis=-2)[:, indices]
 
-        # obs_pad = L - L_obs
-        # act_pad = L - L_act
-        # indices = jnp.arange(L * 2).reshape(L, 2).T.reshape(-1)
-
-        # obs_tokens = jnp.pad(obs_tokens, ((0, 0), (0, obs_pad), (0, 0)))
-        # act_tokens = jnp.pad(act_tokens, ((0, 0), (0, act_pad), (0, 0)))
-        # tokens = jnp.concatenate((obs_tokens, act_tokens), axis=-2)[:, indices]
-
-        # obs_mask = jnp.pad(observations_mask, ((0, 0), (0, obs_pad)))
-        # act_mask = jnp.ones(shape=(B, L), dtype=jnp.bool_)
-        # masks = jnp.concatenate((obs_mask, act_mask), axis=-1)[:, indices]
+        obs_mask = jnp.pad(observations_mask, ((0, 0), (0, obs_pad)))
+        act_mask = jnp.ones(shape=(B, L), dtype=jnp.bool_)
+        masks = jnp.concatenate((obs_mask, act_mask), axis=-1)[:, indices]
 
         prompt = self.prompt_encoder(prompt, batch_first=True)
         prompt = self.prompt_encoder_post_layer(prompt)

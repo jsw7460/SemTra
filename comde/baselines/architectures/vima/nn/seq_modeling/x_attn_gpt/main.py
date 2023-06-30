@@ -121,8 +121,8 @@ class XAttnGPT(nn.Module):
         prompt_position_embds = self.xattn_positions_embed(prompt_position_ids)
         prompt_tokens = prompt_tokens + prompt_position_embds
 
-        if obs_action_masks is not None:
-            obs_action_masks = (1.0 - obs_action_masks) * jnp.finfo(jnp.float32).min
+        # if obs_action_masks is not None:
+        #     obs_action_masks = (1.0 - obs_action_masks) * jnp.finfo(jnp.float32).min
 
         for self_attn, xattn in zip(self.h, self.xattns):
             obs_action_tokens = xattn(
