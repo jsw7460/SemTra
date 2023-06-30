@@ -152,18 +152,22 @@ class VIMA(BaseLowPolicy):
             prompts.append(tmp_prompts)
         prompts = np.array(prompts)
 
-        prefix = np.tile(self.prefix, (prompts.shape[0], 1))
-        prefix_maskings = np.ones_like(prefix)
-
         batch_size = source_skills.shape[0]
         prompts_maskings = np.arange(source_skills.shape[1]).reshape(1, -1)  # [1, M]
         prompts_maskings = np.repeat(prompts_maskings, repeats=batch_size, axis=0)  # [b, M]
         prompts_maskings = np.where(prompts_maskings < n_source_skills, 1, 0)
 
-        return prefix, prompts, prefix_maskings, prompts_maskings
+        return prompts, prompts_maskings
+
+    def get_prefix_from_prompts(self, prompts: np.ndarray):
+        batch_size = prompts.shape[0]
+        prefix = np.tile(self.prefix, (batch_size, 1))
+        prefix_maskings = np.ones_like(prefix)
+        return prefix, prefix_maskings
 
     def update(self, replay_data: ComDeBufferSample) -> Dict:
-        prefix, prompts, prefix_maskings, prompts_maskings = self.get_prompts(replay_data)
+        prompts, prompts_maskings = self.get_prompts(replay_data)
+        prefix, prefix_maskings = self.get_prefix_from_prompts(prompts)
 
         rtgs = replay_data.rtgs
         rtgs = rtgs.reshape((*rtgs.shape, 1))
@@ -190,24 +194,24 @@ class VIMA(BaseLowPolicy):
         rtgs: np.ndarray,	# [b, l]
         prompts: np.ndarray,	# [b, M, d]
         prompts_maskings: np.ndarray,	# [b, M]
-        sequential_requirement: np.ndarray,	# [b, d]
-        non_functionality: np.ndarray,	# [b, d]
-        param_for_skills: np.ndarray,	# [b, M, total_prm_dim]
-        timesteps: np.ndarray,	# [b, l]
         maskings: np.ndarray,	# [b, l]
         to_np: bool = True,
     ) -> np.ndarray:
         rtgs = rtgs[..., np.newaxis]
         self.rng, _ = jax.random.split(self.rng)
+        _, num_actions, *_ = actions.shape
+        prefix, prefix_maskings = self.get_prefix_from_prompts(prompts)
         actions = self.model.apply_fn(
             observations=observations,
             observations_mask=maskings,
             actions=actions,
-            prompt=prompts,
-            prompt_mask=prompts_maskings,
+            prompts=prefix,
+            prompt_assets=prompts,
+            prompts_maskings=prefix_maskings,
+            prompt_assets_maskings=prompts_maskings,
             deterministic=True,
         )
-        actions = actions[:, -1, ...]
+        actions = actions[:, num_actions - 1, ...]
         if to_np:
             return np.array(actions)
         else:

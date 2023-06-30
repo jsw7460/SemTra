@@ -5,12 +5,10 @@ from typing import Dict
 
 import numpy as np
 
-from comde.evaluations.modes.baselines import (
-	evaluate_flatbc,
-	evaluate_demogen,
-	evaluate_promptdt,
-	evaluate_bcz
-)
+from comde.evaluations.modes.baselines import (evaluate_bcz, evaluate_demogen,
+                                               evaluate_flatbc,
+                                               evaluate_promptdt,
+                                               evaluate_vima)
 from comde.evaluations.modes.comde_eval import evaluate_comde
 
 
@@ -161,6 +159,9 @@ def get_evaluation_function(kwargs: Dict, custom_seed: int):
 		elif str(model) == "BCZ":
 			fn = evaluate_bcz
 			mode = "bcz"
+		elif str(model) == "VIMA":
+			fn = evaluate_vima
+			mode = "vima"
 		else:
 			raise NotImplementedError(f"Not implemented baseline: {str(model)}")
 
