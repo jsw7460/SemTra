@@ -92,6 +92,8 @@ class VIMA(BaseLowPolicy):
         self.firstimage_mapping = {str(k): v for k, v in firstimage_mapping.items()}
         self.firstimage_mapping["-1"] = [np.zeros((self.prompt_dim,))]
 
+        self.learning_rate = cfg["lr"]
+
         self.prefix = None
         self.policy = None
 
@@ -109,7 +111,7 @@ class VIMA(BaseLowPolicy):
         init_prompt_assets_maskings = jnp.ones((b, 4))
         maskings = jnp.ones((b, l))
 
-        tx = optax.adam(0.1)
+        tx = optax.adam(self.learning_rate)
         self.rng, rngs = get_basic_rngs(self.rng)
         self.rng, dist_key = jax.random.split(self.rng, 2)
         rngs = {**rngs, "dist": dist_key}
