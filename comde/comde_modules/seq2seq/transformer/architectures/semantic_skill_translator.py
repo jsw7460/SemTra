@@ -4,28 +4,26 @@ import flax.linen as nn
 import jax.numpy as jnp
 
 from comde.comde_modules.common.utils import create_mlp
-from comde.comde_modules.seq2seq.transformer.architectures.idx_decoder import TransformerIndexInputDecoder
+from comde.comde_modules.seq2seq.transformer.architectures.decoder import TransformerDecoder
 from comde.comde_modules.seq2seq.transformer.architectures.encoder import TransformerEncoder
-
-
 
 LOGITS_MAX = 15.0
 LOGITS_MIN = -4.0
 
 
-class PrimPromptLearningTransformer(nn.Module):
-	# This is language model. Output a natural language (or its index)
+class PrimSemanticSkillTranslator(nn.Module):
+	# Output: Skill sequence
 	encoder_cfg: Dict
 	decoder_cfg: Dict
 	input_dropout_prob: float
-	vocab_size: int
+	n_skills: int
 
 	input_dropout = None
 	input_layer = None
 	encoder = None
 	decoder = None
 
-	lm_head = None
+	pred_logits = None
 
 	def setup(self) -> None:
 		"""
@@ -39,10 +37,10 @@ class PrimPromptLearningTransformer(nn.Module):
 
 		self.input_dropout = nn.Dropout(self.input_dropout_prob)
 		self.encoder = TransformerEncoder(**self.encoder_cfg)
-		self.decoder = TransformerIndexInputDecoder(**self.decoder_cfg, vocab_size=self.vocab_size)
+		self.decoder = TransformerDecoder(**self.decoder_cfg)
 
-		self.lm_head = create_mlp(
-			output_dim=self.vocab_size,
+		self.pred_logits = create_mlp(
+			output_dim=self.n_skills,
 			net_arch=[],
 			layer_norm=True,
 			squash_output=False
@@ -53,21 +51,26 @@ class PrimPromptLearningTransformer(nn.Module):
 
 	def forward(
 		self,
-		x: jnp.ndarray,  # [b, l]	# Index ! Not a word embedding
-		encoder_q: jnp.ndarray,	# This is word embedding from pretrained BERT
-		encoder_kv: jnp.ndarray,	# This is word embedding from pretraiend BERT
+		x: jnp.ndarray,  # [b, l, d]
+		encoder_q: jnp.ndarray,
+		encoder_kv: jnp.ndarray,
 		q_mask: jnp.ndarray,
 		kv_mask: jnp.ndarray,
 		deterministic: bool = False,
 		*args, **kwargs  # Do not remove this
 	) -> Dict[str, jnp.ndarray]:
-
-		context, encoder_attention_weights = self.encoder(q=encoder_q, kv=encoder_kv, q_mask=q_mask, kv_mask=kv_mask, deterministic=deterministic)
+		context, encoder_attention_weights = self.encoder(
+			q=encoder_q,
+			kv=encoder_kv,
+			q_mask=q_mask,
+			kv_mask=kv_mask,
+			deterministic=deterministic
+		)
 		decoded_x, decoder_attention_weights = self.decoder(x, context, q_mask, deterministic=deterministic)
 
-		pred = self.lm_head(decoded_x)  # [b, l, vocab_size]
+		pred_logits = self.pred_logits(decoded_x)  # [b, l, d]
 		info = {
-			"pred": pred,
+			"pred_logits": pred_logits,
 			"encoder_attention_weights": encoder_attention_weights,
 			"decoder_attention_weights": decoder_attention_weights
 		}

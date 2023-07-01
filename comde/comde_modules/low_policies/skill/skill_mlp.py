@@ -70,8 +70,10 @@ class SkillMLP(BaseLowPolicy):
 		self.model = Model.create(model_def=mlp, inputs=[rngs, init_obs, init_skills], tx=tx)
 
 	def update(self, replay_data: ComDeBufferSample) -> Dict:
+
 		skills_dict = self.get_parameterized_skills(replay_data)
 		skills = skills_dict["parameterized_skills"]
+
 		new_model, info = skill_mlp_updt(
 			rng=self.rng,
 			mlp=self.model,

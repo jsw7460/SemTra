@@ -1,4 +1,4 @@
-_target_: comde.comde_modules.seq2seq.PromptLearningTransformer
+_target_: comde.comde_modules.seq2seq.IncontextTransformer
 
 seed: ${seed}
 

@@ -15,6 +15,9 @@ videofeature_path: /home/jsw7460/mnt/comde_datasets/metaworld/speed/0508/3_targe
 firstimage_path: /home/jsw7460/mnt/comde_datasets/metaworld/speed/0508/3_target_skills/firstimage_mapping
 #word_embedding_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/language_guidance/mw_word_embedding_bert_base_mapping
 
+task_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/task_video_embeddings
+skill_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/skill_video_embeddings
+
 observation_keys:
   - observations
 np_parameter: False

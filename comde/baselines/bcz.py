@@ -51,7 +51,7 @@ class BCZ(BaseLowPolicy):
 
 	def __init__(self, seed: int, cfg: Dict, init_build_model: bool = True):
 		super(BCZ, self).__init__(seed=seed, cfg=cfg, init_build_model=init_build_model)
-
+		self.video_parsing = True
 		episodic_inst_path = cfg["episodic_instruction_path"]
 		with open(episodic_inst_path, "rb") as f:
 			self.episodic_inst = pickle.load(f)
@@ -109,12 +109,14 @@ class BCZ(BaseLowPolicy):
 		source_video_embeddings = video_text_info["source_video_embeddings"]
 		target_text_embs = video_text_info["target_text_embs"]
 
+		video_found_idxs = np.array(video_text_info["video_found_idxs"])
+
 		new_gravity, gravity_info = gravity_update(
 			rng=self.rng,
 			gravity=self.__gravity,
-			source_video_embeddings=source_video_embeddings,
-			sequential_requirement=replay_data.sequential_requirement,
-			episodic_instructions=target_text_embs
+			source_video_embeddings=source_video_embeddings[video_found_idxs],
+			sequential_requirement=replay_data.sequential_requirement[video_found_idxs],
+			episodic_instructions=target_text_embs[video_found_idxs]
 		)
 		self.rng, _ = jax.random.split(self.rng)
 
@@ -122,15 +124,16 @@ class BCZ(BaseLowPolicy):
 		params_for_skills = np.repeat(replay_data.params_for_skills, axis=-1, repeats=self.param_repeats)
 
 		episodic_inst = gravity_info.pop("__pred_episode_semantic")
+
 		new_policy, policy_info = policy_update(
 			rng=self.rng,
 			policy=self.__policy,
-			observations=replay_data.observations,
+			observations=replay_data.observations[video_found_idxs],
 			episodic_inst=episodic_inst,
-			non_functionality=replay_data.non_functionality,
-			parameters=params_for_skills,
-			actions=replay_data.actions,
-			maskings=replay_data.maskings
+			non_functionality=replay_data.non_functionality[video_found_idxs],
+			parameters=params_for_skills[video_found_idxs],
+			actions=replay_data.actions[video_found_idxs],
+			maskings=replay_data.maskings[video_found_idxs]
 		)
 		self.__gravity = new_gravity
 		self.__policy = new_policy

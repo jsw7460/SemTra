@@ -30,6 +30,7 @@ class BaselineTrainer(BaseTrainer):
 		self.__last_onehot_skills = None
 		self.skill_infos = env.skill_infos
 		super(BaselineTrainer, self).__init__(cfg=cfg, env=env)
+		self.video_parsing = baseline.video_parsing
 		self.baseline = baseline
 		self.info_records = {"info/suffix": self.cfg["save_suffix"]}
 
@@ -41,11 +42,19 @@ class BaselineTrainer(BaseTrainer):
 		ComdeTrainer.append_dummy_skill(skills)
 		self.__last_onehot_skills = np.array([sk for sk in skills])
 
+	def _preprocess_replay_data(self, replay_data: ComDeBufferSample) -> ComDeBufferSample:
+		replay_data = ComdeTrainer.get_skill_from_idxs(replay_data, self.__last_onehot_skills)
+		replay_data = ComdeTrainer.get_language_guidance_from_template(
+			env=self.env,
+			replay_data=replay_data,
+			video_parsing=self.video_parsing
+		)
+		return replay_data
+
 	def run(self, replay_buffer: ComdeBuffer):
 		for _ in range(self.step_per_dataset):
 			replay_data = replay_buffer.sample(self.batch_size)  # type: ComDeBufferSample
-			replay_data = ComdeTrainer.get_skill_from_idxs(replay_data, self.__last_onehot_skills)
-
+			replay_data = self._preprocess_replay_data(replay_data)
 			info = self.baseline.update(replay_data)
 
 			self.record_from_dicts(info, mode="train")

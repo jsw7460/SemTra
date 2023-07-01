@@ -5,14 +5,18 @@ param_dim: 22
 param_repeats: 3
 shuffle_dataset: True
 act_scale:
-  - 3.8
-  - 0.8
-  - 1.05
+  - 1.35
+  - 1.10
+  - 1.10
 
+
+eval_tasks_path: None
+params_dict_path: /home/jsw7460/mnt/comde_datasets/carla/param_dicts/param_dict
 num_skills_done_relabel: 10
 skill_infos_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/carla/bert_base_skills_mapping
 sequential_requirements_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/language_guidance/kitchen_seq_rev_rep_bert_base_mapping  # Same with kitchen (because we only use sequential)
 non_functionalities_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/language_guidance/nonfunctional_bert_base_mapping
+normalization_path: /home/jsw7460/mnt/comde_datasets/normalizations/carla
 
 observation_keys:
   - img_embedding

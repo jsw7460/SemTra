@@ -1,5 +1,3 @@
-import pickle
-from termcolor import colored
 import random
 from copy import deepcopy
 from typing import Dict, Optional, Union, Tuple, List
@@ -9,7 +7,6 @@ import numpy as np
 from jax.tree_util import tree_map
 from stable_baselines3.common.vec_env import VecNormalize
 
-from comde.comde_modules.seq2seq.base import BaseSeqToSeq
 from comde.rl.buffers.buffers.episodic import EpisodicMaskingBuffer
 from comde.rl.buffers.episodes.source_target_skill import SourceTargetSkillContainedEpisode
 from comde.rl.buffers.episodes.source_target_state import SourceStateEpisode
@@ -71,9 +68,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		paths: Dict[str, Union[List, str]],
 		sequential_requirements_mapping: Dict,
 		non_functionalities_mapping: Dict,
-		guidance_to_prm: Optional[BaseSeqToSeq] = None,
-
-	):
+	) -> bool:
 		"""
 			## README ##
 			- Each path in paths corresponds to one trajectory. ('done' one time)
@@ -95,7 +90,6 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 				sequential_requirements_mapping,
 				non_functionalities_mapping,
 				num_skills_done_relabel=self.num_skills_done_relabel,
-				guidance_to_prm=guidance_to_prm
 			)
 			if dataset is None:
 				continue
@@ -105,6 +99,9 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			self.add(episode)
 			self.episode_lengths.append(len(episode))
 
+		if len(self.episode_lengths) == 0:
+			return False
+
 		self.min_episode_length = min(self.episode_lengths)
 		self.max_episode_length = max(self.episode_lengths)
 
@@ -113,6 +110,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			max_source_skills=self.max_source_skills,
 			max_target_skills=self.max_target_skills
 		) for ep in self.episodes]
+		return True
 
 	def preprocess_h5py_trajectory(
 		self,
@@ -120,8 +118,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		sequential_requirements_mapping: Dict[str, Dict[str, np.ndarray]],
 		non_functionalities_mapping: Dict[str, Dict[str, np.ndarray]],
 		num_skills_done_relabel: int,
-		guidance_to_prm: Optional[BaseSeqToSeq] = None
-	) -> Dict:
+	) -> Union[Dict, None]:
 		must_loaded_components = self.MUST_LOADED_COMPONENTS.union(set(self.observation_keys))
 		assert must_loaded_components <= trajectory.keys(), \
 			f"Under qualified dataset. Please fill {must_loaded_components - trajectory.keys()}"
@@ -133,6 +130,11 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		observations = np.hstack(obs_values)
 		next_observations = np.zeros_like(observations)
 		next_observations[: -1] = observations[1:]
+		next_observations[-1] = observations[-1]
+
+		observations = self.env.get_buffer_observation(observations)
+		next_observations = self.env.get_buffer_observation(next_observations)
+
 		actions = np.array(trajectory["actions"])
 		actions = self.env.get_buffer_action(actions)
 
@@ -154,15 +156,18 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		target_skills = list(trajectory["target_skills"])
 
 		sequential_requirement = str(trajectory["sequential_requirement"][()], "utf-8")
-		non_functionality = str(trajectory["non_functionality"][()], "utf-8")	# "speed"
+		non_functionality = str(trajectory["non_functionality"][()], "utf-8")  # "speed"
 		skills_idxs = np.array(trajectory["skills_idxs"])
-		optimal_parameter = str(trajectory["parameter"][()], "utf-8")	#
-		optimal_parameter = self.eval_param(optimal_parameter)
+		parameter = str(trajectory["parameter"][()], "utf-8")  #
+		parameter = self.eval_param(parameter)
+		
+		if not self.env.valid_parameter(parameter):
+			return None
+
 		"""
 			Note: Here, I have to define 'parameter' variable using the 
 			prediction of prompt learning model.
 		"""
-		parameter = optimal_parameter
 
 		if -1 in parameter.keys():
 			raise LookupError("Skill index -1 is for the skill which is padded. Please fix here.")
@@ -175,6 +180,8 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			skills_idxs=skills_idxs,
 			parameter=parameter
 		)
+		params_for_skills = self.env.get_buffer_parameter(params_for_skills)
+
 		sequential_requirement_vector = sequential_requirements_mapping[sequential_requirement]
 		non_functionality_vector = non_functionalities_mapping[non_functionality]
 
@@ -289,22 +296,22 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		)
 		return buffer_sample
 
-	# @staticmethod
-	# def get_params_for_skills(
-	# 	skills_idxs: np.ndarray,  # [l, ]
-	# 	parameter: Dict,
-	# ) -> np.ndarray:
-	# 	"""
-	# 	:param skills_idxs:	# [sequence length, ]
-	# 	:param parameter:
-	# 	:return: [seq_len, param_dim]
-	# 	"""
-	#
-	# 	seq_len = skills_idxs.shape[0]
-	# 	raw_param_dim = np.array([list(parameter.values())[0]]).shape[-1]
-	# 	return_parameter = np.zeros((seq_len, raw_param_dim))
-	# 	for skill_idx, param in parameter.items():
-	# 		idxs = np.where(skills_idxs == skill_idx)
-	# 		return_parameter[idxs] = param
-	#
-	# 	return return_parameter
+# @staticmethod
+# def get_params_for_skills(
+# 	skills_idxs: np.ndarray,  # [l, ]
+# 	parameter: Dict,
+# ) -> np.ndarray:
+# 	"""
+# 	:param skills_idxs:	# [sequence length, ]
+# 	:param parameter:
+# 	:return: [seq_len, param_dim]
+# 	"""
+#
+# 	seq_len = skills_idxs.shape[0]
+# 	raw_param_dim = np.array([list(parameter.values())[0]]).shape[-1]
+# 	return_parameter = np.zeros((seq_len, raw_param_dim))
+# 	for skill_idx, param in parameter.items():
+# 		idxs = np.where(skills_idxs == skill_idx)
+# 		return_parameter[idxs] = param
+#
+# 	return return_parameter

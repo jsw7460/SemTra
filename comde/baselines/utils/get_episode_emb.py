@@ -32,12 +32,14 @@ def get_video_text_embeddings(
 	source_video_embs = []
 	target_video_embs = []
 
+	video_found_idxs = []
+
 	if text_dict is not None:
 		source_text_embs = []
 		target_text_embs = []
 
 	# pad_xxx : zero padded components
-	for pad_src_sk, pad_tgt_sk, n_src, n_tgt in zip(src_skills_idxs, tgt_skills_idxs, n_src_skills, n_tgt_skills):
+	for t, (pad_src_sk, pad_tgt_sk, n_src, n_tgt) in enumerate(zip(src_skills_idxs, tgt_skills_idxs, n_src_skills, n_tgt_skills)):
 		src_sk = pad_src_sk[:n_src]
 		tgt_sk = pad_tgt_sk[:n_tgt]
 
@@ -46,6 +48,9 @@ def get_video_text_embeddings(
 
 		src_embs = video_feature_dict.get(src_sk, list(text_dict[src_sk].values()))
 		tgt_embs = video_feature_dict.get(tgt_sk, list(text_dict[tgt_sk].values()))
+
+		if src_sk in video_feature_dict:
+			video_found_idxs.append(t)
 
 		src_emb = random.choice(src_embs)
 		tgt_emb = random.choice(tgt_embs)
@@ -63,7 +68,11 @@ def get_video_text_embeddings(
 	source_video_embs = np.array(source_video_embs)
 	target_video_embs = np.array(target_video_embs)
 
-	emb_info = {"source_video_embeddings": source_video_embs, "target_video_embeddings": target_video_embs}
+	emb_info = {
+		"source_video_embeddings": source_video_embs,
+		"target_video_embeddings": target_video_embs,
+		"video_found_idxs": video_found_idxs
+	}
 	if text_dict is not None:
 		source_text_embs = np.array(source_text_embs)
 		target_text_embs = np.array(target_text_embs)

@@ -9,7 +9,7 @@ from comde.utils.common.pretrained_forwards.jax_bert_base import bert_base_forwa
 
 
 class SkillInfoEnv(gym.Wrapper):
-	def __init__(self, env: gym.Env, skill_infos: Dict[str, List[SkillRepresentation]]):
+	def __init__(self, env: gym.Env, skill_infos: Dict[str, List[SkillRepresentation]] = None):
 		super(SkillInfoEnv, self).__init__(env=env)
 
 		assert hasattr(env, "onehot_skills_mapping"), \
@@ -17,6 +17,9 @@ class SkillInfoEnv(gym.Wrapper):
 
 		assert hasattr(env, "skill_list"), \
 			"Environment should have skill list (e.g., [`drawer`, `button`, `box`])"
+
+		if skill_infos is None:
+			skill_infos = env.get_skill_infos()
 
 		self.__skill_infos = skill_infos
 		self.__skill_to_vec = None

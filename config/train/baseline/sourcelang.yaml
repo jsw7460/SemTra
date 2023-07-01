@@ -15,6 +15,7 @@ cfg:
       attn_pdrop: 0.1
     obs_dim: ${observation_dim}
     act_dim: ${action_dim}
+    only_prompt: True
     hidden_size: 64
     act_scale: ${act_scale}
     max_ep_len: 1024

@@ -11,7 +11,7 @@ from comde.comde_modules.seq2seq.algos.updates.skilltoskill_transformer import (
 	skilltoskill_transformer_ce_updt as discrete_update
 )
 from comde.comde_modules.seq2seq.base import BaseSeqToSeq
-from comde.comde_modules.seq2seq.transformer.architectures.skltoskl_transformer import PrimSkillCompositionTransformer
+from comde.comde_modules.seq2seq.transformer.architectures.semantic_skill_translator import PrimSemanticSkillTranslator
 from comde.rl.buffers.type_aliases import ComDeBufferSample
 from comde.utils.common.natural_languages.lang_representation import SkillRepresentation as LanguageRepresentation
 from comde.utils.common.pretrained_forwards.jax_bert_base import bert_base_forward
@@ -21,8 +21,8 @@ from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
 
 
-class SkillCompositionTransformer(BaseSeqToSeq):
-	PARAM_COMPONENTS = ["_SkillCompositionTransformer__model"]
+class SemanticSkillTranslator(BaseSeqToSeq):
+	PARAM_COMPONENTS = ["_SemanticSkillTranslator__model"]
 
 	def __init__(
 		self, seed: int,
@@ -32,7 +32,8 @@ class SkillCompositionTransformer(BaseSeqToSeq):
 	) -> None:
 
 		self.custom_tokens = custom_tokens
-		super(SkillCompositionTransformer, self).__init__(
+		self.offset_info = None
+		super(SemanticSkillTranslator, self).__init__(
 			seed=seed,
 			cfg=cfg,
 			init_build_model=init_build_model
@@ -95,7 +96,7 @@ class SkillCompositionTransformer(BaseSeqToSeq):
 		vocab_size = len(self.vocabulary)
 		transformer_cfg.update({"n_skills": vocab_size})
 
-		transformer = PrimSkillCompositionTransformer(**transformer_cfg)
+		transformer = PrimSemanticSkillTranslator(**transformer_cfg)
 		init_x = np.zeros((1, decoder_maxlen, self.inseq_dim))  # 512 dim
 		init_q = np.zeros((1, 7, self.inseq_dim))  # 512 dim
 		init_kv = np.zeros((1, 15, self.inseq_dim))
@@ -133,10 +134,44 @@ class SkillCompositionTransformer(BaseSeqToSeq):
 			"eos_token_idx": self.eos_token.index
 		}
 		new_model, info = discrete_update(**update_fn_inputs)
+
 		self.n_update += 1
 		self.model = new_model
 		self.rng, _ = jax.random.split(self.rng)
+
+		if self.n_update % 100 == 0:
+			self.check()
+
 		return info
+
+	def check(self):
+		language_guidance = [
+			"drawer, then button, then door is performed with reverse and speed normal during door.",
+			"speed normal is applied while performing door, then button, then puck with reverse during puck.",
+			"Do puck, then drawer, then door, reverse, during door, the speed normal is applied.",
+			"When undertaking drawer, then button, then puck, ensure reverse and adapt the speed normal for puck.",
+			"Do door, then puck, then button, reverse, during button, the speed normal is applied.",
+			"reverse is maintained during puck in button, then door, then puck with speed normal applied.",
+			"reverse is maintained during puck in button, then drawer, then puck with speed normal applied.",
+			"puck, then door, then button is performed with reverse and speed normal during button."
+		]
+		optimal = [
+			[6, 4, 3],
+			[1, 4, 6],
+			[6, 3, 1],
+			[1, 4, 3],
+			[4, 1, 6],
+			[1, 6, 4],
+			[1, 3, 4],
+			[4, 6, 1]
+		]
+
+		prediction = self.predict(language_guidance=language_guidance)
+		pred_skills = prediction["__pred_skills"]
+		for opt, pred in zip(optimal, pred_skills):
+			print(opt, pred)
+
+		print("\n\n\n")
 
 	def visualize_attention(
 		self,
@@ -191,7 +226,10 @@ class SkillCompositionTransformer(BaseSeqToSeq):
 		else:
 			pred_skills = np.argmax(pred_skills, axis=-1)  # [b, 1, 1]
 
-		pred_skills = np.squeeze(pred_skills)
+		if pred_skills.ndim == 3:
+			pred_skills = np.squeeze(pred_skills)
+		else:
+			pred_skills = np.squeeze(pred_skills, axis=-1)
 		maybe_done = np.where(pred_skills == self.eos_token.index, 1, 0)  # [b, ]
 
 		if get_prediction_results:
@@ -204,6 +242,7 @@ class SkillCompositionTransformer(BaseSeqToSeq):
 		language_guidance: List[str],
 		stochastic: bool = False,
 		return_qkv_info: bool = False,
+		fix_offset: bool = False,
 	) -> Union[Tuple, Dict]:
 		"""
 			Given source skills and language operator, this function generate the target skills.
@@ -237,6 +276,7 @@ class SkillCompositionTransformer(BaseSeqToSeq):
 		prev_maybe_done = np.zeros((batch_size,))
 
 		while not done:  # Autoregression
+
 			self.rng, tr_predictions = fwd(
 				rng=self.rng,
 				model=self.model,
@@ -272,6 +312,7 @@ class SkillCompositionTransformer(BaseSeqToSeq):
 			pred_skills_vec = tokens_vec[pred_skills]
 
 			pred_skills_vec = np.expand_dims(pred_skills_vec, axis=1)
+
 			x = np.concatenate((x, pred_skills_vec), axis=1)
 
 			done = np.all(maybe_done) or (len(pred_skills_seq_raw) >= self.decoder_max_len)
@@ -352,7 +393,8 @@ class SkillCompositionTransformer(BaseSeqToSeq):
 		target_skills_idxs = np.where(tgt_mask == 1, target_skills_idxs, -2)
 
 		match_ratio = np.sum(pred_skills == target_skills_idxs) / np.sum(tgt_mask)
-		return {"s2s/match_ratio(%)": match_ratio * 100, **prediction}
+		batch_match_ratio = np.sum(pred_skills == target_skills_idxs, axis=-1) / np.sum(tgt_mask, axis=-1)
+		return {"s2s/match_ratio(%)": match_ratio * 100, **prediction, "__batch_match_ratio": batch_match_ratio}
 
 	def evaluate(self, replay_data: ComDeBufferSample, visualization: bool = False) -> Dict:
 		eval_info = self._evaluate_discrete(replay_data=replay_data)
@@ -361,17 +403,17 @@ class SkillCompositionTransformer(BaseSeqToSeq):
 		return eval_info
 
 	def _excluded_save_params(self) -> List:
-		return SkillCompositionTransformer.PARAM_COMPONENTS
+		return SemanticSkillTranslator.PARAM_COMPONENTS
 
 	def _get_save_params(self) -> Dict[str, Params]:
 		params_dict = {}
-		for component_str in SkillCompositionTransformer.PARAM_COMPONENTS:
+		for component_str in SemanticSkillTranslator.PARAM_COMPONENTS:
 			component = getattr(self, component_str)
 			params_dict[component_str] = component.params
 		return params_dict
 
 	def _get_load_params(self) -> List[str]:
-		return SkillCompositionTransformer.PARAM_COMPONENTS
+		return SemanticSkillTranslator.PARAM_COMPONENTS
 
 	def str_to_activation(self, activation_fn: str):
 		pass

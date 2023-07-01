@@ -36,6 +36,9 @@ class HistoryEnv(gym.Wrapper):
 		self.done_stack = collections.deque([], maxlen=self.num_stack_frames)
 		self.info_stack = collections.deque([], maxlen=self.num_stack_frames)
 
+	def __str__(self):
+		return self.env.__str__()
+
 	@property
 	def observation_space(self):
 		"""Constructs observation space."""
@@ -172,6 +175,9 @@ class SkillHistoryEnv(HistoryEnv):
 		self.skill_space = gym.spaces.Box(-np.inf, np.inf, shape=(skill_dim, ))
 		self.skill_dim = skill_dim
 		self.n_masking = num_stack_frames
+
+	def __str__(self):
+		return self.env.__str__()
 
 	@property
 	def observation_space(self):

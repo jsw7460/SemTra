@@ -1,6 +1,8 @@
 from abc import abstractmethod
 from typing import List, Dict, Any, Union, Tuple
 
+from copy import deepcopy
+
 import gym
 import numpy as np
 
@@ -22,6 +24,10 @@ class ComdeSkillEnv(gym.Wrapper):
 				-> skill_list_idx: [2, 4, 1, 5]  
 		"""
 		self.skill_idx_list = [self.onehot_skills_mapping[key] for key in self.skill_list]
+		self.str_parameter = None	# type: str
+
+	def set_str_parameter(self, parameter: str):
+		self.str_parameter = parameter
 
 	def get_sequential_requirements_mapping(self, sequential_requirements: Dict):
 		mapping = {
@@ -134,11 +140,45 @@ class ComdeSkillEnv(gym.Wrapper):
 		return " ".join(sentence)
 
 	@staticmethod
-	def generate_random_language_guidance():
+	def get_target_skill_from_source(
+		source_skills_idx: List[int],
+		sequential_requirement: str,
+		avoid_impossible: bool = False
+	):
+		if sequential_requirement == "sequential":
+			target_skills_idx = source_skills_idx
+		elif sequential_requirement == "reverse":
+			target_skills_idx = list(reversed(source_skills_idx))
+		else:
+			changed_idxs = []
+			for _str in sequential_requirement:
+				if _str.isdigit():
+					changed_idxs.append(eval(_str))
+			_from = changed_idxs[0]
+			_to = changed_idxs[1]
+			target_skills_idx = deepcopy(source_skills_idx)
+			for i, sk in enumerate(source_skills_idx):
+				if sk == _from:
+					if (_to in target_skills_idx) and avoid_impossible:
+						return None
+
+		return target_skills_idx
+
+	@staticmethod
+	def generate_random_language_guidance(*args, **kwargs):
 		raise NotImplementedError()
+
+	def get_buffer_observation(self, observation: np.ndarray):
+		return observation.copy()
 
 	def get_buffer_action(self, action: Any):
 		return action.copy()
 
 	def get_step_action(self, action: np.ndarray):
 		return action.copy()
+
+	def valid_parameter(self, *args, **kwargs):
+		return True
+
+	def get_buffer_parameter(self, parameter: np.ndarray):
+		return parameter

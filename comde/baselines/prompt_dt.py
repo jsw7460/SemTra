@@ -1,14 +1,14 @@
-import pickle
 import random
-from typing import Dict, List, Union
+import pickle
+from typing import Dict, List
 
 import jax.random
 import jax.random
 import numpy as np
 import optax
 
-from comde.baselines.algos.updates.prompt_dt import promptdt_update
 from comde.baselines.algos.forwards import promptdt_forward as forward
+from comde.baselines.algos.updates.prompt_dt import promptdt_update
 from comde.baselines.architectures.prompt_dt import PrimPromptDT
 from comde.baselines.utils.get_episode_skills import get_episodic_level_skills
 from comde.comde_modules.low_policies.base import BaseLowPolicy
@@ -16,6 +16,8 @@ from comde.rl.buffers.type_aliases import ComDeBufferSample
 from comde.utils.jax_utils.general import get_basic_rngs
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
+
+from comde.utils.common.pretrained_forwards.jax_bert_base import bert_base_forward
 
 
 class VLPromptDT(BaseLowPolicy):
@@ -32,25 +34,31 @@ class VLPromptDT(BaseLowPolicy):
 		return "VLPromptDT"
 
 	def __init__(self, seed: int, cfg: Dict, init_build_model: bool = True):
+		self.video_parsing = None
+		self.video_embedding_dict = None
+		# Use default get function for the model trained earlier (before change the code)
+		self.conditioning_mode = cfg.get("conditioning_mode", None)
+		self.prompt_dim = cfg.get("prompt_dim", None)
 		super(VLPromptDT, self).__init__(seed=seed, cfg=cfg, init_build_model=init_build_model)
 		self.sequential_requirements_dim = cfg["sequential_requirements_dim"]
-		self.prompt_dim = cfg["image_dim"]
-
-		# firstimage_path = cfg["firstimage_path"]
-		# with open(firstimage_path, "rb") as f:
-		# 	firstimage_mapping = pickle.load(f)	# type: Dict[Union[str, int], List]
-		#
-		# if -1 in firstimage_mapping.keys() or "-1" in firstimage_mapping.keys():
-		# 	raise LookupError("-1 is for the padded mapping. Please modify the code here.")
-		#
-		# # We don't want integer key.
-		# self.firstimage_mapping = {str(k): v for k, v in firstimage_mapping.items()}
-		# self.firstimage_mapping["-1"] = [np.zeros((self.prompt_dim,))]
-
 		self.policy = None
 
 		if init_build_model:
+			self._set_video_embedding_dict()
 			self.build_model()
+
+	def _set_video_embedding_dict(self):
+		if self.conditioning_mode == "skill":
+			self.video_parsing = False
+			with open(self.cfg["skill_video_path"], "rb") as f:
+				self.video_embedding_dict = pickle.load(f)
+
+		elif self.conditioning_mode == "task":
+			self.video_parsing = False
+			with open(self.cfg["task_video_path"], "rb") as f:
+				self.video_embedding_dict = pickle.load(f)
+		else:
+			raise NotImplementedError("Wrong conditioning mode")
 
 	def build_model(self):
 		policy = PrimPromptDT(**self.cfg["dt_cfg"])
@@ -91,21 +99,57 @@ class VLPromptDT(BaseLowPolicy):
 		skill_param_dict = get_episodic_level_skills(replay_data, param_repeats=self.param_repeats)
 		return skill_param_dict["param_for_source_skills"]
 
+	def get_prompts_from_components(self, source_skills_idxs: np.ndarray, language_guidance: List[str]):
+		"""
+		:param source_skills_idxs: [b, M]
+		:param language_guidance:  Length b
+		:return:
+		"""
+		_rep_data = ComDeBufferSample(language_guidance=language_guidance, source_skills_idxs=source_skills_idxs)
+		return self.get_prompts(_rep_data)
+
 	def get_prompts(self, replay_data: ComDeBufferSample):
-		source_skills = replay_data.source_skills
-		n_source_skills = replay_data.n_source_skills.reshape(-1, 1)
 
-		prompts = []
-		for source_skills_idx in replay_data.source_skills_idxs:
-			tmp_prompts = np.array([random.choice(self.firstimage_mapping[str(sk)]) for sk in source_skills_idx])
-			prompts.append(tmp_prompts)
-		prompts = np.array(prompts)
+		qkv_info = bert_base_forward(replay_data.language_guidance)
 
-		batch_size = source_skills.shape[0]
-		prompts_maskings = np.arange(source_skills.shape[1]).reshape(1, -1)  # [1, M]
-		prompts_maskings = np.repeat(prompts_maskings, repeats=batch_size, axis=0)  # [b, M]
-		prompts_maskings = np.where(prompts_maskings < n_source_skills, 1, 0)
+		text_prompts = qkv_info["language_embedding"]
+		text_prompts_maskings = qkv_info["attention_mask"]
 
+		source_skills_idxs = replay_data.source_skills_idxs
+
+		if self.conditioning_mode == "skill":
+			batch_video_prompts = []
+			for source_skill_idx in source_skills_idxs:
+				episodic_video_prompts = []
+				for sk in source_skill_idx:
+					if sk != -1:
+						episodic_video_prompts.append(random.choice(self.video_embedding_dict[sk]))
+				batch_video_prompts.append(np.array(episodic_video_prompts))
+			batch_video_prompts = np.array(batch_video_prompts)
+
+		elif self.conditioning_mode == "task":
+			batch_video_prompts = []
+			for source_skill_idx in source_skills_idxs:
+				source_skill_idx = [str(idx) for idx in source_skill_idx]
+				source_skill_idx = "".join(source_skill_idx).replace("-1", "")
+				for task_seq in self.video_embedding_dict.keys():
+					_task_seq = task_seq.replace(" ", "")
+					if source_skill_idx in _task_seq:
+						batch_video_prompts.append(random.choice(self.video_embedding_dict[task_seq]))
+						break
+			batch_video_prompts = np.array(batch_video_prompts)
+			batch_video_prompts = batch_video_prompts[:, np.newaxis, ...]
+
+		else:
+			raise NotImplementedError()
+
+		prompts = np.concatenate((text_prompts, batch_video_prompts), axis=1)
+
+		batch_size = batch_video_prompts.shape[0]
+		seq_len = batch_video_prompts.shape[1]
+		video_prompts_maskings = np.ones((batch_size, seq_len))
+
+		prompts_maskings = np.concatenate((text_prompts_maskings, video_prompts_maskings), axis=1)
 		return prompts, prompts_maskings
 
 	def update(self, replay_data: ComDeBufferSample) -> Dict:
@@ -136,18 +180,18 @@ class VLPromptDT(BaseLowPolicy):
 
 	def predict(
 		self,
-		observations: np.ndarray,	# [b, l, d]
-		actions: np.ndarray,	# [b, l, d]
-		rtgs: np.ndarray,	# [b, l]
-		prompts: np.ndarray,	# [b, M, d]
-		prompts_maskings: np.ndarray,	# [b, M]
-		sequential_requirement: np.ndarray,	# [b, d]
-		non_functionality: np.ndarray,	# [b, d]
-		param_for_skills: np.ndarray,	# [b, M, total_prm_dim]
-		timesteps: np.ndarray,	# [b, l]
-		maskings: np.ndarray,	# [b, l]
+		observations: np.ndarray,  # [b, l, d]
+		actions: np.ndarray,  # [b, l, d]
+		rtgs: np.ndarray,  # [b, l]
+		prompts: np.ndarray,  # [b, M, d]
+		prompts_maskings: np.ndarray,  # [b, M]
+		sequential_requirement: np.ndarray,  # [b, d]
+		non_functionality: np.ndarray,  # [b, d]
+		param_for_skills: np.ndarray,  # [b, M, total_prm_dim]
+		timesteps: np.ndarray,  # [b, l]
+		maskings: np.ndarray,  # [b, l]
 		to_np: bool = True,
-		) -> np.ndarray:
+	) -> np.ndarray:
 		rtgs = rtgs[..., np.newaxis]
 		self.rng, actions = forward(
 			rng=self.rng,

@@ -71,3 +71,32 @@ def promptdt_forward(
 		deterministic=True
 	)
 	return rng, prediction
+
+
+@jax.jit
+def vima_forward(
+	rng: jnp.ndarray,
+	model: Model,
+	observations: jnp.ndarray,  # d_o
+	observations_mask: jnp.ndarray,
+	actions: jnp.ndarray,  # d_a
+	timesteps: jnp.ndarray,
+	prompt: jnp.ndarray,
+	prompt_assets: jnp.ndarray,
+	prompt_mask: jnp.ndarray,
+	prompt_assets_mask: jnp.ndarray,
+):
+	rng, _ = jax.random.split(rng)
+	prediction = model.apply_fn(
+		{"params": model.params},
+		observations=observations,
+		observations_mask=observations_mask,
+		actions=actions,
+		timesteps=timesteps,
+		prompt=prompt,
+		prompt_assets=prompt_assets,
+		prompt_mask=prompt_mask,
+		prompt_assets_mask=prompt_assets_mask,
+		deterministic=True
+	)
+	return rng, prediction

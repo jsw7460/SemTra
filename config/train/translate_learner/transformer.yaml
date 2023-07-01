@@ -1,4 +1,4 @@
-_target_: comde.comde_modules.seq2seq.SkillCompositionTransformer
+_target_: comde.comde_modules.seq2seq.SemanticSkillTranslator
 
 seed: ${seed}
 
@@ -19,7 +19,7 @@ cfg:
       num_layers: 1
       input_dim: ${language_dim}
       num_heads: 8
-      ff_dim: 256
+      ff_dim: 32
       dropout_prob: 0.15
       use_bias: True
       max_len: ${prompt_learner.cfg.encoder_max_len}
@@ -29,7 +29,7 @@ cfg:
       num_layers: 1
       input_dim: ${language_dim}
       num_heads: 4
-      ff_dim: 128
+      ff_dim: 32
       dropout_prob: 0.15
       use_bias: True
       max_len: ${prompt_learner.cfg.decoder_max_len}

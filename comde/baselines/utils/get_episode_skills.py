@@ -1,5 +1,4 @@
 import numpy as np
-
 from comde.rl.buffers.type_aliases import ComDeBufferSample
 
 
@@ -37,13 +36,22 @@ def get_episodic_level_skills(replay_data: ComDeBufferSample, param_repeats: int
 	batch_target_params = np.array(batch_target_params)[..., np.newaxis]  # b, n_target_skill
 	batch_source_params = np.repeat(batch_source_params, axis=-1, repeats=param_repeats)	# b, n_source_skills, param_dim
 	batch_target_params = np.repeat(batch_target_params, axis=-1, repeats=param_repeats)	# b, n_target_skills, param_dim
-
 	batch_size = source_skills.shape[0]
 
 	source_skills = source_skills[:, :n_target_skill, ...]  # [b, n, d]
 	target_skills = target_skills[:, :n_target_skill, ...]  # [b, n, d]
-	parameterized_source_skills = np.concatenate((source_skills, batch_source_params), axis=-1)
-	parameterized_target_skills = np.concatenate((target_skills, batch_target_params), axis=-1)
+
+	skill_dim = source_skills.shape[-1]
+	param_dim = batch_source_params.shape[-1]
+	parameterized_source_skills = np.zeros((batch_size, n_target_skill, skill_dim + param_dim))
+	parameterized_target_skills = np.zeros((batch_size, n_target_skill, skill_dim + param_dim))
+	parameterized_source_skills[..., :skill_dim] = source_skills
+	parameterized_source_skills[..., skill_dim:] = batch_source_params
+	# parameterized_source_skills = np.concatenate((source_skills, batch_source_params), axis=-1)
+
+	parameterized_target_skills[..., :skill_dim] = target_skills
+	parameterized_target_skills[..., skill_dim:] = batch_target_params
+	# parameterized_target_skills = np.concatenate((target_skills, batch_target_params), axis=-1)
 
 	flat_parameterized_source_skills = parameterized_source_skills.reshape(batch_size, -1)
 	flat_parameterized_target_skills = parameterized_target_skills.reshape(batch_size, -1)

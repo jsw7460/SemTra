@@ -58,7 +58,15 @@ class RLBench(ComdeSkillEnv):
 	def __str__(self):
 		return "rlbench"
 
-	def __init__(self, seed: int, task: List[int], n_target: int, cfg: Dict = None, dummy: bool = False):
+	def __init__(
+		self,
+		seed: int,
+		task: List[int],
+		n_target: int,
+		cfg: Dict = None,
+		dummy: bool = False,
+		register_language_embedding: bool = True
+	):
 		if not dummy:
 			task_class = get_task_class(task)
 			from comde_rlbench.RLBench.rlbench.comde_tasks import ComdeTask8
@@ -75,11 +83,11 @@ class RLBench(ComdeSkillEnv):
 
 		if not RLBench.has_been_called:
 			RLBench.has_been_called = True
-			mapping = self.get_sequential_requirements_mapping(SEQUENTIAL_REQUIREMENTS_VARIATIONS)
-			RLBench.sequential_requirements_vector_mapping = mapping
-
-			mapping = self.get_non_functionalities_mapping(NON_FUNCTIONALITIES_VARIATIONS)
-			RLBench.non_functionalities_vector_mapping = mapping
+			if register_language_embedding:
+				mapping = self.get_sequential_requirements_mapping(SEQUENTIAL_REQUIREMENTS_VARIATIONS)
+				RLBench.sequential_requirements_vector_mapping = mapping
+				mapping = self.get_non_functionalities_mapping(NON_FUNCTIONALITIES_VARIATIONS)
+				RLBench.non_functionalities_vector_mapping = mapping
 
 	@staticmethod
 	def get_skill_infos():
@@ -122,8 +130,8 @@ class RLBench(ComdeSkillEnv):
 	def get_language_guidance_from_template(
 		sequential_requirement: str,
 		non_functionality: str,
-		parameter: Union[float, Dict],
 		source_skills_idx: List[int],
+		parameter: Union[float, Dict] = None,
 		video_parsing: bool = True
 	):
 		if "replace" in sequential_requirement:
@@ -162,10 +170,19 @@ class RLBench(ComdeSkillEnv):
 			raise NotImplementedError(f"{non_functionality} is not defined non-functionality in RL-Bench")
 
 	@staticmethod
-	def generate_random_language_guidance():
+	def generate_random_language_guidance(video_parsing: bool = False, avoid_impossible: bool = False):
 		sequential_requirement = random.choice(SEQUENTIAL_REQUIREMENT)
 		non_functionality = random.choice(RLBench.non_functionalities)
-		source_skills_idx = random.choice(RLBENCH_ALL_TASKS)
+		source_skills_idx = list(random.choice(RLBENCH_ALL_TASKS))
+
+		target_skills_idx = ComdeSkillEnv.get_target_skill_from_source(
+			source_skills_idx=source_skills_idx,
+			sequential_requirement=sequential_requirement,
+			avoid_impossible=avoid_impossible
+		)
+
+		if avoid_impossible and target_skills_idx is None:
+			return None, None
 
 		parameter = RLBench.get_default_parameter(non_functionality)
 
@@ -185,12 +202,14 @@ class RLBench(ComdeSkillEnv):
 			non_functionality=non_functionality,
 			parameter=parameter,
 			source_skills_idx=source_skills_idx,
-			video_parsing=False
+			video_parsing=video_parsing
 		)
 		_info = {
 			"non_functionality": non_functionality,
 			"param_applied_skill": param_applied_skill,
-			"parameter": str(weight)
+			"parameter": str(weight),
+			"source_skills_idx": source_skills_idx,
+			"target_skills_idx": target_skills_idx
 		}
 
 		return language_guidance, _info

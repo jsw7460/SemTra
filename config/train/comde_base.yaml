@@ -12,7 +12,7 @@ defaults:
   - dataset: base
   - baseline: flatbc
   - prompt_learner: transformer
-  - compose_learner: transformer
+  - translate_learner: transformer
 
 save_prefix: /home/jsw7460/comde_save/train/
 save_suffix: foo
@@ -38,7 +38,7 @@ subseq_len: 5
 batch_size: 256
 max_iter: 500
 dataset_window_size: 2500
-step_per_dataset: 5000
+step_per_dataset: ${mode.step_per_dataset}
 log_interval: 100
 save_interval: ${mode.save_interval}
 #skill_infos_path: ${env.skill_infos_path}

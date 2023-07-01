@@ -7,6 +7,9 @@ class TimeLimitEnv(gym.Wrapper):
 		self.timestep = 0
 		self.limit = limit
 
+	def __str__(self):
+		return self.env.__str__()
+
 	def reset(self, **kwargs):
 		self.timestep = 0
 		return super(TimeLimitEnv, self).reset(**kwargs)

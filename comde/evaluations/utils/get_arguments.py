@@ -12,6 +12,7 @@ from comde.evaluations.modes.baselines import (
 	evaluate_bcz
 )
 from comde.evaluations.modes.comde_eval import evaluate_comde
+from comde.utils.common.pretrained_forwards.jax_bert_base import bert_base_forward
 
 
 def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
@@ -26,6 +27,7 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 	}
 
 	info = dict()
+	pretrained_models = kwargs["pretrained_models"]
 
 	if mode == "flatbc":
 		arguments.update({
@@ -36,16 +38,11 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 
 		info.update({"sequential_requirement": "not_used"})
 
-	elif mode in ["demogen", "promptdt", "bcz"]:
-		pretrained_cfg = kwargs["pretrained_cfg"]
-		pretrained_models = kwargs["pretrained_models"]
-		seq_req_path = pretrained_cfg["env"]["sequential_requirements_path"]
+	elif mode in ["demogen", "promptdt", "bcz", "vima"]:
 
-		with open(seq_req_path, "rb") as f:
-			seq_req_mapping = pickle.load(f)
-			seq_req_mapping = seq_req_mapping[cfg.sequential_requirement]
-
-		n_envs = len(kwargs["envs"])
+		envs = kwargs["envs"]
+		seq_req_mapping = envs[0].sequential_requirements_vector_mapping[cfg.sequential_requirement]
+		n_envs = len(envs)
 		str_seq_req = random.choice(list(seq_req_mapping.keys()))
 		sequential_requirement = [seq_req_mapping[str_seq_req] for _ in range(n_envs)]
 		random.seed(custom_seed)
@@ -55,15 +52,22 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 		non_functionalities = kwargs["non_functionalities"]
 		param_for_skill = kwargs["param_for_skill"]
 
-		source_skills_vecs = kwargs["source_skills_vec"]
 		source_skills_idxs = kwargs["source_skills_idx"]
 
 		if mode in ["demogen", "bcz"]:
 			if mode == "demogen":
-				vl_feature_dict = pretrained_models["baseline"].video_feature_dict
+				with open(cfg["env"]["task_video_path"], "rb") as f:
+					vl_feature_dict = pickle.load(f)
+
+			elif mode == "bcz":
+				if str(envs[0]) == "metaworld":
+					vl_feature_dict = pretrained_models["baseline"].video_feature
+				else:
+					with open(cfg["env"]["task_video_path"], "rb") as f:
+						vl_feature_dict = pickle.load(f)
 			else:
-				vl_feature_dict = pretrained_models["baseline"].video_feature
-			# This is for the case.
+				raise NotImplementedError()
+
 			text_dict = pretrained_models["baseline"].episodic_inst
 			source_video_embeddings = []
 			for src_sk in source_skills_idxs:
@@ -73,6 +77,7 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 				source_video_embeddings.append(src_emb)
 
 			source_video_embeddings = np.array(source_video_embeddings)
+
 			arguments.update({
 				**kwargs["pretrained_models"],
 				"source_video_embeddings": source_video_embeddings,
@@ -80,27 +85,67 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 				"non_functionality": non_functionalities[:, 0, ...],
 				"param_for_skill": param_for_skill
 			})
+
+		elif mode == "vima":
+
+			language_guidances = []
+			for t, env in enumerate(envs):
+				lg = env.get_language_guidance_from_template(
+					sequential_requirement=cfg.sequential_requirement,
+					non_functionality=cfg.non_functionality,
+					source_skills_idx=source_skills_idxs[t],
+					parameter=None,
+					video_parsing=True
+				)
+				language_guidances.append(lg)
+
+			source_skills_vecs = kwargs["source_skills_vec"]
+			source_skills_vecs = np.array(source_skills_vecs)
+			n_source_skills = np.array([source_skills_vecs.shape[1] for _ in range(n_envs)])
+			model = pretrained_models["baseline"]
+			prefix, prompts, prefix_maskings, prompts_maskings = model.get_prompts_from_components(
+				language_guidances=language_guidances,
+				source_skills=source_skills_vecs,
+				n_source_skills=n_source_skills,
+				source_skills_idxs=source_skills_idxs
+			)
+			model.predict = partial(
+				model.predict,
+				prompt_assets=prompts,
+				prompt_assets_mask=prompts_maskings
+			)
+			arguments.update({
+				**kwargs["pretrained_models"],
+				"prompts": prefix,
+				"prompts_maskings": prefix_maskings
+			})
+
 		else:
 			envs = kwargs["envs"]
 			prompts = []
 			model = pretrained_models["baseline"]
 
-			if str(model) == "VLPromptDT":
-				firstimage_mapping = pretrained_models["baseline"].firstimage_mapping
-				for env, source_skill_idxs in zip(envs, source_skills_idxs):
-					tmp_prompts = np.array([random.choice(firstimage_mapping[str(sk)]) for sk in source_skill_idxs])
-					prompts.append(tmp_prompts)
+			language_guidances = []
+			for t, env in enumerate(envs):
+				lg = env.get_language_guidance_from_template(
+					sequential_requirement=cfg.sequential_requirement,
+					non_functionality=cfg.non_functionality,
+					source_skills_idx=source_skills_idxs[t],
+					parameter=None,
+					video_parsing=True
+				)
+				language_guidances.append(lg)
 
-				prompts_maskings = None
+			if str(model) == "VLPromptDT":
+				prompts, prompts_maskings = model.get_prompts_from_components(
+					source_skills_idxs=source_skills_idxs,
+					language_guidance=language_guidances
+				)
 
 			elif str(model) == "SourceLanguagePromptDT":
-				prompts.extend(source_skills_vecs)
-				source_skills = np.array(source_skills_vecs)
-				n_source_skills = np.array([sk.shape[0] for sk in source_skills_vecs]).reshape(-1, 1)
-				batch_size = source_skills.shape[0]
-				prompts_maskings = np.arange(source_skills.shape[1]).reshape(1, -1)  # [1, M]
-				prompts_maskings = np.repeat(prompts_maskings, repeats=batch_size, axis=0)  # [b, M]
-				prompts_maskings = np.where(prompts_maskings < n_source_skills, 1, 0)
+				qkv_info = bert_base_forward(language_guidances)
+				prompts = qkv_info["language_embedding"]
+				prompts_maskings = qkv_info["attention_mask"]
 
 			elif str(model) == "TargetAllPromptDT":
 				prompts.extend(semantic_skills_sequence)
@@ -167,6 +212,9 @@ def get_evaluation_function(kwargs: Dict, custom_seed: int):
 		elif str(model) == "BCZ":
 			fn = evaluate_bcz
 			mode = "bcz"
+		elif str(model) == "VIMA":
+			fn = evaluate_promptdt
+			mode = "vima"
 		else:
 			raise NotImplementedError(f"Not implemented baseline: {str(model)}")
 

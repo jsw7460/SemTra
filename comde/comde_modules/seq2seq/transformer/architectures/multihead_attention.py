@@ -7,13 +7,6 @@ from comde.comde_modules.common.utils import create_mlp
 
 INFTY = 1e+13
 
-"""
-SKIN: Skill-Intent Transformer Encoder
-
-Input: Source skills and Language
-Output: Latent vector (will be used as input to Transformer decoder).
-"""
-
 
 @jax.jit
 def scaled_dot_product(

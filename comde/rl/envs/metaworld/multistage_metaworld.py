@@ -42,7 +42,14 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 	def __str__(self):
 		return "metaworld"
 
-	def __init__(self, seed: int, task: List, n_target: int, cfg: Dict = None):
+	def __init__(
+		self,
+		seed: int,
+		task: List,
+		n_target: int,
+		cfg: Dict = None,
+		register_language_embedding: bool = True
+	):
 
 		if type(task[0]) == int:
 			for i in range(len(task)):
@@ -56,13 +63,35 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 			self.difficulty = "easy"
 		else:
 			self.difficulty = cfg.get("difficulty", "easy")
+		self.timestep_per_skills = {k: 0 for k in task}
 
 		if not MultiStageMetaWorld.has_been_called:
 			MultiStageMetaWorld.has_been_called = True
-			mapping = self.get_sequential_requirements_mapping(SEQUENTIAL_REQUIREMENTS_VARIATIONS)
-			MultiStageMetaWorld.sequential_requirements_vector_mapping = mapping
-			mapping = self.get_non_functionalities_mapping(NON_FUNCTIONALITIES_VARIATIONS)
-			MultiStageMetaWorld.non_functionalities_vector_mapping = mapping
+			if register_language_embedding:
+				mapping = self.get_sequential_requirements_mapping(SEQUENTIAL_REQUIREMENTS_VARIATIONS)
+				MultiStageMetaWorld.sequential_requirements_vector_mapping = mapping
+				mapping = self.get_non_functionalities_mapping(NON_FUNCTIONALITIES_VARIATIONS)
+				MultiStageMetaWorld.non_functionalities_vector_mapping = mapping
+
+
+	def reset(self, **kwargs):
+		self.timestep_per_skills = {k: 0 for k in self.task}
+		return super(MultiStageMetaWorld, self).reset(**kwargs)
+
+	def get_parameter_from_adjective(self, adjective: str):
+
+		if adjective == "default":
+			adjective = "fast"		# In metaworld, just do this. (I made a mistake for naming when I made a dataset)
+		if adjective not in ["normal", "slow", "fast"]:
+			raise NotImplementedError(f"Parameter {adjective} is not supported in metaworld !")
+
+		# Make first subtask (skill) to be applied by the parameter
+		# This is just for convenience of the experiments.
+		param_dict = MultiStageMetaWorld.get_default_parameter("speed")
+		first_skill = MultiStageMetaWorld.onehot_skills_mapping[self.task[0]]
+		param_dict[first_skill] = ADJECTIVE_TO_SPEED[first_skill][adjective]
+
+		return param_dict
 
 	@staticmethod
 	def get_skill_infos():
@@ -76,6 +105,8 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 
 	def step(self, action):
 		obs, reward, done, info = super(MultiStageMetaWorld, self).step(action)
+		self.timestep_per_skills[self.task[self.env.mode]] += 1
+
 		if self.env.env.mode == self.n_target:
 			done = True
 		return obs, reward, done, info
@@ -102,7 +133,6 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 		parameter: Union[float, Dict] = None,
 		video_parsing: bool = True
 	) -> str:
-
 		if parameter is None:
 			parameter = MultiStageMetaWorld.get_default_parameter(non_functionality)
 
@@ -163,11 +193,24 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 		return language_guidance
 
 	@staticmethod
-	def generate_random_language_guidance(difficulty: str = "easy") -> Tuple[str, Dict]:
+	def generate_random_language_guidance(
+		difficulty: str = "easy",
+		video_parsing: bool = False,
+		avoid_impossible: bool = False
+	) -> Union[Tuple[str, Dict], Tuple[None, None]]:
 		tasks = deepcopy(MultiStageMetaWorld.tasks_idxs[difficulty])
 		sequential_requirement = random.choice(SEQUENTIAL_REQUIREMENTS)
-		non_functionality = random.choices(["speed", "wind"], weights=[100, 10])[0]
+		non_functionality = "speed"
 		source_skills_idx = list(random.choice(list(permutations(tasks, 3))))
+
+		target_skills_idx = ComdeSkillEnv.get_target_skill_from_source(
+			source_skills_idx=source_skills_idx,
+			sequential_requirement=sequential_requirement,
+			avoid_impossible=avoid_impossible
+		)
+
+		if avoid_impossible and target_skills_idx is None:
+			return None, None
 
 		if non_functionality == "speed":
 			param_applied_skill = random.choice(["all"] + tasks)
@@ -198,13 +241,15 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 			non_functionality=non_functionality,
 			source_skills_idx=source_skills_idx,
 			parameter=parameter,
-			video_parsing=False
+			video_parsing=video_parsing
 		)
 
 		_info = {
 			"non_functionality": non_functionality,
 			"param_applied_skill": param_applied_skill,
 			"parameter": str(param_for_apply),
+			"source_skills_idx": source_skills_idx,
+			"target_skills_idx": target_skills_idx
 		}
 
 		return language_guidance, _info

@@ -18,11 +18,11 @@ def evaluate_promptdt(
 	envs: List[SkillHistoryEnv],
 	baseline: VLPromptDT,
 	prompts: np.ndarray,  # [n_envs, L, d]
-	sequential_requirement: np.ndarray,  # [n_envs, d]
-	non_functionality: np.ndarray,  # [n_envs, d]
-	param_for_skills: np.ndarray,  # [n_envs, n_source_skills, d]
-	rtgs: np.ndarray,  # [n_envs,]
 	prompts_maskings: np.ndarray = None,
+	sequential_requirement: np.ndarray = None,  # [n_envs, d]
+	non_functionality: np.ndarray = None,  # [n_envs, d]
+	param_for_skills: np.ndarray = None,  # [n_envs, n_source_skills, d]
+	rtgs: np.ndarray = None,  # [n_envs,]
 	save_results: bool = False
 ):
 	# Some variables
@@ -48,17 +48,16 @@ def evaluate_promptdt(
 	obs = tree_map(lambda *arr: np.stack(arr, axis=0), *obs_list)
 	returns = np.array([0.0 for _ in range(n_envs)])
 
-	rtgs_for_concat = rtgs.copy()
+	if rtgs is not None:
+		rtgs_for_concat = rtgs.copy()
 
-	rtgs = rtgs[:, np.newaxis]
-	rtgs = np.repeat(rtgs, repeats=subseq_len, axis=1)
+		rtgs = rtgs[:, np.newaxis]
+		rtgs = np.repeat(rtgs, repeats=subseq_len, axis=1)
 
 	while not all(done):
 
 		history_observations = obs["observations"]  # [8, 4, 140]
 		history_actions = obs["actions"]  # [8, 4, 4]
-		# history_rewards = obs["rewards"]  # [8, 4]
-		# history_skills = obs["skills"]  # [8, 4, 512]
 		history_maskings = obs["maskings"]
 		timestep += 1
 
@@ -98,9 +97,10 @@ def evaluate_promptdt(
 		rew = rew * (1 - rew_mul_done)
 		returns += rew
 
-		rtgs_for_concat = rtgs_for_concat - rew.astype("float64")
-		rtgs = np.concatenate((rtgs, rtgs_for_concat.reshape(-1, 1)), axis=-1)
-		rtgs = rtgs[:, 1:]
+		if rtgs is not None:
+			rtgs_for_concat = rtgs_for_concat - rew.astype("float64")
+			rtgs = np.concatenate((rtgs, rtgs_for_concat.reshape(-1, 1)), axis=-1)
+			rtgs = rtgs[:, 1:]
 
 		if save_results:
 			for k in range(n_envs):

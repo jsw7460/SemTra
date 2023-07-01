@@ -24,6 +24,7 @@ class PrimPromptDT(nn.Module):
 	normalization_mean: float = 0.0
 	normalization_std: float = 1.0
 
+	only_prompt: bool = False
 	use_timestep: bool = True
 
 	emb_time = None
@@ -99,8 +100,16 @@ class PrimPromptDT(nn.Module):
 		prm_emb = self.emb_prm(param_for_skills)	# [b, M, d]
 
 		prompt_emb = self.emb_prompt(prompts)  # [b, M, d]
-		prompt = jnp.concatenate((prompt_emb, seq_emb, nf_emb, prm_emb), axis=1)	# [b, p, d] p: prompt length
-		prompt_maskings = jnp.concatenate((prompts_maskings, jnp.ones((batch_size, 2)), prompts_maskings), axis=1)
+		prompt = jnp.concatenate((prompt_emb, seq_emb, nf_emb, prm_emb), axis=1)	# [b, p, d] p: prompt length # 36 + 1 + 1 + 4
+		if self.only_prompt:
+			seq_nf_mask = jnp.zeros((batch_size, 2))
+		else:
+			seq_nf_mask = jnp.ones((batch_size, 2))
+
+		l_prm = prm_emb.shape[1]
+		prm_maskings = jnp.ones((batch_size, l_prm))
+
+		prompt_maskings = jnp.concatenate((prompts_maskings, seq_nf_mask, prm_maskings), axis=1)
 		if self.use_timestep:
 			timesteps_emb = self.emb_time(timesteps)
 		else:
@@ -112,10 +121,11 @@ class PrimPromptDT(nn.Module):
 
 		# this makes the sequence look like (R_1, s_1, a_1, R_2, s_2, a_2, ...)
 		# which works nice in an autoregressive sense since observations predict actions
+
 		stacked_inputs = jnp.stack((rtgs_emb, observations_emb, actions_emb), axis=1)  # [b, 3, l, d]
 
 		stacked_inputs = einops.rearrange(stacked_inputs, "b c l d -> b l c d")  # [b, l, 3, d]
-		stacked_inputs = stacked_inputs.reshape(batch_size, 3 * subseq_len, self.hidden_size)  # [b, 3 * l, d]
+		stacked_inputs = stacked_inputs.reshape(batch_size, 3 * subseq_len, self.hidden_size)  # [b, 3 * l, d]	# 15
 		stacked_inputs = jnp.concatenate((prompt, stacked_inputs), axis=1)
 		stacked_inputs = self.emb_ln(stacked_inputs)
 

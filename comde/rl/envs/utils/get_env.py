@@ -12,7 +12,7 @@ from comde.rl.envs.rlbench import RLBench, rlbench_skill_infos
 from comde.rl.envs.utils import TimeLimitEnv, SkillHistoryEnv, SkillInfoEnv
 
 
-def get_dummy_env(env_name: str, cfg: Dict = None) -> SkillInfoEnv:
+def get_dummy_env(env_name: str, cfg: Dict = None, **kwargs) -> SkillInfoEnv:
 	"""
 	Note: This is not responsible for the evaluation of env.
 	"""
@@ -20,15 +20,15 @@ def get_dummy_env(env_name: str, cfg: Dict = None) -> SkillInfoEnv:
 	skill_infos = None
 	# Task has no meaning here
 	if "metaworld" in env_name:
-		env = MultiStageMetaWorld(seed=0, task=["box", "handle", "button", "door"], n_target=4)
+		env = MultiStageMetaWorld(seed=0, task=["box", "handle", "button", "door"], n_target=4, **kwargs)
 		skill_infos = metaworld_skill_infos
 	elif "kitchen" in env_name:
-		env = FrankaKitchen(seed=0, task=["microwave", "kettle", "bottom burner", "top burner"], n_target=4)
+		env = FrankaKitchen(seed=0, task=["microwave", "kettle", "bottom burner", "top burner"], n_target=4, **kwargs)
 		skill_infos = kitchen_skill_infos
 	elif "carla" in env_name:
-		env = DummyEasyCarla(seed=0, task=["straight", "right", "left"], n_target=3, cfg=cfg)
+		env = DummyEasyCarla(seed=0, task=["straight", "right", "left"], n_target=3, cfg=cfg, **kwargs)
 	elif "rlbench" in env_name:
-		env = RLBench(seed=0, task=[0, 3, 6, 9], n_target=4, dummy=True, cfg=cfg)
+		env = RLBench(seed=0, task=[0, 3, 6, 9], n_target=4, dummy=True, cfg=cfg, **kwargs)
 		skill_infos = rlbench_skill_infos
 	else:
 		raise NotImplementedError(f"Not supported: {env_name}")
@@ -66,9 +66,6 @@ def get_batch_env(
 	cfg: Dict = None,
 ) -> List[Union[SkillHistoryEnv, ComdeSkillEnv]]:
 	envs = []  # type: List[SkillHistoryEnv]
-
-	# with open(Path(cfg["skill_infos_path"]), "rb") as f:
-	# 	skill_infos = pickle.load(f)
 
 	for task in tasks:
 		env = get_env(

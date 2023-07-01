@@ -31,11 +31,16 @@ class CausalSelfAttention(nn.Module):
 		tril = jnp.repeat(tril, axis=0, repeats=batch_size)
 		return tril	# [b, l, l]
 
-	def forward(self, x: jnp.ndarray, deterministic: bool):
+	def forward(self, x: jnp.ndarray, deterministic: bool, attention_mask: jnp.ndarray = None):
 		causal_mask = self.get_causal_mask(x)	# [b, l, l]
 		causal_mask = jnp.expand_dims(causal_mask, axis=-3)	# [b, 1, l, l]
-		# attention_mask = jnp.broadcast_to(attention_mask, causal_mask.shape)	# [b, 1, l, l]
-		# Combine attention padding mask and causal mask
-		# mask = jnp.logical_or(causal_mask, attention_mask)	# [b, 1, l, l]
 
-		return self.mha(input_q=x, input_k=x, input_v=x, mask=causal_mask, deterministic=deterministic)
+		if attention_mask is not None:
+			attention_mask = jnp.broadcast_to(attention_mask, causal_mask.shape)	# [b, 1, l, l]
+			# Combine attention padding mask and causal mask
+			mask = jnp.logical_or(causal_mask, attention_mask)	# [b, 1, l, l]
+
+		else:
+			mask = causal_mask
+
+		return self.mha(input_q=x, input_k=x, input_v=x, mask=mask, deterministic=deterministic)

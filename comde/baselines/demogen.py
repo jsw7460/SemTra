@@ -44,7 +44,7 @@ class DemoGen(BaseLowPolicy):
 
 	def __init__(self, seed: int, cfg: Dict, init_build_model: bool = True):
 		super(DemoGen, self).__init__(seed=seed, cfg=cfg, init_build_model=init_build_model)
-
+		self.video_parsing = True
 		self.video_dim = self.cfg["video_dim"]  # Not a raw embedding. Embeddings of pre-trained model.
 		self.language_dim = self.cfg["language_dim"]  # Not a raw dimension. Embeddings of pre-trained model.
 
@@ -91,7 +91,6 @@ class DemoGen(BaseLowPolicy):
 		self.__gravity = Model.create(model_def=gravity, inputs=[rngs, gravity_input], tx=tx)
 
 	def update(self, replay_data: ComDeBufferSample) -> Dict:
-
 		video_info = get_video_text_embeddings(
 			video_feature_dict=self.video_feature_dict,
 			text_dict=self.episodic_inst,

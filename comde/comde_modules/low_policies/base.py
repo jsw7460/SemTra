@@ -3,10 +3,10 @@ from typing import Dict, List
 import numpy as np
 
 from comde.comde_modules.base import ComdeBaseModule
-from comde.utils.interfaces import IJaxSavable, ITrainable
-from comde.utils.jax_utils.type_aliases import Params
-from comde.utils.jax_utils.model import Model
 from comde.rl.buffers.type_aliases import ComDeBufferSample
+from comde.utils.interfaces import IJaxSavable, ITrainable
+from comde.utils.jax_utils.model import Model
+from comde.utils.jax_utils.type_aliases import Params
 
 EPS = 1E-12
 

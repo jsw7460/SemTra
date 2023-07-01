@@ -13,15 +13,13 @@ def get_source_skills(
 	skill_infos: Dict[str, List[SkillRepresentation]],
 	task: Union[str, List[str]]
 ) -> Union[Dict, None]:
-	# task = task[: 3]
-
-	# if type(task) == list:
 	task = [str(t) for t in task]
 	task_str = "".join(task).replace(" ","")
 
 	stripped_task_to_source_skills = {
 		k.replace(" ", "").replace("_", ""): v for k, v in task_to_source_skills.items()
 	}
+
 	source_skills = stripped_task_to_source_skills[task_str][sequential_requirement]
 	source_skill_vectors = []
 	source_skill_idxs = []

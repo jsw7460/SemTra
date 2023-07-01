@@ -32,7 +32,7 @@ class PromptTrainer(BaseTrainer):
 		for env in self.envs:
 			it = len(env.non_functionalities)
 			for i in range(16 * it):
-				language_guidance, info = env.generate_random_language_guidance()
+				language_guidance, info = env.generate_random_language_guidance(video_parsing=True)
 				nf = info["non_functionality"]
 				skill = info["param_applied_skill"]
 				param = info["parameter"]
@@ -80,7 +80,6 @@ class PromptTrainer(BaseTrainer):
 
 		if (self.n_update % self.log_interval) == 0:
 			self.dump_logs(step=self.n_update)
-
 		if (self.n_update % self.save_interval) == 0:
 			self.save()
 

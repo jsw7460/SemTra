@@ -1,11 +1,7 @@
-# from jax.config import config
-#
-# config.update("jax_debug_nans", True)
 import math
 import random
 from copy import deepcopy
 from typing import Dict, Union
-from termcolor import colored
 
 random.seed(7)
 
@@ -26,11 +22,9 @@ def program(cfg: DictConfig) -> None:
 
 	env_name = cfg["env"]["name"].lower()
 	env = get_dummy_env(env_name, cfg["env"])  # Dummy env for obtain an observation and action space.
-
 	hdf_files = load_data_paths(cfg, env)
 	dataset_window_size = cfg["dataset_window_size"]
 
-	print(colored(f"This program load {len(hdf_files)} trajectories for the training.", "red"))
 	# print(colored(f"Some trajectories containing evaluation tasks will be removed", "red"))
 	cfg["n_trained_trajectory"] = len(hdf_files)
 	# dataset_window_size = len(hdf_files) // dataset_window_size
@@ -65,25 +59,26 @@ def program(cfg: DictConfig) -> None:
 			subseq_len=cfg["subseq_len"],
 			cfg=cfg["dataset"]
 		)
-		replay_buffer.add_episodes_from_h5py(
+		train_available = replay_buffer.add_episodes_from_h5py(
 			paths={"trajectory": trajectories[: -10]},
 			sequential_requirements_mapping=deepcopy(env.sequential_requirements_vector_mapping),
 			non_functionalities_mapping=deepcopy(env.non_functionalities_vector_mapping),
-			# guidance_to_prm=pretrained_modules["prompt_learner"]
 		)
-		trainer.run(replay_buffer)
 		eval_buffer = ComdeBuffer(
 			env=env,
 			subseq_len=cfg["subseq_len"],
 			cfg=cfg["dataset"]
 		)
-		eval_buffer.add_episodes_from_h5py(
+		eval_available = eval_buffer.add_episodes_from_h5py(
 			paths={"trajectory": trajectories[-10:]},
 			sequential_requirements_mapping=deepcopy(env.sequential_requirements_vector_mapping),
 			non_functionalities_mapping=deepcopy(env.non_functionalities_vector_mapping),
-			# guidance_to_prm=pretrained_modules["prompt_learner"]
 		)
-		trainer.evaluate(eval_buffer)
+
+		if train_available:
+			trainer.run(replay_buffer)
+		if eval_available:
+			trainer.evaluate(eval_buffer)
 
 
 if __name__ == "__main__":

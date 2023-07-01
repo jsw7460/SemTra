@@ -39,7 +39,6 @@ class ComdeTrainer(BaseTrainer):
 		self.low_policy = low_policy
 		self.seq2seq = seq2seq
 		self.termination = termination
-
 		self.info_records = {"info/suffix": self.cfg["save_suffix"]}
 
 	def prepare_run(self):
@@ -72,7 +71,12 @@ class ComdeTrainer(BaseTrainer):
 		)
 		return replay_data
 
-	def _get_language_guidance_from_template(self, replay_data: ComDeBufferSample) -> ComDeBufferSample:
+	@staticmethod
+	def get_language_guidance_from_template(
+		env: SkillInfoEnv,
+		replay_data: ComDeBufferSample,
+		video_parsing: bool = True
+	) -> ComDeBufferSample:
 		language_guidances = []
 		seq_reqs = replay_data.str_sequential_requirement
 		nfs = replay_data.str_non_functionality
@@ -81,11 +85,12 @@ class ComdeTrainer(BaseTrainer):
 		n_skills = replay_data.n_source_skills
 
 		for seq_req, nf, prm, sources, n_sk in zip(seq_reqs, nfs, params, sk_idxs, n_skills):
-			language_guidance = self.env.get_language_guidance_from_template(
+			language_guidance = env.get_language_guidance_from_template(
 				sequential_requirement=seq_req,
 				non_functionality=nf,
 				parameter={k: v for k, v in prm.items() if k != -1},  # Remove dummy skill
-				source_skills_idx=sources[:n_sk]
+				source_skills_idx=sources[:n_sk],
+				video_parsing=video_parsing
 			)
 			language_guidances.append(language_guidance)
 
@@ -94,7 +99,9 @@ class ComdeTrainer(BaseTrainer):
 
 	def _preprocess_replay_data(self, replay_data: ComDeBufferSample) -> ComDeBufferSample:
 		replay_data = self.get_skill_from_idxs(replay_data, self.__last_onehot_skills)
-		replay_data = self._get_language_guidance_from_template(replay_data)
+
+		if self.cfg["update_seq2seq"]:
+			replay_data = self.get_language_guidance_from_template(self.env, replay_data)
 
 		return replay_data
 

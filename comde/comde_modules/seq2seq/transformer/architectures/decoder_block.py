@@ -37,7 +37,7 @@ class DecoderBlock(nn.Module):
 		)
 		self.linear = create_mlp(
 			output_dim=self.input_dim,
-			net_arch=[],
+			net_arch=[self.ff_dim, self.ff_dim],
 			activation_fn=self.activation_fn,
 			dropout=self.dropout_prob
 		)
@@ -56,13 +56,15 @@ class DecoderBlock(nn.Module):
 		q: jnp.ndarray,
 		kv: jnp.ndarray,
 		mask: jnp.ndarray,
-		deterministic: bool
+		deterministic: bool = False
 	):
+
 		x, _ = self.causal_attention(x=q, deterministic=deterministic)
 		x = q + self.dropout(x, deterministic=deterministic)
 		x = self.ln1(x)
 
 		mask = jnp.expand_dims(mask, axis=(-3, -2))
+
 		x2, attention = self.cross_attention(q=x, kv=kv, mask=mask, deterministic=deterministic)
 		x2 = x + self.dropout(x2, deterministic=deterministic)
 		x2 = self.ln2(x2)

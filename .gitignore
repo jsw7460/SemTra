@@ -199,4 +199,5 @@ comde_rlbench/
 !config/**/env
 !config/wandb
 !config/**/wandb
+*.sh
 #misc/

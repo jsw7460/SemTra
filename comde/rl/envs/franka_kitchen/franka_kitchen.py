@@ -16,6 +16,7 @@ from .utils import (
 	NON_FUNCTIONALITIES_VARIATIONS,
 	WIND_TO_ADJECTIVE,
 	POSSIBLE_WINDS,
+	ADJECTIVE_TO_WIND,
 	skill_infos
 )
 
@@ -45,7 +46,14 @@ class FrankaKitchen(ComdeSkillEnv):
 	def __str__(self):
 		return "kitchen"
 
-	def __init__(self, seed: int, task: List, n_target: int, cfg: Dict = None):
+	def __init__(
+		self,
+		seed: int,
+		task: List,
+		n_target: int,
+		cfg: Dict = None,
+		register_language_embedding: bool = True
+	):
 
 		if type(task[0]) == int:
 			for i in range(len(task)):
@@ -63,15 +71,22 @@ class FrankaKitchen(ComdeSkillEnv):
 
 		if not FrankaKitchen.has_been_called:
 			FrankaKitchen.has_been_called = True
-			mapping = self.get_sequential_requirements_mapping(SEQUENTIAL_REQUIREMENTS_VARIATIONS)
-			FrankaKitchen.sequential_requirements_vector_mapping = mapping
-
-			mapping = self.get_non_functionalities_mapping(NON_FUNCTIONALITIES_VARIATIONS)
-			FrankaKitchen.non_functionalities_vector_mapping = mapping
+			if register_language_embedding:
+				mapping = self.get_sequential_requirements_mapping(SEQUENTIAL_REQUIREMENTS_VARIATIONS)
+				FrankaKitchen.sequential_requirements_vector_mapping = mapping
+				mapping = self.get_non_functionalities_mapping(NON_FUNCTIONALITIES_VARIATIONS)
+				FrankaKitchen.non_functionalities_vector_mapping = mapping
 
 	@staticmethod
 	def get_skill_infos():
 		return skill_infos
+
+	def set_str_parameter(self, parameter: str):
+		print("Set parameter !" * 999, parameter)
+		if (parameter not in ["breeze", "default", "gust", "flurry"]) or (type(parameter) != str):
+			raise NotImplementedError(f"{parameter} is not supported for Franka kitchen environment.")
+
+		self.str_parameter = parameter
 
 	def eval_param(self, param):
 		return safe_eval_to_float(param)
@@ -79,9 +94,29 @@ class FrankaKitchen(ComdeSkillEnv):
 	def get_rtg(self):
 		return self.n_target
 
-	def step(self, action):
+	def step(self, action: np.ndarray):
+		if self.str_parameter in ["default", "breeze"]:
+			pass
+		elif self.str_parameter == "gust":
+			action[0] -= 0.1
+		elif self.str_parameter == "flurry":
+			action[0] -= 0.3
+		else:
+			raise NotImplementedError(f"{self.str_parameter} is not supported in Franka kitchen environment.")
+
 		obs, rew, done, info = super(FrankaKitchen, self).step(action)
 		return obs, rew, done, info
+
+	@staticmethod
+	def get_parameter_from_adjective(adjective: str):
+		if adjective.lower() == "default":
+			adjective = "breeze"
+
+		if adjective.lower() in ["breeze", "gust", "flurry"]:
+			return {k: eval(ADJECTIVE_TO_WIND[adjective]) for k in range(7)}
+
+		else:
+			raise NotImplementedError(f"Adjective {adjective} is not supported in Franka kitchen environment.")
 
 	@staticmethod
 	def get_default_parameter(non_functionality: Union[str, None] = None):
@@ -94,6 +129,12 @@ class FrankaKitchen(ComdeSkillEnv):
 			return default_param_dict
 		else:
 			raise NotImplementedError(f"{non_functionality} is undefined non functionality for franka kitchen.")
+
+	def valid_parameter(self, param_dict: Dict):
+		for v in param_dict.values():
+			if v not in POSSIBLE_WINDS:
+				return False
+		return True
 
 	@staticmethod
 	def get_language_guidance_from_template(
@@ -108,7 +149,7 @@ class FrankaKitchen(ComdeSkillEnv):
 
 		if video_parsing:
 			source_skills = ComdeSkillEnv.idxs_to_str_skills(FrankaKitchen.skill_index_mapping, source_skills_idx)
-			source_skills = ", then ".join(source_skills)
+			source_skills = ", and then ".join(source_skills)
 		else:
 			source_skills = "video"
 
@@ -138,11 +179,22 @@ class FrankaKitchen(ComdeSkillEnv):
 		return language_guidance
 
 	@staticmethod
-	def generate_random_language_guidance():
+	def generate_random_language_guidance(video_parsing: bool = False, avoid_impossible: bool = False):
 		tasks = deepcopy(FrankaKitchen.tasks_idxs)
 		sequential_requirement = random.choice(SEQUENTIAL_REQUIREMENTS)
 		non_functionality = "wind"
-		source_skills_idx = random.choice(list(permutations(tasks, 4)))
+		perm = list(permutations(tasks, 4))
+		perm = [list(p) for p in perm]
+		source_skills_idx = list(random.choice(perm))
+
+		target_skills_idx = ComdeSkillEnv.get_target_skill_from_source(
+			source_skills_idx=source_skills_idx,
+			sequential_requirement=sequential_requirement,
+			avoid_impossible=avoid_impossible
+		)
+
+		if avoid_impossible and target_skills_idx is None:
+			return None, None
 
 		param_applied_skill = "all"
 		wind = random.choice(POSSIBLE_WINDS)
@@ -154,15 +206,43 @@ class FrankaKitchen(ComdeSkillEnv):
 			non_functionality=non_functionality,
 			source_skills_idx=list(source_skills_idx),
 			parameter=parameter,
-			video_parsing=False
+			video_parsing=video_parsing
 		)
 		_info = {
 			"non_functionality": non_functionality,
 			"param_applied_skill": param_applied_skill,
 			"parameter": str(param_for_apply),
 			"int_parameter": param_for_apply,
+			"source_skills_idx": source_skills_idx,
+			"target_skills_idx": target_skills_idx
 		}
 		return language_guidance, _info
 
-	def ingradients_to_parameter(self, ingradients: Dict[str, str]):
-		raise NotImplementedError()
+	def ingradients_to_parameter(self, ingradients: Dict[str, str], scale: bool = True):
+
+		non_functionality = ingradients["non_functionality"]
+		param_applied_skill = ingradients["skill"]
+		param = ingradients["param"]
+
+		is_nf_wrong = non_functionality not in self.non_functionalities
+		is_skill_wrong = param_applied_skill not in list(self.onehot_skills_mapping.keys()) + ["all"]
+
+		if is_nf_wrong:
+			return self.wind_default_param
+
+		else:
+			parameter = self.get_default_parameter(non_functionality)
+
+			if is_skill_wrong or (param == "standard"):
+				return parameter
+
+			else:
+				param = ADJECTIVE_TO_WIND[param]
+				if param_applied_skill == "all":
+					for k in parameter.keys():
+						parameter[k] = param
+
+				elif param_applied_skill != "all":
+					parameter.update({self.onehot_skills_mapping[param_applied_skill]: param})
+
+		return parameter

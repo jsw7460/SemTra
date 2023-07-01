@@ -1,10 +1,11 @@
-mode: compose_learning
+mode: translate_learning
 trainer: comde.trainer.compose_trainer.ComposeTrainer
 modules:
   - seq2seq
 
 save_interval: 5000
 max_iter: 1_000_000
-batch_size: 256
+batch_size: 512
 save_source_trajectory: False
 datadir_limit: 999999 # No meaning
+step_per_dataset: 5000

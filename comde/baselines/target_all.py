@@ -13,7 +13,7 @@ class TargetAllPromptDT(VLPromptDT):
 	TargetAllPromptDT: Video-Language prompt DT
 	Input of PromptDT
 		1. State-action-reward history (Like DT)
-		2. Source skills & Language instructions as a prompt (Along 'sub-sequence' axis)
+		2. Target skills as a prompt (Along 'sub-sequence' axis)
 	"""
 	PARAM_COMPONENTS = ["policy"]
 
@@ -23,7 +23,6 @@ class TargetAllPromptDT(VLPromptDT):
 	def __init__(self, seed: int, cfg: Dict, init_build_model: bool = True):
 		super(TargetAllPromptDT, self).__init__(seed=seed, cfg=cfg, init_build_model=False)
 		self.prompt_dim = self.skill_dim
-		del self.firstimage_mapping  # Not required for this class
 
 		if init_build_model:
 			self.build_model()

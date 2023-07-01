@@ -1,13 +1,13 @@
 from collections import defaultdict
-from typing import List, Dict
+from typing import List
 
 import numpy as np
 from jax.tree_util import tree_map
 
 from comde.comde_modules.low_policies.base import BaseLowPolicy
 from comde.comde_modules.termination.base import BaseTermination
-from comde.rl.envs.utils import SkillHistoryEnv
 from comde.evaluations.utils.postprocess_evaldata import postprocess_eval_data as postprocess
+from comde.rl.envs.utils import SkillHistoryEnv
 
 I_OBS = 0
 I_REWARD = 1
@@ -29,7 +29,7 @@ def evaluate_comde(
 	subseq_len = envs[0].num_stack_frames
 	semantic_skill_dim = termination.skill_dim
 
-	n_possible_skills = target_skills.shape[1]  # TODO ????
+	n_possible_skills = target_skills.shape[1]
 
 	cur_skill_pos = np.array([0 for _ in range(n_envs)])  # [8, ]
 	max_skills = np.array([n_possible_skills - 1 for _ in range(n_envs)])

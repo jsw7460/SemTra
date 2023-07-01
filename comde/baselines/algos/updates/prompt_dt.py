@@ -5,7 +5,7 @@ from jax import numpy as jnp
 
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
-
+from comde.utils.common.timeit import timeit
 
 @jax.jit
 def promptdt_update(
@@ -42,9 +42,7 @@ def promptdt_update(
 			maskings=maskings,
 			rngs={"dropout": dropout_key}
 		)
-
 		action_preds = action_preds.reshape(-1, action_dim) * maskings.reshape(-1, 1)
-
 		action_loss = jnp.sum(jnp.mean((action_preds - target_actions) ** 2, axis=-1)) / jnp.sum(maskings)
 
 		_infos = {"promptdt/bc_loss": action_loss}

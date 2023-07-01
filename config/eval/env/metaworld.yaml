@@ -9,6 +9,9 @@ source_skills_path: /home/jsw7460/mnt/comde_datasets/source_skills/metaworld/opt
 # []
 language_guidance_path: /home/jsw7460/mnt/comde_datasets/clip_mappings/language_guidance/sequential_clip_mapping
 
+skill_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/skill_video_embeddings
+task_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/task_video_embeddings
+
 template_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/language_guidance/BERT_metaworld_templates
 n_target: 3
 

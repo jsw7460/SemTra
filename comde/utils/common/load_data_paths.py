@@ -3,7 +3,7 @@ import pickle
 import random
 from os.path import join, isfile
 from pathlib import Path
-from typing import Dict, Union
+from typing import Dict, Union, List
 
 import h5py
 
@@ -24,16 +24,19 @@ def load_data_paths(cfg: Dict, env: Union[ComdeSkillEnv, SkillInfoEnv], rm_eval_
 	if cfg["dataset"]["shuffle_dataset"]:
 		random.shuffle(hdf_files)
 
-	with open(cfg["env"]["eval_tasks_path"], "rb") as f:
-		str_eval_tasks = pickle.load(f)
+	eval_tasks_path = cfg["env"]["eval_tasks_path"]
+
+	if (not rm_eval_tasks) or (cfg["mode"]["mode"] == "baseline") or (eval_tasks_path == "None"):
+		return hdf_files
+
+	with open(eval_tasks_path, "rb") as f:
+		str_eval_tasks = pickle.load(f)  # type: List[List[str]]
 
 	eval_tasks = []
 	for eval_task in str_eval_tasks:
+		eval_task = [et.replace("_", " ") for et in eval_task]
 		idx_eval_task = env.str_to_idxs_skills(env.onehot_skills_mapping, eval_task, to_str=True)
 		eval_tasks.append(idx_eval_task)
-
-	if not rm_eval_tasks:
-		return hdf_files
 
 	file_wo_eval_tasks = []
 	for path in hdf_files:
