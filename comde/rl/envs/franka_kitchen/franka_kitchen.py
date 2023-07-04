@@ -2,14 +2,14 @@ import random
 from copy import deepcopy
 from itertools import permutations
 from typing import List, Dict, Union
-import numpy as np
 
 import d4rl
+import numpy as np
 
 from comde.rl.envs.base import ComdeSkillEnv
 from comde.utils.common.natural_languages.language_guidances import template
-from spirl.rl.envs import kitchen
 from comde.utils.common.safe_eval import safe_eval_to_float
+from spirl.rl.envs import kitchen
 from .utils import (
 	SEQUENTIAL_REQUIREMENTS,
 	SEQUENTIAL_REQUIREMENTS_VARIATIONS,
@@ -23,6 +23,7 @@ from .utils import (
 _ = d4rl
 
 array = np.array  # DO NOT REMOVE THIS !
+
 
 class FrankaKitchen(ComdeSkillEnv):
 	onehot_skills_mapping = {
@@ -82,7 +83,6 @@ class FrankaKitchen(ComdeSkillEnv):
 		return skill_infos
 
 	def set_str_parameter(self, parameter: str):
-		print("Set parameter !" * 999, parameter)
 		if (parameter not in ["breeze", "default", "gust", "flurry"]) or (type(parameter) != str):
 			raise NotImplementedError(f"{parameter} is not supported for Franka kitchen environment.")
 
@@ -95,6 +95,7 @@ class FrankaKitchen(ComdeSkillEnv):
 		return self.n_target
 
 	def step(self, action: np.ndarray):
+		action = action.copy()
 		if self.str_parameter in ["default", "breeze"]:
 			pass
 		elif self.str_parameter == "gust":
@@ -111,10 +112,8 @@ class FrankaKitchen(ComdeSkillEnv):
 	def get_parameter_from_adjective(adjective: str):
 		if adjective.lower() == "default":
 			adjective = "breeze"
-
 		if adjective.lower() in ["breeze", "gust", "flurry"]:
 			return {k: eval(ADJECTIVE_TO_WIND[adjective]) for k in range(7)}
-
 		else:
 			raise NotImplementedError(f"Adjective {adjective} is not supported in Franka kitchen environment.")
 
@@ -175,7 +174,6 @@ class FrankaKitchen(ComdeSkillEnv):
 			video=source_skills,
 			param=param
 		)
-
 		return language_guidance
 
 	@staticmethod

@@ -9,7 +9,7 @@ act_scale:
   - 1.10
   - 1.10
 
-
+language_space: ${language_space.language_space}
 eval_tasks_path: None
 params_dict_path: /home/jsw7460/mnt/comde_datasets/carla/param_dicts/param_dict
 num_skills_done_relabel: 10

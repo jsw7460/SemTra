@@ -5,16 +5,15 @@ from copy import deepcopy
 
 import gym
 import numpy as np
-
-from comde.utils.common.pretrained_forwards.jax_bert_base import bert_base_forward
-
+from comde.utils.common import pretrained_forwards
 
 class ComdeSkillEnv(gym.Wrapper):
 
 	def __init__(self, env: gym.Env, seed: int, task: List, n_target: int, cfg: Dict = None):
 
 		super(ComdeSkillEnv, self).__init__(env=env)
-
+		self.language_space = cfg.get("language_space", "bert")
+		self._language_encoder_forward = getattr(pretrained_forwards, self.language_space)
 		self.seed = seed
 		self.n_target = n_target
 		self.cfg = cfg
@@ -35,7 +34,7 @@ class ComdeSkillEnv(gym.Wrapper):
 		}
 		for seq_req, variations in sequential_requirements.items():
 			for variation in variations:
-				vec = bert_base_forward(variation)["language_embedding"]
+				vec = self._language_encoder_forward(variation)["language_embedding"]
 				_vec = vec[:, 0, ...]
 				del vec
 				_vec = _vec.reshape(-1, )
@@ -49,7 +48,7 @@ class ComdeSkillEnv(gym.Wrapper):
 		}
 		for seq_req, variations in non_functionalities.items():
 			for variation in variations:
-				vec = bert_base_forward(variation)["language_embedding"][:, 0, ...]
+				vec = self._language_encoder_forward(variation)["language_embedding"][:, 0, ...]
 				vec = vec.reshape(-1, )
 				mapping[seq_req][variation] = vec
 
@@ -154,13 +153,17 @@ class ComdeSkillEnv(gym.Wrapper):
 			for _str in sequential_requirement:
 				if _str.isdigit():
 					changed_idxs.append(eval(_str))
-			_from = changed_idxs[0]
-			_to = changed_idxs[1]
+			_from = changed_idxs[0]	# 4
+			_to = changed_idxs[1]	# 6
 			target_skills_idx = deepcopy(source_skills_idx)
-			for i, sk in enumerate(source_skills_idx):
+
+			if avoid_impossible:		# Skill is duplicated in a task
+				if (_to in target_skills_idx) or (_from not in source_skills_idx):
+					return None
+
+			for i, sk in enumerate(target_skills_idx):
 				if sk == _from:
-					if (_to in target_skills_idx) and avoid_impossible:
-						return None
+					target_skills_idx[i] = _to
 
 		return target_skills_idx
 

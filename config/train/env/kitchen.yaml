@@ -10,6 +10,7 @@ shuffle_dataset: True
 act_scale: 1.35
 
 eval_tasks_path: /home/jsw7460/mnt/comde_datasets/tasks_for_evals/metaworld/9tasks
+language_space: ${language_space.language_space}
 
 num_skills_done_relabel: 1
 skill_infos_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/kitchen/bert_base_skills_mapping

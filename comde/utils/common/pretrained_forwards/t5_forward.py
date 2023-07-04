@@ -2,10 +2,10 @@ from typing import List, Dict, Union, Optional
 
 import jax
 import numpy as np
-from transformers import FlaxBertModel, AutoTokenizer
+from transformers import AutoTokenizer
 from transformers.models.t5.modeling_flax_t5 import FlaxT5EncoderModel
 
-tokenizer = None  # type: Optional[AutoTokenizer,]
+tokenizer = AutoTokenizer.from_pretrained("t5-base") # type: Optional[AutoTokenizer,]
 model = None  # type: Optional[FlaxBertModel]
 
 
@@ -15,7 +15,7 @@ def _t5_encode(**kwargs):
 
 
 def t5_forward(languages: Union[str, List[str]]) -> Dict[str, Union[np.ndarray, Dict]]:
-	if tokenizer is None:
+	if model is None:
 		_init_pretrained_model()
 
 	encoded_input = tokenizer(languages, return_tensors='np', padding=True)
@@ -30,7 +30,5 @@ def t5_forward(languages: Union[str, List[str]]) -> Dict[str, Union[np.ndarray, 
 
 
 def _init_pretrained_model():
-	global tokenizer
 	global model
-	tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
 	model = FlaxT5EncoderModel.from_pretrained("t5-base")

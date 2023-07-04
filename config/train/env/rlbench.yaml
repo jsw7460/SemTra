@@ -7,6 +7,7 @@ shuffle_dataset: True
 act_scale: 1.35
 
 num_skills_done_relabel: 4
+language_space: ${language_space.language_space}
 
 observation_keys:
   - observations

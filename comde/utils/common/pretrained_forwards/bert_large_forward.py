@@ -4,21 +4,21 @@ import jax
 import numpy as np
 from transformers import FlaxBertModel, AutoTokenizer
 
-tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")  # type: Optional[AutoTokenizer,]
+tokenizer = AutoTokenizer.from_pretrained("bert-large-uncased")  # type: Optional[AutoTokenizer,]
 model = None  # type: Optional[FlaxBertModel]
 
 
 @jax.jit
-def _bert_encode(**kwargs):
+def _bert_large_encode(**kwargs):
 	return model(**kwargs)["last_hidden_state"]
 
 
-def bert_base_forward(languages: Union[str, List[str]]) -> Dict[str, Union[np.ndarray, Dict]]:
+def bert_large_forward(languages: Union[str, List[str]]) -> Dict[str, Union[np.ndarray, Dict]]:
 	if model is None:
 		_init_pretrained_model()
 
 	encoded_input = tokenizer(languages, return_tensors='np', padding=True)
-	language_embedding = _bert_encode(**encoded_input)
+	language_embedding = _bert_large_encode(**encoded_input)
 
 	output_dict = {
 		**encoded_input,
@@ -30,4 +30,4 @@ def bert_base_forward(languages: Union[str, List[str]]) -> Dict[str, Union[np.nd
 
 def _init_pretrained_model():
 	global model
-	model = FlaxBertModel.from_pretrained("bert-base-uncased")
+	model = FlaxBertModel.from_pretrained("bert-large-uncased")

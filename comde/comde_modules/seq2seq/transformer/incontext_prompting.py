@@ -12,8 +12,8 @@ from comde.comde_modules.seq2seq.algos.updates.promptlearning_transformer import
 from comde.comde_modules.seq2seq.base import BaseSeqToSeq
 from comde.comde_modules.seq2seq.transformer.architectures.incontext_transformer import PrimIncontextTransformer
 from comde.rl.buffers.type_aliases import ComDeBufferSample
+from comde.utils.common import pretrained_forwards
 from comde.utils.common.natural_languages.lang_representation import SkillRepresentation as LanguageRepresentation
-from comde.utils.common.pretrained_forwards.jax_bert_base import bert_base_forward
 from comde.utils.jax_utils.general import get_basic_rngs
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
@@ -23,7 +23,22 @@ class IncontextTransformer(BaseSeqToSeq):
 	PARAM_COMPONENTS = ["_IncontextTransformer__model"]
 
 	def __init__(self, seed: int, cfg: Dict, init_build_model: bool = True):
-		self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+		# self.tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+		self.language_space = cfg.get("language_space", "bert")
+		self.tokenizer = getattr(pretrained_forwards, self.language_space + "_tokenizer")
+
+		if "bert" in self.language_space:
+			self.bos_token_id = self.tokenizer.cls_token_id
+			self.eos_token_id = self.tokenizer.sep_token_id
+		elif "t5" in self.language_space:
+			self.bos_token_id = self.tokenizer.unk_token_id
+			self.eos_token_id = self.tokenizer.eos_token_id
+
+		elif "clip" in self.language_space:
+			self.bos_token_id = self.tokenizer.bos_token_id
+			self.eos_token_id = self.tokenizer.eos_token_id
+
+		self._language_encoder_forward = getattr(pretrained_forwards, self.language_space)
 
 		super(IncontextTransformer, self).__init__(
 			seed=seed,
@@ -55,24 +70,22 @@ class IncontextTransformer(BaseSeqToSeq):
 
 		bos_indicator = "extract the non-functionality and parameter"
 		eos_indicator = "end"
-
-		bos_token = bert_base_forward([bos_indicator])
+		bos_token = self._language_encoder_forward([bos_indicator])
 		bos_token_vec = np.squeeze(bos_token["language_embedding"], axis=0)[0]  # Use [CLS] embedding
-
-		eos_token = bert_base_forward([eos_indicator])
+		eos_token = self._language_encoder_forward([eos_indicator])
 		eos_token_vec = np.squeeze(eos_token["language_embedding"], axis=0)[0]  # Use [CLS] embedding
 
 		self.bos_token = LanguageRepresentation(
 			title="begin",
 			variation=bos_indicator,
 			vec=bos_token_vec,
-			index=self.tokenizer.cls_token_id
+			index=self.bos_token_id
 		)
 		self.eos_token = LanguageRepresentation(
 			title="end",
 			variation=eos_indicator,
 			vec=eos_token_vec,
-			index=self.tokenizer.sep_token_id
+			index=self.eos_token_id
 		)
 
 	def build_model(self):
@@ -104,7 +117,6 @@ class IncontextTransformer(BaseSeqToSeq):
 		target_inputs: List[str],
 		target_outputs: List[str]
 	) -> Dict:
-
 		# Shuffle the data
 
 		for ex in examples:
@@ -141,7 +153,7 @@ class IncontextTransformer(BaseSeqToSeq):
 		decoder_idxs = label["input_ids"]
 		decoder_masks = label["attention_mask"]
 
-		qkv_info = bert_base_forward(model_inputs)
+		qkv_info = self._language_encoder_forward(model_inputs)
 		q = qkv_info["language_embedding"]
 		kv = qkv_info["language_embedding"]
 		q_mask = qkv_info["attention_mask"]
@@ -194,9 +206,7 @@ class IncontextTransformer(BaseSeqToSeq):
 		if shuffle:
 			random.shuffle(model_inputs)
 
-		# pred_thresh = min(len(target_inputs), 2)
-		# model_inputs = model_inputs[: pred_thresh]
-		qkv_info = bert_base_forward(model_inputs)
+		qkv_info = self._language_encoder_forward(model_inputs)
 
 		q = qkv_info["language_embedding"]
 		kv = qkv_info["language_embedding"]
@@ -204,7 +214,7 @@ class IncontextTransformer(BaseSeqToSeq):
 		kv_mask = qkv_info["attention_mask"]
 
 		batch_size = q.shape[0]
-		x = self.tokenizer.cls_token_id
+		x = self.bos_token_id
 		x = np.broadcast_to(x, (batch_size, 1))  # [b, 1]
 
 		predictions = []
@@ -227,6 +237,10 @@ class IncontextTransformer(BaseSeqToSeq):
 		predictions = np.concatenate(predictions, axis=-1)
 		predictions = [pred.tolist() for pred in predictions]
 		lang_gen = self.tokenizer.batch_decode(predictions, skip_special_tokens=skip_special_tokens)  # type: List[str]
+
+		# for i in range(2):
+		# 	print("Input", target_inputs[i])
+		# 	print("Pred", lang_gen[i])
 
 		if parse:
 			return IncontextTransformer.batch_parse(lang_gen)

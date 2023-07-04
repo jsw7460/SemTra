@@ -1,9 +1,11 @@
-import math
 import random
-from copy import deepcopy
-from typing import Dict, Union
 
 random.seed(7)
+import math
+
+from copy import deepcopy
+from typing import Dict, Union
+from termcolor import colored
 
 from comde.utils.common.load_data_paths import load_data_paths
 
@@ -25,7 +27,7 @@ def program(cfg: DictConfig) -> None:
 	hdf_files = load_data_paths(cfg, env)
 	dataset_window_size = cfg["dataset_window_size"]
 
-	# print(colored(f"Some trajectories containing evaluation tasks will be removed", "red"))
+	print(colored(f"Some trajectories containing evaluation tasks will be removed", "red"))
 	cfg["n_trained_trajectory"] = len(hdf_files)
 	# dataset_window_size = len(hdf_files) // dataset_window_size
 
