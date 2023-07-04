@@ -244,7 +244,7 @@ class SkillHistoryEnv(HistoryEnv):
 
 	def step(self, action: np.ndarray, skill: np.ndarray = None) -> Tuple[Dict[str, np.ndarray], float, bool, Dict]:
 		self.skill_stack.append(skill)
-		action = self.get_buffer_action(action)
+		action = self.get_buffer_action(action.copy())
 		if self.n_masking > 0:
 			self.n_masking -= 1
 		return super(SkillHistoryEnv, self).step(action=action)

@@ -298,7 +298,6 @@ class FlaxGPT2Block(nn.Module):
 		self.ln_1 = nn.LayerNorm(epsilon=self.config.layer_norm_epsilon, dtype=self.dtype)
 		self.attn = FlaxGPT2Attention(self.config, dtype=self.dtype)
 		self.ln_2 = nn.LayerNorm(epsilon=self.config.layer_norm_epsilon, dtype=self.dtype)
-
 		if self.config.add_cross_attention:
 			self.crossattention = FlaxGPT2Attention(
 				config=self.config, dtype=self.dtype, causal=False, is_cross_attention=True
@@ -586,7 +585,6 @@ class FlaxGPT2ModuleWoTimePosEmb(nn.Module):
 		output_hidden_states: bool = False,
 		return_dict: bool = True,
 	):
-
 		hidden_states = self.dropout(hidden_states, deterministic=deterministic)
 
 		outputs = self.h(

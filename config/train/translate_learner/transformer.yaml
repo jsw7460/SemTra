@@ -11,6 +11,7 @@ cfg:
   encoder_max_len: 200
   decoder_max_len: 7
   n_example: 1
+  language_space: ${language_space.language_space}
 
   transformer_cfg:
     input_dropout_prob: 0.1

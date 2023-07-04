@@ -2,14 +2,11 @@ from abc import ABC, abstractmethod
 from typing import Dict, Optional, Union, Tuple
 
 import numpy as np
-from gym import spaces
 from stable_baselines3.common.vec_env import VecNormalize
 
 from comde.rl.buffers.type_aliases import ReplayBufferSamples, ComDeBufferSample
-from comde.rl.utils.get_shape import get_obs_shape, get_action_dim
-
-from comde.utils.common.timeit import timeit
 from comde.rl.envs.base import ComdeSkillEnv
+from comde.rl.utils.get_shape import get_obs_shape, get_action_dim
 
 try:
 	# Check memory used by replay buffer when possible

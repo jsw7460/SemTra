@@ -18,9 +18,9 @@ def program(cfg: DictConfig) -> None:
 		f"Your mode is {cfg['mode']['mode']}. " \
 		"Please add 'mode=translate_learning' to your command line if you want to train semantic skill translator"
 
-	metaworld = get_dummy_env("metaworld", register_language_embedding=False)
-	kitchen = get_dummy_env("kitchen", register_language_embedding=False)
-	rlbench = get_dummy_env("rlbench", register_language_embedding=False)
+	metaworld = get_dummy_env("metaworld", register_language_embedding=False, cfg=cfg["env"])
+	kitchen = get_dummy_env("kitchen", register_language_embedding=False, cfg=cfg["env"])
+	rlbench = get_dummy_env("rlbench", register_language_embedding=False, cfg=cfg["env"])
 
 	envs = {
 		"metaworld": metaworld,

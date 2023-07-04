@@ -16,7 +16,7 @@ template_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mapping
 n_target: 3
 
 timelimit: 1000
-termination_pred_interval: 20
+termination_pred_interval: 25
 language_operators:
   sequential:
     - do these sequentially

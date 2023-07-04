@@ -38,7 +38,7 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 
 		info.update({"sequential_requirement": "not_used"})
 
-	elif mode in ["demogen", "promptdt", "bcz", "vima"]:
+	elif mode in ["demogen", "promptdt", "bcz", "vima", "flaxvima"]:
 
 		envs = kwargs["envs"]
 		seq_req_mapping = envs[0].sequential_requirements_vector_mapping[cfg.sequential_requirement]
@@ -86,8 +86,7 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 				"param_for_skill": param_for_skill
 			})
 
-		elif mode == "vima":
-
+		elif mode in ["vima", "flaxvima"]:
 			language_guidances = []
 			for t, env in enumerate(envs):
 				lg = env.get_language_guidance_from_template(
@@ -98,26 +97,38 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 					video_parsing=True
 				)
 				language_guidances.append(lg)
-
 			source_skills_vecs = kwargs["source_skills_vec"]
 			source_skills_vecs = np.array(source_skills_vecs)
 			n_source_skills = np.array([source_skills_vecs.shape[1] for _ in range(n_envs)])
 			model = pretrained_models["baseline"]
-			prefix, prompts, prefix_maskings, prompts_maskings = model.get_prompts_from_components(
-				language_guidances=language_guidances,
-				source_skills=source_skills_vecs,
-				n_source_skills=n_source_skills,
-				source_skills_idxs=source_skills_idxs
-			)
-			model.predict = partial(
-				model.predict,
-				prompt_assets=prompts,
-				prompt_assets_mask=prompts_maskings
-			)
+			if mode == "vima":
+				prompts, prompts_assets, prompts_maskings, prompts_assets_maskings = model.get_prompts_from_components(
+					language_guidances=language_guidances,
+					source_skills=source_skills_vecs,
+					n_source_skills=n_source_skills,
+					source_skills_idxs=source_skills_idxs
+				)
+				model.predict = partial(
+					model.predict,
+					prompt_assets=prompts_assets,
+					prompt_assets_mask=prompts_assets_maskings
+				)
+
+			elif mode == "flaxvima":
+				prompts, prompts_maskings = model.get_prompts_from_components(
+					language_guidances=language_guidances,
+					source_skills=source_skills_vecs,
+					n_source_skills=n_source_skills,
+					source_skills_idxs=source_skills_idxs
+				)
+			else:
+				raise NotImplementedError()
+
 			arguments.update({
 				**kwargs["pretrained_models"],
-				"prompts": prefix,
-				"prompts_maskings": prefix_maskings
+				"prompts": prompts,
+				"prompts_maskings": prompts_maskings,
+				"param_for_skills": param_for_skill,
 			})
 
 		else:
@@ -215,6 +226,9 @@ def get_evaluation_function(kwargs: Dict, custom_seed: int):
 		elif str(model) == "VIMA":
 			fn = evaluate_promptdt
 			mode = "vima"
+		elif str(model) == "FlaxVIMA":
+			fn = evaluate_promptdt
+			mode = "flaxvima"
 		else:
 			raise NotImplementedError(f"Not implemented baseline: {str(model)}")
 

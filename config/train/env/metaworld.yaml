@@ -8,6 +8,8 @@ act_scale: 1.35
 
 num_skills_done_relabel: 4
 
+language_space: ${language_space.language_space}
+
 eval_tasks_path: /home/jsw7460/mnt/comde_datasets/tasks_for_evals/metaworld/8tasks_0
 
 episodic_instruction_path: /home/jsw7460/mnt/comde_datasets/metaworld/episodic_instructions/episodic_instruction_bert_base

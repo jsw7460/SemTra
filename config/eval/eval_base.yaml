@@ -24,5 +24,5 @@ save_suffix: eval
 termination_pred_interval: ${env.termination_pred_interval}
 
 # Define pretrained models (Skill composition and prompting)
-composition: /home/jsw7460/comde_save/train/2023-06-29/seq2seq/big_semantic_skill_translation_20000.zip
-prompt: /home/jsw7460/comde_save/train/2023-06-28/prompt_learner/incontext_prompting_57300.zip
+composition: /home/jsw7460/comde_save/train/2023-07-03/seq2seq/bert_translation_50000.zip
+prompt: /home/jsw7460/comde_save/train/2023-07-02/prompt_learner/bert_incontext_60000.zip

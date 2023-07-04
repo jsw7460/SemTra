@@ -100,3 +100,30 @@ def vima_forward(
 		deterministic=True
 	)
 	return rng, prediction
+
+
+@jax.jit
+def flaxvima_forward(
+	rng: jnp.ndarray,
+	model: Model,
+	observations: jnp.ndarray,  # d_o
+	actions: jnp.ndarray,  # d_a
+	maskings: jnp.ndarray,
+	timesteps: jnp.ndarray,
+	param_for_skills: jnp.ndarray,
+	prompts: jnp.ndarray,
+	prompts_maskings: jnp.ndarray,
+):
+	rng, _ = jax.random.split(rng)
+	prediction = model.apply_fn(
+		{"params": model.params},
+		observations=observations,
+		actions=actions,
+		maskings=maskings,
+		timesteps=timesteps,
+		param_for_skills=param_for_skills,
+		prompts=prompts,
+		prompts_maskings=prompts_maskings,
+		deterministic=True
+	)
+	return rng, prediction

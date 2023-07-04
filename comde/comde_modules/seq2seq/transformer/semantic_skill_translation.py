@@ -14,11 +14,11 @@ from comde.comde_modules.seq2seq.base import BaseSeqToSeq
 from comde.comde_modules.seq2seq.transformer.architectures.semantic_skill_translator import PrimSemanticSkillTranslator
 from comde.rl.buffers.type_aliases import ComDeBufferSample
 from comde.utils.common.natural_languages.lang_representation import SkillRepresentation as LanguageRepresentation
-from comde.utils.common.pretrained_forwards.jax_bert_base import bert_base_forward
 from comde.utils.common.visualization import dump_attention_weights_images
 from comde.utils.jax_utils.general import get_basic_rngs
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
+from comde.utils.common import pretrained_forwards
 
 
 class SemanticSkillTranslator(BaseSeqToSeq):
@@ -30,6 +30,8 @@ class SemanticSkillTranslator(BaseSeqToSeq):
 		custom_tokens: Dict[str, LanguageRepresentation],
 		init_build_model: bool = True
 	) -> None:
+		self.language_space = cfg.get("language_space", "bert")
+		self._language_encoder_forward = getattr(pretrained_forwards, self.language_space)
 
 		self.custom_tokens = custom_tokens
 		self.offset_info = None
@@ -53,10 +55,10 @@ class SemanticSkillTranslator(BaseSeqToSeq):
 		bos_indicator = "start semantic skills composition."
 		eos_indicator = "end your composition of semantic skills."
 
-		bos_token = bert_base_forward([bos_indicator])
+		bos_token = self._language_encoder_forward([bos_indicator])
 		bos_token_vec = np.squeeze(bos_token["language_embedding"], axis=0)[0]  # Use [CLS] embedding
 
-		eos_token = bert_base_forward([eos_indicator])
+		eos_token = self._language_encoder_forward([eos_indicator])
 		eos_token_vec = np.squeeze(eos_token["language_embedding"], axis=0)[0]  # Use [CLS] embedding
 
 		max_skill_index = max([token[0].index for token in self.tokens.values()])
@@ -112,7 +114,7 @@ class SemanticSkillTranslator(BaseSeqToSeq):
 		)
 
 	def update(self, replay_data: ComDeBufferSample, **kwargs) -> Dict:
-		qkv_info = bert_base_forward(replay_data.language_guidance)
+		qkv_info = self._language_encoder_forward(replay_data.language_guidance)
 
 		q = qkv_info["language_embedding"]
 		kv = qkv_info["language_embedding"]
@@ -146,28 +148,20 @@ class SemanticSkillTranslator(BaseSeqToSeq):
 
 	def check(self):
 		language_guidance = [
-			"drawer, then button, then door is performed with reverse and speed normal during door.",
-			"speed normal is applied while performing door, then button, then puck with reverse during puck.",
-			"Do puck, then drawer, then door, reverse, during door, the speed normal is applied.",
-			"When undertaking drawer, then button, then puck, ensure reverse and adapt the speed normal for puck.",
-			"Do door, then puck, then button, reverse, during button, the speed normal is applied.",
-			"reverse is maintained during puck in button, then door, then puck with speed normal applied.",
-			"reverse is maintained during puck in button, then drawer, then puck with speed normal applied.",
-			"puck, then door, then button is performed with reverse and speed normal during button."
+			"Carry out microwave, and then hinge cabinet, and then light switch, and then top burner, with replace hinge cabinet with bottom burner as the wind gust flows.",
+			"While performing microwave, and then hinge cabinet, and then top burner, and then light switch and following replace hinge cabinet with bottom burner, the wind gust.",
+			"Carry out kettle, and then hinge cabinet, and then light switch, and then slide cabinet, with replace hinge cabinet with bottom burner as the wind gust flows.",
+			"The wind gust blows during kettle, and then hinge cabinet, and then slide cabinet, and then top burner, while adhering to replace hinge cabinet with bottom burner.",
 		]
 		optimal = [
-			[6, 4, 3],
-			[1, 4, 6],
-			[6, 3, 1],
-			[1, 4, 3],
-			[4, 1, 6],
-			[1, 6, 4],
-			[1, 3, 4],
-			[4, 6, 1]
+			[5, 0, 2, 1],
+			[5, 0, 1, 2],
+			[6, 0, 2, 3],
+			[6, 0, 3, 1]
 		]
 
 		prediction = self.predict(language_guidance=language_guidance)
-		pred_skills = prediction["__pred_skills"]
+		pred_skills = prediction["__pred_skills"] - self.offset_info["kitchen"]
 		for opt, pred in zip(optimal, pred_skills):
 			print(opt, pred)
 
@@ -252,7 +246,7 @@ class SemanticSkillTranslator(BaseSeqToSeq):
 		tokens_vec = np.array([vocab.vec for vocab in self.vocabulary])
 		done = False
 
-		qkv_info = bert_base_forward(language_guidance)
+		qkv_info = self._language_encoder_forward(language_guidance)
 
 		q = qkv_info["language_embedding"]
 		kv = qkv_info["language_embedding"]
@@ -343,7 +337,7 @@ class SemanticSkillTranslator(BaseSeqToSeq):
 		target: np.ndarray,
 		return_qkv_info: bool = False
 	):
-		qkv_info = bert_base_forward(language_guidance)
+		qkv_info = self._language_encoder_forward(language_guidance)
 
 		q = qkv_info["language_embedding"]
 		kv = qkv_info["language_embedding"]

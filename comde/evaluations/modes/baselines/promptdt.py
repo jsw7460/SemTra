@@ -55,7 +55,6 @@ def evaluate_promptdt(
 		rtgs = np.repeat(rtgs, repeats=subseq_len, axis=1)
 
 	while not all(done):
-
 		history_observations = obs["observations"]  # [8, 4, 140]
 		history_actions = obs["actions"]  # [8, 4, 4]
 		history_maskings = obs["maskings"]

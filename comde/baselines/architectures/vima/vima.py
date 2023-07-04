@@ -1,6 +1,5 @@
 import flax.linen as nn
 import jax.numpy as jnp
-from transformers.models.t5.modeling_flax_t5 import FlaxT5EncoderModel
 from transformers import FlaxBertModel
 
 import comde.baselines.architectures.vima.nn as vnn

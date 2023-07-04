@@ -13,6 +13,7 @@ defaults:
   - baseline: flatbc
   - prompt_learner: transformer
   - translate_learner: transformer
+  - language_space: bert
 
 save_prefix: /home/jsw7460/comde_save/train/
 save_suffix: foo
@@ -33,7 +34,7 @@ skill_dim: ${language_dim}
 update_seq2seq: False
 
 # language_dim: CLIP: 512 / Bert-base: 768 / Bert-large: 1024
-language_dim: 768
+language_dim: ${language_space.language_dim}
 subseq_len: 5
 batch_size: 256
 max_iter: 500
@@ -48,3 +49,4 @@ datadir_limit: ${mode.datadir_limit}
 excluded_dirs:
   - videofeature_mapping
   - firstimage_mapping
+  - firstimage_mapping_vit

@@ -1,9 +1,7 @@
 import random
+from collections import deque
 from typing import Dict, List, Union
 
-from collections import deque
-
-import h5py
 import numpy as np
 
 from comde.comde_modules.seq2seq.base import BaseSeqToSeq
@@ -121,32 +119,30 @@ class ComposeTrainer(BaseTrainer):
 
 		return info
 
-
-		# # Make minibatch dataset
-		# n_chunk = max(len(language_guidances) // self.batch_size, 1)
-		# _target_skills = np.array_split(target_skills, n_chunk, axis=0)
-		# _target_skills_idxs = np.array_split(target_skills_idxs, n_chunk, axis=0)
-		# _n_source_skills = np.array_split(n_source_skills, n_chunk, axis=0)
-		# _n_target_skills = np.array_split(n_target_skills, n_chunk, axis=0)
-		#
-		# buffer_samples = []
-		# pos = 0
-		# for ts, tsi, nss, nts in zip(_target_skills, _target_skills_idxs, _n_source_skills, _n_target_skills):
-		# 	language_guidance = language_guidances[pos: pos + len(ts)]
-		# 	pos += len(ts)
-		# 	buffer_sample = ComDeBufferSample(
-		# 		language_guidance=language_guidance,
-		# 		target_skills=ts,
-		# 		target_skills_idxs=tsi,
-		# 		n_source_skills=nss,
-		# 		n_target_skills=nts
-		# 	)
-		# 	buffer_samples.append(buffer_sample)
-		#
-		# info = {"buffer_samples": buffer_samples, "envs": envs}
-		#
-		# return info
-
+	# # Make minibatch dataset
+	# n_chunk = max(len(language_guidances) // self.batch_size, 1)
+	# _target_skills = np.array_split(target_skills, n_chunk, axis=0)
+	# _target_skills_idxs = np.array_split(target_skills_idxs, n_chunk, axis=0)
+	# _n_source_skills = np.array_split(n_source_skills, n_chunk, axis=0)
+	# _n_target_skills = np.array_split(n_target_skills, n_chunk, axis=0)
+	#
+	# buffer_samples = []
+	# pos = 0
+	# for ts, tsi, nss, nts in zip(_target_skills, _target_skills_idxs, _n_source_skills, _n_target_skills):
+	# 	language_guidance = language_guidances[pos: pos + len(ts)]
+	# 	pos += len(ts)
+	# 	buffer_sample = ComDeBufferSample(
+	# 		language_guidance=language_guidance,
+	# 		target_skills=ts,
+	# 		target_skills_idxs=tsi,
+	# 		n_source_skills=nss,
+	# 		n_target_skills=nts
+	# 	)
+	# 	buffer_samples.append(buffer_sample)
+	#
+	# info = {"buffer_samples": buffer_samples, "envs": envs}
+	#
+	# return info
 
 	def run(self):
 		for _ in range(self.step_per_dataset):
@@ -191,7 +187,6 @@ class ComposeTrainer(BaseTrainer):
 
 		self.record_from_dicts({**eval_info, **eval_dict}, mode="eval")
 		self.dump_logs(step=self.n_update)
-
 
 	def dump_logs(self, step: int):
 		self.record(self.info_records)

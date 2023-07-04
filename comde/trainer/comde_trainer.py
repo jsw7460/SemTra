@@ -21,7 +21,6 @@ class ComdeTrainer(BaseTrainer):
 		low_policy: BaseLowPolicy,  # "skill decoder" == "low policy"
 		termination: BaseTermination,
 		seq2seq: Optional[BaseSeqToSeq] = None,
-		# skill_infos: Dict[str, List[SkillRepresentation]]
 	):
 		"""
 		This trainer consist of three modules
