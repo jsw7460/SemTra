@@ -23,6 +23,7 @@ from comde.utils.interfaces.i_savable.i_savable import IJaxSavable
 
 @hydra.main(version_base=None, config_path="config/eval", config_name="eval_base.yaml")
 def program(cfg: DictConfig) -> None:
+
 	random.seed(cfg.seed)
 	np.random.seed(cfg.seed)
 
@@ -37,6 +38,9 @@ def program(cfg: DictConfig) -> None:
 		module_cls = get_class(pretrained_cfg[module]["_target_"])  # type: Union[type, Type[IJaxSavable]]
 		module_instance = module_cls.load(f"{pretrained_cfg['save_paths'][module]}_{cfg.step}")
 		pretrained_models[module] = module_instance
+
+	if "baseline" in pretrained_models:
+		cfg.use_optimal_target_skill = True
 
 	# Target tasks
 	with open(cfg.env.eval_tasks_path, "rb") as f:
@@ -79,6 +83,7 @@ def program(cfg: DictConfig) -> None:
 	envs = []
 	source_skills_vec = []
 	source_skills_idx = []
+	assert len(envs_candidate) == len(source_skills_vec_candidate) == len(source_skills_idx_candidate)
 	for env, vec, idx in zip(envs_candidate, source_skills_vec_candidate, source_skills_idx_candidate):
 		if vec is not None:
 			env.set_str_parameter(cfg.parameter)
@@ -121,7 +126,6 @@ def program(cfg: DictConfig) -> None:
 			cfg.composition,
 			custom_tokens=envs[0].get_skill_infos(),
 		)
-
 		prompt = IncontextTransformer.load(cfg.prompt)
 
 		language_guidances = []
@@ -157,7 +161,14 @@ def program(cfg: DictConfig) -> None:
 		optimal_target_skills = optimal_template["optimal_target_skill_idxs"]
 		target_skills_idxs = target_skills_idxs[:, :optimal_target_skills.shape[-1]]
 		skill_pred_accuracy = np.mean(optimal_target_skills == target_skills_idxs)
+
 		str_skill_pred_accuracy = f"{skill_pred_accuracy * 100} %"
+		for lg in language_guidances:
+			print(lg)
+
+		print("Optimal", optimal_target_skills)
+		print("Prediction", target_skills_idxs)
+		print("Accuracy :", str_skill_pred_accuracy)
 
 		target_skills = []
 		for target_skill_idx, env in zip(target_skills_idxs, envs):
