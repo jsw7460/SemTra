@@ -1,0 +1,16 @@
+mode: comde
+trainer: comde.trainer.comde_trainer.ComdeTrainer
+modules:
+  - low_policy
+#  - seq2seq
+  - termination
+
+pretrained_modules:
+  - module: prompt_learner
+    path: /home/jsw7460/comde_save/train/2023-06-10/prompt_learner/pr_test_300
+
+intent_dim: 1024
+save_source_trajectory: False
+save_interval: 5000
+datadir_limit: 10
+step_per_dataset: 5000

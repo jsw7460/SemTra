@@ -14,10 +14,12 @@ class Loggable:
 		self.wandb_logger = wandb.init(
 			project=cfg["wandb"]["project"],
 			entity=cfg["wandb"]["entity"],
-			config=cfg
+			config=cfg,
+			name=cfg["wandb"]["name"]
 		)
 
 		self.terminal_logger = configure(None, format_strings=["stdout"])
+		self.wandb_url = wandb.run.get_url()
 
 	def dump_logs(self, step: int):
 		self.terminal_logger.record("info/step", step)
@@ -29,7 +31,8 @@ class Loggable:
 			step=step
 		)
 		self.terminal_logger.dump(step=step)
-		print(f" • Wandb url: {wandb.run.get_url()}")
+		# Too long...
+		print(f" • Wandb url: {self.wandb_url}")
 
 	def record(self, log_dict: Dict):
 		for key, value in log_dict.items():

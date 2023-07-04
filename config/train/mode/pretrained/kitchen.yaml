@@ -1,0 +1,5 @@
+date: 2023-05-01  # yyyy-mm-dd. Date for trained model
+suffix: comde_kitchen_mlp
+
+step: 570000
+pretrained_path: ${save_prefix}/${mode.pretrained.date}/cfg/cfg_${mode.pretrained.suffix}

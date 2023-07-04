@@ -1,0 +1,31 @@
+_target_: comde.baselines.FlatBC
+seed: ${seed}
+cfg:
+  obs_mean: 0.0
+  obs_std: 1.0
+
+  language_dim: ${language_dim}
+  observation_dim: ${observation_dim}
+  action_dim: ${action_dim}
+  skill_dim: ${skill_dim}
+  non_functionality_dim: ${non_functionality_dim}
+  param_dim: ${env.param_dim}
+  param_repeats: ${env.param_repeats}
+  act_scale: ${act_scale}
+
+  n_source_video: 1
+  n_target_skill: 3
+  lr: 1e-4
+
+  policy_cfg:
+    output_dim: ${action_dim}
+    net_arch:
+      - 256
+      - 256
+      - 256
+      - 256
+      - 256
+    activation_fn: relu
+    dropout: 0.0
+    squash_output: True
+    layer_norm: False

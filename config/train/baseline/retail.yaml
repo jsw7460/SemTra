@@ -1,0 +1,46 @@
+# retail
+_target_: comde.baselines.Retail
+seed: ${seed}
+cfg:
+  obs_mean: 0.0
+  obs_std: 1.0
+
+  policy_warmup_step: 1_000_000
+  language_dim: ${language_dim}
+  n_target_skill: 3
+  observation_dim: ${observation_dim}
+  action_dim: ${action_dim}
+  skill_dim: ${skill_dim}
+  non_functionality_dim: ${non_functionality_dim}
+  param_dim: ${env.param_dim}
+  param_repeats: ${env.param_repeats}
+
+  entity_dim: ${observation_dim}
+  goal_dim: ${observation_dim}
+  obs_subseq_len: ${subseq_len}
+  act_subseq_len: 1
+
+  policy_cfg:
+    act_scale: ${act_scale}
+    output_dim: ${action_dim}
+    squash_output: True
+    net_arch:
+      - 128
+      - 128
+      - 128
+      - 128
+  policy_lr: 1e-4
+
+  transfer_cfg:
+    gpt2_config:
+      vocab_size: 1 # Does not matter
+      n_positions: 1024
+      n_layer: 3
+      n_head: 4
+      resid_pdrop: 0.1
+      embd_pdrop: 0.1
+      attn_pdrop: 0.1
+    action_dim: ${action_dim}
+    hidden_size: 64
+    act_scale: ${act_scale}
+  transfer_lr: 1e-3

@@ -1,4 +1,5 @@
 from typing import Dict, List
+from comde.utils.common.timeit import timeit
 
 import jax
 import jax.numpy as jnp
@@ -21,10 +22,11 @@ class MLPTermination(BaseTermination):
 	def __init__(self, seed: int, cfg: Dict, init_build_model: bool = True):
 		super(MLPTermination, self).__init__(seed=seed, cfg=cfg, init_build_model=init_build_model)
 		self.__model = None
-		self.skill_dim = cfg["skill_dim"]
 
 		if init_build_model:
 			self.build_model()
+
+		# self.skill_dim = cfg["skill_dim"]
 
 	@property
 	def model(self):
@@ -85,6 +87,7 @@ class MLPTermination(BaseTermination):
 		:return:
 		"""
 		self.rng, prediction = termination_forward(self.rng, self.model, observations, first_observations, skills)
+		# print(prediction)
 		if binary:
 			return np.argmax(prediction, axis=-1)
 		else:

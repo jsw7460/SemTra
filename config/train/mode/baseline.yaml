@@ -1,0 +1,10 @@
+mode: baseline
+trainer: comde.trainer.baseline_trainer.BaselineTrainer
+modules:
+  - baseline
+#  - intent_emb
+intent_dim: 1024
+save_source_trajectory: False
+save_interval: 50000
+datadir_limit: 999
+step_per_dataset: 5000

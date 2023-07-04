@@ -29,7 +29,6 @@ class SkillDecisionTransformer(BaseLowPolicy):
 			init_build_model=init_build_model
 		)
 		self.__model = None
-		self.skill_dim = cfg["skill_dim"]
 		self.max_ep_len = cfg["max_ep_len"]
 
 		if init_build_model:
@@ -65,22 +64,23 @@ class SkillDecisionTransformer(BaseLowPolicy):
 			hidden_size=self.cfg["hidden_size"],
 			act_scale=self.cfg["act_scale"],
 			max_ep_len=self.max_ep_len,
+			normalization_mean=self.normalization_mean,
+			normalization_std=self.normalization_std,
+			use_timestep=self.cfg["use_timestep"]
 		)
 		self.rng, rngs = get_basic_rngs(self.rng)
 		self.rng, transformer_dropout = jax.random.split(self.rng)
 		rngs.update({"transformer_dropout": transformer_dropout})
 		subseq_len = self.cfg["subseq_len"]
-		init_observations = np.zeros((1, subseq_len, self.observation_dim))
-		init_actions = np.zeros((1, subseq_len, self.action_dim))
-		init_skills = np.zeros((1, subseq_len, self.skill_dim))
+		init_observations = np.random.normal(size=(1, subseq_len, self.observation_dim))
+		init_actions = np.random.normal(size=(1, subseq_len, self.action_dim))
+		init_skills = np.random.normal(size=(1, subseq_len, self.skill_dim + self.nonfunc_dim + self.total_param_dim))
 		init_timesteps = np.zeros((1, self.cfg["subseq_len"]), dtype="i4")
-		init_masks = np.zeros((1, self.cfg["subseq_len"]))
-
+		init_masks = np.ones((1, self.cfg["subseq_len"]))
 		tx = optax.chain(
 			optax.clip(1.0),
 			optax.adamw(learning_rate=self.cfg["lr"])
 		)
-
 		self.model = Model.create(
 			model_def=transformer,
 			inputs=[
@@ -95,12 +95,19 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		)
 
 	def update(self, replay_data: ComDeBufferSample) -> Dict:
+
+		if self.cfg["use_optimal_lang"]:
+			raise NotImplementedError("Obsolete")
+
+		skills_dict = self.get_parameterized_skills(replay_data)
+		skills = skills_dict["parameterized_skills"]
+
 		new_model, info = skill_dt_updt(
 			rng=self.rng,
 			dt=self.model,
 			observations=replay_data.observations,
 			actions=replay_data.actions,
-			skills=replay_data.skills,
+			skills=skills,
 			timesteps=replay_data.timesteps.astype("i4"),
 			maskings=replay_data.maskings,
 			action_targets=np.copy(replay_data.actions),
@@ -118,6 +125,7 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		skills: np.ndarray,
 		timesteps: np.ndarray,
 	) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+
 		self.check_shape(observations, actions, skills, timesteps)
 		batch_size = observations.shape[0]
 		subseq_len = self.cfg["subseq_len"]
@@ -162,12 +170,7 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		# Longer than subseq_len -> Truncate
 		# Shorter than subseq_len -> Set zero paddings and get maskings.
 		if cur_subseq_len < subseq_len:
-			observations, actions, skills, timesteps, maskings = self.get_padded_components(
-				observations=observations,
-				actions=actions,
-				skills=skills,
-				timesteps=timesteps
-			)
+			raise NotImplementedError("Are you sure this if loop required?")
 
 		subseq_len = self.cfg["subseq_len"]
 		observations = observations[:, :subseq_len, :]
@@ -177,7 +180,8 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		if maskings is None:
 			maskings = np.ones((1, subseq_len))
 
-		self.rng, prediction = fwd(
+		# print("Observation Prediction Mean", np.mean(observations, axis=(0, 1)))
+		self.rng, action_preds = fwd(
 			rng=self.rng,
 			model=self.model,
 			observations=observations,
@@ -186,7 +190,6 @@ class SkillDecisionTransformer(BaseLowPolicy):
 			timesteps=timesteps.astype("i4"),
 			maskings=maskings,
 		)
-		obs_preds, action_preds, return_preds = prediction
 
 		if to_np:
 			return np.array(action_preds)
@@ -197,9 +200,14 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		self,
 		replay_data: ComDeBufferSample
 	) -> Dict:
+		if self.cfg["use_optimal_lang"]:
+			raise NotImplementedError("Obsolete")
+		# replay_data = replay_data._replace(intents=None)
+
 		observations = replay_data.observations
 		actions = replay_data.actions
-		skills = replay_data.skills
+		skills_dict = self.get_parameterized_skills(replay_data)
+		skills = skills_dict["parameterized_skills"]
 		timesteps = replay_data.timesteps
 		maskings = replay_data.maskings
 
@@ -213,7 +221,7 @@ class SkillDecisionTransformer(BaseLowPolicy):
 		action_preds = action_preds.reshape(-1, self.action_dim) * maskings.reshape(-1, 1)
 		action_targets = actions.reshape(-1, self.action_dim) * maskings.reshape(-1, 1)
 
-		mse_error = np.sum((action_preds - action_targets) ** 2) / np.sum(maskings)
+		mse_error = np.sum(np.mean((action_preds - action_targets) ** 2, axis=-1)) / np.sum(maskings)
 
 		eval_info = {
 			"skill_decoder/mse_error": mse_error,

@@ -1,0 +1,75 @@
+name: easy_carla
+observation_dim: 1104
+action_dim: 3
+param_dim: 22
+param_repeats: 3
+shuffle_dataset: True
+act_scale:
+  - 1.35
+  - 1.10
+  - 1.10
+
+
+eval_tasks_path: None
+params_dict_path: /home/jsw7460/mnt/comde_datasets/carla/param_dicts/param_dict
+num_skills_done_relabel: 10
+skill_infos_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/carla/bert_base_skills_mapping
+sequential_requirements_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/language_guidance/kitchen_seq_rev_rep_bert_base_mapping  # Same with kitchen (because we only use sequential)
+non_functionalities_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/language_guidance/nonfunctional_bert_base_mapping
+normalization_path: /home/jsw7460/mnt/comde_datasets/normalizations/carla
+
+observation_keys:
+  - img_embedding
+  - sensors
+np_parameter: True
+
+carla_server_ip: 115.145.175.206
+carla_server_port: 7460
+
+carla_cfg:
+  config:
+    env_class: SkillAttatchedCarlaEnvironment
+    dataframe: hdf5
+
+    vision_size: 224
+    vision_fov: 90
+    weather: false
+    frame_skip: 1
+    min_steps: 50
+    max_steps: 100
+    multiagent: false
+    lane: 0
+    lights: false
+    num_routes: 0
+    vehicle_type: carlamotors.carlacola
+    mode: ours
+    routes: [ ]
+    random_route: true
+    carla_ip: ${env.carla_server_ip}
+    carla_port: ${env.carla_server_port}
+    data_path: null
+
+    n_episodes_limit: 300
+    n_transitions_limit: 10_000_000
+
+    lidar:
+      upper_fov: 5.0
+      lower_fov: -30.0
+      rotation_frequency: 20.0
+      max_range: 20.0
+      num_theta_bin: 80
+      dropoff_general_rate: 0.1
+      dropoff_intensity_limit: 0.2
+      dropoff_zero_intensity: 0.2
+      points_per_second: 120_000
+  image_model: None
+  weather: ClearNoon
+  carla_ip: ${env.carla_server_ip}
+  carla_port: ${env.carla_server_port}
+
+
+default_source_skills:
+  vehicle:
+    1: 0
+    2: 0
+    3: 0

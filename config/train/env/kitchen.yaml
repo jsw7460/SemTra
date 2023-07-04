@@ -1,0 +1,38 @@
+name: kitchen
+path: comde.rl.envs.franka_kitchen.franka_kitchen.FrankaKitchen
+timelimit: 350
+
+observation_dim: 60
+action_dim: 9
+param_dim: 1
+param_repeats: 10
+shuffle_dataset: True
+act_scale: 1.35
+
+eval_tasks_path: /home/jsw7460/mnt/comde_datasets/tasks_for_evals/metaworld/9tasks
+
+num_skills_done_relabel: 1
+skill_infos_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/kitchen/bert_base_skills_mapping
+sequential_requirements_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/language_guidance/kitchen_seq_rev_rep_bert_base_mapping
+non_functionalities_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/language_guidance/nonfunctional_bert_base_mapping
+word_embedding_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/language_guidance/kitchen_word_embedding_bert_base_mapping
+episodic_instruction_path: /home/jsw7460/mnt/comde_datasets/kitchen/episodic_instructions/episodic_instruction_bert_base
+videofeature_path: /home/jsw7460/mnt/comde_datasets/kitchen/wind/4_target_skills/videofeature_mapping
+firstimage_path: /home/jsw7460/mnt/comde_datasets/kitchen/wind/4_target_skills/firstimage_mapping
+
+task_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/task_video_embeddings
+skill_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/skill_video_embeddings
+
+observation_keys:
+  - observations
+np_parameter: False
+
+default_source_skills:
+  wind:
+    0: 0.0
+    1: 0.0
+    2: 0.0
+    3: 0.0
+    4: 0.0
+    5: 0.0
+    6: 0.0

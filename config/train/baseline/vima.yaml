@@ -1,0 +1,41 @@
+_target_: comde.baselines.vima.VIMA
+seed: ${seed}
+cfg:
+  obs_mean: 0.0
+  obs_std: 1.0
+
+  language_dim: ${language_dim}
+  observation_dim: ${observation_dim}
+  action_dim: ${action_dim}
+  skill_dim: ${skill_dim}
+  sequential_requirements_dim: ${language_dim}
+  non_functionality_dim: ${non_functionality_dim}
+  param_dim: ${env.param_dim}
+  param_repeats: ${env.param_repeats}
+  act_scale: ${act_scale}
+  image_dim: 512  # Clip (Not VClip) embedding shape
+
+  embed_dim: 128
+  prompt_dim: 512
+  xf_num_layers: 3
+  sattn_num_heads: 8
+  xattn_num_heads: 8
+
+  firstimage_path: ${env.firstimage_path}
+
+  n_source_video: 1
+  n_target_skill: 5
+  lr: 1e-4
+
+  policy_cfg:
+    output_dim: ${action_dim}
+    net_arch:
+      - 256
+      - 256
+      - 256
+      - 256
+      - 256
+    activation_fn: relu
+    dropout: 0.0
+    squash_output: True
+    layer_norm: False

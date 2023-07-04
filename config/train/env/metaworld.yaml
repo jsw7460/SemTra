@@ -1,0 +1,36 @@
+name: metaworld
+observation_dim: 140
+action_dim: 4
+param_dim: 1
+param_repeats: 10
+shuffle_dataset: False
+act_scale: 1.35
+
+num_skills_done_relabel: 4
+
+eval_tasks_path: /home/jsw7460/mnt/comde_datasets/tasks_for_evals/metaworld/8tasks_0
+
+episodic_instruction_path: /home/jsw7460/mnt/comde_datasets/metaworld/episodic_instructions/episodic_instruction_bert_base
+videofeature_path: /home/jsw7460/mnt/comde_datasets/metaworld/speed/0508/3_target_skills/videofeature_mapping
+firstimage_path: /home/jsw7460/mnt/comde_datasets/metaworld/speed/0508/3_target_skills/firstimage_mapping
+#word_embedding_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/language_guidance/mw_word_embedding_bert_base_mapping
+
+task_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/task_video_embeddings
+skill_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/skill_video_embeddings
+
+observation_keys:
+  - observations
+np_parameter: False
+
+default_source_skills:
+  wind:
+    1: 0.0
+    3: 0.0
+    4: 0.0
+    6: 0.0
+
+  speed:
+    1: 25.0
+    3: 25.0
+    4: 15.0
+    6: 25.0

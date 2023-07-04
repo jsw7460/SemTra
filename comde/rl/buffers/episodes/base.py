@@ -50,7 +50,8 @@ class Episode:
 			"actions": np.array(self.actions[from_: to_]),
 			"rewards": np.array(self.rewards[from_: to_]),
 			"dones": np.array(self.dones[from_: to_]),
-			"maskings": np.array(self.maskings[from_: to_])
+			"maskings": np.array(self.maskings[from_: to_]),
+			"rtgs": np.array(self.rtgs[from_: to_])
 		}
 
 		if batch_mode:
@@ -140,12 +141,11 @@ class Episode:
 
 	def set_zeropaddings(self, n_padding: int):
 		for i in range(n_padding):
-			self.observations.append(np.zeros(self.observation_dim, ))
-			self.next_observations.append(np.zeros(self.observation_dim, ))
-			self.actions.append(np.zeros(self.action_dim, ))
+			self.observations.append(np.zeros(self.observation_dim, ) + 1)
+			self.next_observations.append(np.zeros(self.observation_dim, ) + 1)
+			self.actions.append(np.zeros(self.action_dim, ) + 1)
 			self.rewards.append(np.array(0))
 			self.dones.append(np.array(True))
 			self.infos.append([])
 			self.maskings.append(np.array(0))
 			self.rtgs.append(0)
-

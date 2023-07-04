@@ -5,6 +5,7 @@ from jax import numpy as jnp
 
 from comde.utils.jax_utils.model import Model
 from comde.utils.jax_utils.type_aliases import Params
+from comde.comde_modules.low_policies.skill.architectures.skill_decision_transformer import PrimSkillDecisionTransformer
 
 
 @jax.jit
@@ -23,7 +24,7 @@ def skill_dt_updt(
 	action_dim = actions.shape[-1]
 
 	def loss_fn(params: Params) -> Tuple[jnp.ndarray, Dict]:
-		predictions = dt.apply_fn(
+		_action_preds = dt.apply_fn(
 			{"params": params},
 			observations=observations,
 			actions=actions,
@@ -32,18 +33,25 @@ def skill_dt_updt(
 			maskings=maskings,
 			deterministic=False,
 			rngs={"dropout": dropout_key},
+			method=PrimSkillDecisionTransformer.forward_with_all_components
 		)
-		observation_preds, action_preds, ret_preds = predictions
+		action_preds = _action_preds[0]
+		additional_info = _action_preds[2]
 
 		action_preds = action_preds.reshape(-1, action_dim) * maskings.reshape(-1, 1)
 		target = action_targets.reshape(-1, action_dim) * maskings.reshape(-1, 1)
 
-		action_loss = jnp.sum((action_preds - target) ** 2) / jnp.sum(maskings)
+		action_loss = jnp.sum(jnp.mean((action_preds - target) ** 2, axis=-1)) / jnp.sum(maskings)
 
 		loss = action_loss
 
 		# can pass skill loss either
-		_infos = {"skill_decoder/mse_loss": loss}
+		_infos = {
+			"skill_decoder/mse_loss": loss,
+			"__additional_info": additional_info,
+			"__action_preds": action_preds,
+			"__target": target
+		}
 		return loss, _infos
 
 	new_dt, infos = dt.apply_gradient(loss_fn)

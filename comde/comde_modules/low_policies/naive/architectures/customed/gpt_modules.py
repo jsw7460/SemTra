@@ -311,8 +311,8 @@ class FlaxGPT2Block(nn.Module):
 		self,
 		hidden_states,
 		attention_mask=None,
-		encoder_hidden_states: Optional[jnp.ndarray] = None,
-		encoder_attention_mask: Optional[jnp.ndarray] = None,
+		encoder_hidden_states: Optional[jnp.ndarray] = None,		# For cross attention
+		encoder_attention_mask: Optional[jnp.ndarray] = None,		# For cross attention
 		deterministic: bool = True,
 		init_cache: bool = False,
 		output_attentions: bool = False,
@@ -570,19 +570,6 @@ class FlaxGPT2ModuleWoTimePosEmb(nn.Module):
 
 	def setup(self):
 		self.embed_dim = self.config.hidden_size
-
-		# self.wte = nn.Embed(
-		# 	self.config.vocab_size,
-		# 	self.embed_dim,
-		# 	embedding_init=jax.nn.initializers.normal(stddev=self.config.initializer_range),
-		# 	dtype=self.dtype,
-		# )
-		# self.wpe = nn.Embed(
-		# 	self.config.max_position_embeddings,
-		# 	self.embed_dim,
-		# 	embedding_init=jax.nn.initializers.normal(stddev=self.config.initializer_range),
-		# 	dtype=self.dtype,
-		# )
 		self.dropout = nn.Dropout(rate=self.config.embd_pdrop)
 		self.h = FlaxGPT2BlockCollection(self.config, dtype=self.dtype)
 		self.ln_f = nn.LayerNorm(epsilon=self.config.layer_norm_epsilon, dtype=self.dtype)
@@ -599,9 +586,6 @@ class FlaxGPT2ModuleWoTimePosEmb(nn.Module):
 		output_hidden_states: bool = False,
 		return_dict: bool = True,
 	):
-		# input_embeds = self.wte(input_ids.astype("i4"))
-		# position_embeds = self.wpe(position_ids.astype("i4"))
-		# hidden_states = input_embeds + position_embeds
 
 		hidden_states = self.dropout(hidden_states, deterministic=deterministic)
 

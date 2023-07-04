@@ -1,0 +1,26 @@
+name: rlbench
+observation_dim: 387
+action_dim: 11
+param_dim: 1
+param_repeats: 10
+shuffle_dataset: True
+act_scale: 1.35
+
+num_skills_done_relabel: 4
+
+observation_keys:
+  - observations
+np_parameter: False
+
+default_source_skills:
+  wind:
+    1: 0.0
+    3: 0.0
+    4: 0.0
+    6: 0.0
+
+  speed:
+    1: 25.0
+    3: 25.0
+    4: 15.0
+    6: 25.0

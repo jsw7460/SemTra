@@ -9,7 +9,7 @@ from comde.rl.buffers.buffers.base_buffer import BaseBuffer
 from comde.rl.buffers.episodes.base import Episode
 from comde.rl.buffers.type_aliases import ComDeBufferSample
 
-
+from comde.rl.envs.base import ComdeSkillEnv
 class EpisodicMaskingBuffer(BaseBuffer):
 	BUFFER_COMPONENTS = \
 		{
@@ -18,8 +18,7 @@ class EpisodicMaskingBuffer(BaseBuffer):
 
 	def __init__(
 		self,
-		observation_space: gym.spaces.Space,
-		action_space: gym.spaces.Space,
+		env: ComdeSkillEnv,
 		subseq_len: int,
 		n_envs: int = 1,
 		buffer_size: int = -1,  # No matter
@@ -31,8 +30,7 @@ class EpisodicMaskingBuffer(BaseBuffer):
 		"""
 		super(EpisodicMaskingBuffer, self).__init__(
 			buffer_size=buffer_size,
-			observation_space=observation_space,
-			action_space=action_space,
+			env=env,
 			n_envs=n_envs
 		)
 		self.subseq_len = subseq_len

@@ -1,7 +1,9 @@
 """Policies: abstract base class and concrete implementations."""
 
 import os
-from typing import Any, Optional, Tuple, Union, Callable, Sequence
+from typing import Any, Optional, Tuple, Union, Callable, Sequence, Type, TypeVar
+
+T = TypeVar('T')
 
 import flax
 import flax.linen as nn
@@ -20,6 +22,7 @@ class Model:
 	batch_stats: Union[Params]
 	tx: Optional[optax.GradientTransformation] = flax.struct.field(pytree_node=False)
 	opt_state: Optional[optax.OptState] = None
+	# model_cls: Type = None
 
 	@classmethod
 	def create(
@@ -72,7 +75,7 @@ class Model:
 		has_aux: bool = True
 	) -> Union[Tuple['Model', Any], 'Model']:
 
-		assert (loss_fn is not None or grads is not None, 'Either a loss function or grads must be specified.')
+		assert ((loss_fn is not None) or (grads is not None), 'Either a loss function or grads must be specified.')
 
 		if grads is None:
 			grad_fn = jax.grad(loss_fn, has_aux=has_aux)

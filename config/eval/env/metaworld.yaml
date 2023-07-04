@@ -1,0 +1,31 @@
+path: comde.rl.envs.metaworld.multistage_metaworld.MultiStageMetaWorld
+
+# What tasks you evaluate
+eval_tasks_path: /home/jsw7460/mnt/comde_datasets/tasks_for_evals/metaworld/8tasks_0
+
+# Prediction of Semantic skill encoder: Dict [Task -> Predicted skills sequence]
+source_skills_path: /home/jsw7460/mnt/comde_datasets/source_skills/metaworld/optimal_three_skills
+
+# []
+language_guidance_path: /home/jsw7460/mnt/comde_datasets/clip_mappings/language_guidance/sequential_clip_mapping
+
+skill_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/skill_video_embeddings
+task_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/task_video_embeddings
+
+template_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/language_guidance/BERT_metaworld_templates
+n_target: 3
+
+timelimit: 1000
+termination_pred_interval: 20
+language_operators:
+  sequential:
+    - do these sequentially
+    - please follow this in order
+
+  parallel:
+    - x
+    - y
+
+  parameterized:
+    - x
+    - y

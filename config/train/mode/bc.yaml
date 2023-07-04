@@ -1,0 +1,6 @@
+trainer: comde.trainer.bc_trainer.BehaviorCloningTrainer
+modules:
+  - low_policy
+  - termination
+
+intent_dim: ${skill_dim}

@@ -1,3 +1,5 @@
+from abc import abstractmethod
+from collections import defaultdict
 from typing import Dict, List
 
 import numpy as np
@@ -19,6 +21,18 @@ class BaseSeqToSeq(ComdeBaseModule, ITrainable, IJaxSavable):
 		self.seed = seed
 		self.cfg = cfg
 		self.inseq_dim = cfg["inseq_dim"]  # Input sequence's dim
+		self.encoder_max_len = self.cfg["encoder_max_len"]
+		self.decoder_max_len = self.cfg["decoder_max_len"]
+
+		self.tokens = None
+		self.bos_token = None
+		self.eos_token = None
+		self.vocabulary = None
+
+		self.register_vocabulary()
+
+	def update_tokens(self, new_tokens: Dict):
+		pass
 
 	def predict(self, *args, **kwargs) -> np.ndarray:
 		raise NotImplementedError()
@@ -27,6 +41,10 @@ class BaseSeqToSeq(ComdeBaseModule, ITrainable, IJaxSavable):
 	def model(self):
 		return None
 
+	@abstractmethod
+	def register_vocabulary(self):
+		raise NotImplementedError()
+
 	def build_model(self):
 		pass
 
@@ -34,7 +52,7 @@ class BaseSeqToSeq(ComdeBaseModule, ITrainable, IJaxSavable):
 		pass
 
 	def evaluate(self, *args, **kwargs) -> Dict:
-		pass
+		return defaultdict()
 
 	def _excluded_save_params(self) -> List:
 		pass

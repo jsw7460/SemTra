@@ -2,15 +2,19 @@ import pickle
 from abc import abstractmethod
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict
-import time
+from typing import Dict, Union, List, Type, Any
 
+from comde.rl.envs.utils.skill_to_vec import SkillInfoEnv
 from comde.utils.superclasses.loggable import Loggable
+
+SkillRelatedEnv = Union[List[SkillInfoEnv], List[Type], SkillInfoEnv, Dict[str, SkillInfoEnv], Any]
 
 
 class BaseTrainer(Loggable):
-	def __init__(self, cfg: Dict):
+	def __init__(self, cfg: Dict, env: Union[SkillInfoEnv, SkillRelatedEnv]):
 		super(BaseTrainer, self).__init__(cfg=cfg)
+
+		self.env = env
 
 		# ==== time ====
 		self.today = None
@@ -24,6 +28,7 @@ class BaseTrainer(Loggable):
 		self.max_iter = cfg["max_iter"]
 		self.step_per_dataset = cfg["step_per_dataset"]
 		self.log_interval = cfg["log_interval"]
+		self.save_interval = cfg["save_interval"]
 
 		self.required_total_update = self.max_iter * self.step_per_dataset
 
@@ -73,7 +78,12 @@ class BaseTrainer(Loggable):
 			module_fullpath = module_prefix / Path(suffix)
 			self.cfg["save_paths"][module_key] = str(module_fullpath)
 
-		self.cfg.update({"date": today_str})
+		self.cfg.update({
+			"date": today_str,
+			"wandb_url": self.wandb_url
+		})
+
+		# Dump configure file
 		with open(str(cfg_prefix / Path(f"cfg_{suffix}")), "wb") as f:
 			pickle.dump(self.cfg, f)
 

@@ -7,10 +7,7 @@ cfg:
     - 128
     - 128
     - 128
-    - 128
-    - 128
-    - 128
-  
+
   activation_fn: relu
   dropout: 0.0
   squash_output: True
@@ -20,9 +17,15 @@ cfg:
   act_scale: ${act_scale}
 
   lr: 1e-4
-  max_ep_len: 1024
 
   observation_dim: ${observation_dim}
   action_dim: ${action_dim}
   skill_dim: ${skill_dim}
-  subseq_len: ${subseq_len}
+
+  non_functionality_dim: ${non_functionality_dim}
+  param_dim: ${env.param_dim}
+  param_repeats: ${env.param_repeats}
+  use_optimal_lang: False
+
+  obs_mean: 0.0
+  obs_std: 1.0

@@ -2,12 +2,27 @@ defaults:
   - env: metaworld
 
 seed: 0
-pretrained_prefix: /home/andykim0723/comde_save/train
-date: 2023-03-19  # yyyy-mm-dd. Date for trained model
-pretrained_suffix: foo
+n_eval: 3
+pretrained_prefix: /home/jsw7460/comde_save/train
+date: 2023-05-13  # yyyy-mm-dd. Date for trained model
+pretrained_suffix: ???
+step: 500000
 
 pretrained_path: ${pretrained_prefix}/${date}/cfg/cfg_${pretrained_suffix}
-language_guidance: sequential
+sequential_requirement: sequential
+non_functionality: ???
+parameter: default
 
-save_results: True
-save_prefix: /home/andykim0723/comde_save/eval
+use_optimal_target_skill: False
+use_optimal_next_skill: False
+
+save_text: False
+save_results: False
+save_prefix: /home/jsw7460/comde_save/eval
+text_save_prefix: /home/jsw7460/comde/comde_eval/
+save_suffix: eval
+termination_pred_interval: ${env.termination_pred_interval}
+
+# Define pretrained models (Skill composition and prompting)
+composition: /home/jsw7460/comde_save/train/2023-06-29/seq2seq/big_semantic_skill_translation_20000.zip
+prompt: /home/jsw7460/comde_save/train/2023-06-28/prompt_learner/incontext_prompting_57300.zip

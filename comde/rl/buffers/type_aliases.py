@@ -1,6 +1,6 @@
 """Common aliases for type hints"""
 
-from typing import NamedTuple, List, Union
+from typing import NamedTuple, List, Union, Dict
 
 import numpy as np
 import torch as th
@@ -33,15 +33,28 @@ class ComDeBufferSample(NamedTuple):
 	first_observations: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l, d]
 	# Note: M := The maximum possible number of skills in a trajectory
 	source_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b, M, d]
+	source_skills_idxs: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b, M]
 	target_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b, M, d]
+	target_skills_idxs: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b, M]
 	n_source_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b,]
+
 	n_target_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b,]
-	language_operators: Union[np.ndarray, th.tensor] = np.empty(0, )	# [b, d]
+	language_guidance: List = []
+	sequential_requirement: Union[np.ndarray, th.tensor] = np.empty(0, )	# [b, d]
+	str_sequential_requirement: List = []		# String
+	str_non_functionality: List = []		# String
+	non_functionality: Union[np.ndarray, th.tensor] = np.empty(0, )	# [b, d]
+	source_parameters: List[Dict] = []
+	parameters: List[Dict] = []
 
 	skills: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l, d]
 	skills_order: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b, l]
 	skills_idxs: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
 	skills_done: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
+
+	# intents: Union[np.ndarray, th.Tensor] = None  # [b, l, d]
+	params_for_skills: Union[np.ndarray, th.Tensor] = None  # [b, l, d]
+	parameterized_skills: Union[np.ndarray, th.Tensor] = None  # [b, l, d], d = skill + non_functionality + param
 
 	# === Transformer, ... ===
 	rewards: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
@@ -51,6 +64,18 @@ class ComDeBufferSample(NamedTuple):
 	timesteps: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
 	rtgs: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
 	true_subseq_len: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, ]
+
+	# Maybe required (for some baseline which requires source state and actions)
+	source_observations: Union[np.ndarray, th.Tensor] = np.empty(0,)
+	source_actions: Union[np.ndarray, th.Tensor] = np.empty(0,)
+	source_maskings: Union[np.ndarray, th.Tensor] = np.empty(0,)
+
+	# Maybe required (for some baseline which requires video or their embeddings)
+	source_videos: Union[np.ndarray, th.Tensor] = np.empty(0, )
+	target_video: Union[np.ndarray, th.Tensor] = np.empty(0, )
+	source_video_embeddings: Union[np.ndarray, th.Tensor] = np.empty(0,)
+	target_video_embedding: Union[np.ndarray, th.Tensor] = np.empty(0,)
+
 
 	def __repr__(self):
 		for key in self._fields:
@@ -74,6 +99,7 @@ class ComDeBufferSample(NamedTuple):
 		# 				  f"rtgs: {self.rtgs.shape}"
 
 	def __getitem__(self, idx: Union[slice, int]) -> "ComDeBufferSample":
+		raise NotImplementedError("Obsolete")
 		"""Slice for timesteps, not batch"""
 		observations = self.observations[:, idx, ...]
 		actions = self.actions[:, idx, ...]
