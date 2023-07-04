@@ -1,16 +1,18 @@
-from typing import Dict, List, Union
 import random
+from typing import Dict, List, Union
 
 import gym
 import numpy as np
 
+from comde.utils.common import pretrained_forwards
 from comde.utils.common.natural_languages.lang_representation import SkillRepresentation
-from comde.utils.common.pretrained_forwards.jax_bert_base import bert_base_forward
 
 
 class SkillInfoEnv(gym.Wrapper):
-	def __init__(self, env: gym.Env, skill_infos: Dict[str, List[SkillRepresentation]] = None):
+	def __init__(self, env: gym.Env, cfg: Dict, skill_infos: Dict[str, List[SkillRepresentation]] = None):
 		super(SkillInfoEnv, self).__init__(env=env)
+		self.language_space = cfg.get("language_space", "bert")
+		self._language_encoder_forward = getattr(pretrained_forwards, self.language_space)
 
 		assert hasattr(env, "onehot_skills_mapping"), \
 			"Environment should have skill mapping: skill(e.g., `drawer`) -> index (e.g., `3`)"
@@ -39,12 +41,12 @@ class SkillInfoEnv(gym.Wrapper):
 
 	def __str__(self):
 		return self.env.__str__()
-	
+
 	def _override_skill_vectors(self):
 		for skill, representations in self.__skill_infos.items():
 			for i in range(len(representations)):
 				rep = representations[i]
-				bert_vec = bert_base_forward(rep.variation)["language_embedding"][:, 0, ...]
+				bert_vec = self._language_encoder_forward(rep.variation)["language_embedding"][:, 0, ...]
 				rep = rep._replace(vec=np.squeeze(bert_vec))
 				representations[i] = rep
 

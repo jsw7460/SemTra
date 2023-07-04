@@ -21,6 +21,7 @@ def get_source_skills(
 	}
 
 	source_skills = stripped_task_to_source_skills[task_str][sequential_requirement]
+
 	source_skill_vectors = []
 	source_skill_idxs = []
 
@@ -32,9 +33,8 @@ def get_source_skills(
 
 		np_source_skills = np.array(source_skill_vectors)
 		return {"np_source_skills": np_source_skills, "source_skill_idxs": source_skill_idxs}
-
 	else:
-		return None
+		return {"np_source_skills": None, "source_skill_idxs": None}
 
 
 def get_batch_source_skills(  # Evaluation on batch environment
@@ -45,8 +45,10 @@ def get_batch_source_skills(  # Evaluation on batch environment
 ) -> Dict:
 	skill_dict_list \
 		= [get_source_skills(task_to_source_skills, sequential_requirement, skill_infos, task) for task in tasks]
-	np_source_skills = [skill_dict["np_source_skills"] for skill_dict in skill_dict_list if skill_dict is not None]
-	source_skill_idxs = [skill_dict["source_skill_idxs"] for skill_dict in skill_dict_list if skill_dict is not None]
+
+	np_source_skills = [skill_dict["np_source_skills"] for skill_dict in skill_dict_list]
+	source_skill_idxs = [skill_dict["source_skill_idxs"] for skill_dict in skill_dict_list]
+
 	return {"np_source_skills": np_source_skills, "source_skill_idxs": source_skill_idxs}
 
 
@@ -66,7 +68,6 @@ def get_optimal_semantic_skills(
 
 		optimal_target_idxs.append(optimal_target_idx)
 		optimal_target_skills.append(optimal_target_skill)
-
 	optimal_target_idxs = np.array(optimal_target_idxs)
 	optimal_target_skills = np.array(optimal_target_skills)
 	return optimal_target_skills, optimal_target_idxs

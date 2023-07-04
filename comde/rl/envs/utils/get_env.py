@@ -20,10 +20,10 @@ def get_dummy_env(env_name: str, cfg: Dict = None, **kwargs) -> SkillInfoEnv:
 	skill_infos = None
 	# Task has no meaning here
 	if "metaworld" in env_name:
-		env = MultiStageMetaWorld(seed=0, task=["box", "handle", "button", "door"], n_target=4, **kwargs)
+		env = MultiStageMetaWorld(seed=0, task=["box", "handle", "button", "door"], n_target=4, cfg=cfg, **kwargs)
 		skill_infos = metaworld_skill_infos
 	elif "kitchen" in env_name:
-		env = FrankaKitchen(seed=0, task=["microwave", "kettle", "bottom burner", "top burner"], n_target=4, **kwargs)
+		env = FrankaKitchen(seed=0, task=["microwave", "kettle", "bottom burner", "top burner"], n_target=4, cfg=cfg, **kwargs)
 		skill_infos = kitchen_skill_infos
 	elif "carla" in env_name:
 		env = DummyEasyCarla(seed=0, task=["straight", "right", "left"], n_target=3, cfg=cfg, **kwargs)
@@ -32,7 +32,7 @@ def get_dummy_env(env_name: str, cfg: Dict = None, **kwargs) -> SkillInfoEnv:
 		skill_infos = rlbench_skill_infos
 	else:
 		raise NotImplementedError(f"Not supported: {env_name}")
-	env = SkillInfoEnv(env=env, skill_infos=skill_infos)
+	env = SkillInfoEnv(env=env, skill_infos=skill_infos, cfg=cfg)
 	return env
 
 
@@ -48,7 +48,7 @@ def get_env(
 ):
 	env = env_class(seed=seed, task=task, n_target=n_target, cfg=cfg)
 	skill_infos = env_class.get_skill_infos()
-	env = SkillInfoEnv(env, skill_infos=skill_infos)
+	env = SkillInfoEnv(env, skill_infos=skill_infos, cfg=cfg)
 	env.availability_check()
 	env = TimeLimitEnv(env=env, limit=time_limit)
 	env = SkillHistoryEnv(env=env, skill_dim=skill_dim, num_stack_frames=history_len)
