@@ -29,6 +29,12 @@ class ComDeBufferSample(NamedTuple):
 	actions: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l, d]
 	next_observations: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l, d]
 
+	# === Prompt ===
+	initial_few_observations: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l, d]
+	initial_few_actions: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l, d]
+	initial_few_parameters_idxs: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
+	initial_few_skills_idxs: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
+
 	# === ComDe ===
 	first_observations: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l, d]
 	# Note: M := The maximum possible number of skills in a trajectory

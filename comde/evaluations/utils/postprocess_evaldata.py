@@ -11,6 +11,7 @@ def postprocess_eval_data(eval_infos: Dict, n_tasks: int):
 		rewards = eval_infos[f"env_{k}"]["rewards"]
 		rewards = np.array(rewards)
 
+		############## Metaworld, RLBench, Kitchen
 		last_success = 0
 		for t, rew in enumerate(rewards):
 			if rew > 0:
@@ -20,6 +21,7 @@ def postprocess_eval_data(eval_infos: Dict, n_tasks: int):
 					rewards[t - 1] = 0
 					rewards[t] = 0
 				last_success = t
+		############## Metaworld, RLBench, Kitchen
 
 		_return = np.sum(rewards)
 		eval_infos[f"env_{k}"]["return"] = _return

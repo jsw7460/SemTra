@@ -26,3 +26,6 @@ termination_pred_interval: ${env.termination_pred_interval}
 # Define pretrained models (Skill composition and prompting)
 composition: /home/jsw7460/comde_save/train/2023-07-03/seq2seq/bert_translation_50000.zip
 prompt: /home/jsw7460/comde_save/train/2023-07-02/prompt_learner/bert_incontext_60000.zip
+
+#composition: /home/jsw7460/comde_save/train/2023-07-05/seq2seq/t5_translation_105000.zip
+#prompt: /home/jsw7460/comde_save/train/2023-07-03/prompt_learner/t5_incontext_104100.zip

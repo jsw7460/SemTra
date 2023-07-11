@@ -17,8 +17,10 @@ def _clip_encode(**kwargs):
 def clip_forward(languages: Union[str, List[str]]) -> Dict[str, Union[np.ndarray, Dict]]:
 	if model is None:
 		_init_pretrained_model()
+	encoded_input = tokenizer(languages, return_tensors='np', padding=True)
 
-	encoded_input = tokenizer(languages, return_tensors='np', padding=True, max_length=150)
+	for k, v in encoded_input.items():
+		encoded_input[k] = v[:, :77]
 	language_embedding = _clip_encode(**encoded_input)
 
 	output_dict = {

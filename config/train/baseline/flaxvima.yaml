@@ -38,5 +38,5 @@ cfg:
   task_video_path: ${env.task_video_path}
 
   n_source_video: 1
-  n_target_skill: 3
+  n_target_skill: ${env.n_target_skill}
   lr: 1e-4

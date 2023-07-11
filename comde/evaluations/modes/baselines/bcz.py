@@ -52,6 +52,7 @@ def evaluate_bcz(
 		timestep += 1
 		done_prev = done.copy()
 		cur_skill_pos = np.min([cur_skill_pos + rew.astype("i4"), max_skills], axis=0)
+
 		actions = baseline.predict_action(
 			observations=observations,
 			non_functionality=non_functionality,

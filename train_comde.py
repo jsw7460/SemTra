@@ -23,7 +23,8 @@ def program(cfg: DictConfig) -> None:
 	cfg = OmegaConf.to_container(cfg, resolve=True)  # type: Dict[str, Union[str, int, Dict]]
 
 	env_name = cfg["env"]["name"].lower()
-	env = get_dummy_env(env_name, cfg["env"])  # Dummy env for obtain an observation and action space.
+	# Dummy env for obtain an observation and action space.
+	env = get_dummy_env(env_name, cfg["env"], register_language_embedding=cfg["mode"]["register_language_embedding"])
 	hdf_files = load_data_paths(cfg, env)
 	dataset_window_size = cfg["dataset_window_size"]
 

@@ -3,7 +3,7 @@ observation_dim: 140
 action_dim: 4
 param_dim: 1
 param_repeats: 10
-shuffle_dataset: False
+shuffle_dataset: True
 act_scale: 1.35
 
 num_skills_done_relabel: 4
@@ -19,7 +19,10 @@ firstimage_path: /home/jsw7460/mnt/comde_datasets/metaworld/speed/0508/3_target_
 
 task_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/task_video_embeddings
 skill_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/skill_video_embeddings
+first_few_sensors_path: /home/jsw7460/mnt/comde_datasets/metaworld/first_few_sensors/first_few_sensors
 
+n_skill: 8
+n_target_skill: 3
 observation_keys:
   - observations
 np_parameter: False

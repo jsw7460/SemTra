@@ -25,6 +25,15 @@ class ComdeSkillEnv(gym.Wrapper):
 		self.skill_idx_list = [self.onehot_skills_mapping[key] for key in self.skill_list]
 		self.str_parameter = None	# type: str
 
+	def get_idx_from_parameter(self, *args, **kwargs):
+		raise NotImplementedError()
+
+	def get_parameter_from_idx(self, *args, **kwargs):
+		raise NotImplementedError()
+
+	def get_idx_to_parameter_dict(self):
+		raise NotImplementedError()
+
 	def set_str_parameter(self, parameter: str):
 		self.str_parameter = parameter
 

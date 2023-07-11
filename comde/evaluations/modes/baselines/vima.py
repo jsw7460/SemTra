@@ -1,11 +1,10 @@
 from collections import defaultdict
-from typing import List
+from typing import List, Dict
 
 import numpy as np
 from jax.tree_util import tree_map
 
-from comde.comde_modules.low_policies.base import BaseLowPolicy
-from comde.comde_modules.termination.base import BaseTermination
+from comde.baselines.prompt_dt import VLPromptDT
 from comde.evaluations.utils.postprocess_evaldata import postprocess_eval_data as postprocess
 from comde.rl.envs.utils import SkillHistoryEnv
 
@@ -15,24 +14,23 @@ I_DONE = 2
 I_INFO = 3
 
 
-def evaluate_comde(
+def evaluate_vima(
 	envs: List[SkillHistoryEnv],
-	low_policy: BaseLowPolicy,
-	termination: BaseTermination,
-	target_skills: np.ndarray,
-	termination_pred_interval: int,
-	save_results: bool = False,
-	use_optimal_next_skill: bool = False,
+	baseline: VLPromptDT,
+	prompts: Dict[str, np.ndarray],  # [n_envs, L, d]
+	prompts_maskings: Dict[str, np.ndarray],
+	sequential_requirement: np.ndarray = None,  # [n_envs, d]
+	non_functionality: np.ndarray = None,  # [n_envs, d]
+	param_for_skills: np.ndarray = None,  # [n_envs, n_source_skills, d]
+	rtgs: np.ndarray = None,  # [n_envs,]
+	save_results: bool = False
 ):
 	# Some variables
 	n_envs = len(envs)
+	env_dummy_dim = envs[0].skill_dim
 	subseq_len = envs[0].num_stack_frames
-	semantic_skill_dim = termination.skill_dim
 
-	n_possible_skills = target_skills.shape[1]
-
-	cur_skill_pos = np.array([0 for _ in range(n_envs)])  # [8, ]
-	max_skills = np.array([n_possible_skills - 1 for _ in range(n_envs)])
+	dummy_parameterized_skills = np.zeros((env_dummy_dim,))
 
 	# Prepare save
 	eval_infos = {f"env_{k}": defaultdict(list, env_name=envs[k].get_short_str_for_save()) for k in range(n_envs)}
@@ -40,55 +38,47 @@ def evaluate_comde(
 	# Prepare env
 	timestep = 0
 	done = [False for _ in range(n_envs)]
-	rew = np.array([0 for _ in range(n_envs)])
+	# rew = np.array([0 for _ in range(n_envs)])
 
-	obs_list = [envs[i].reset(target_skills[i][cur_skill_pos[i]]) for i in range(n_envs)]
+	obs_list = [envs[i].reset(dummy_parameterized_skills) for i in range(n_envs)]
 	obs = tree_map(lambda *arr: np.stack(arr, axis=0), *obs_list)
-	first_observations = obs["observations"][:, -1, ...].copy()
 	returns = np.array([0.0 for _ in range(n_envs)])
+
+	if rtgs is not None:
+		rtgs_for_concat = rtgs.copy()
+
+		rtgs = rtgs[:, np.newaxis]
+		rtgs = np.repeat(rtgs, repeats=subseq_len, axis=1)
 
 	while not all(done):
 		history_observations = obs["observations"]  # [8, 4, 140]
 		history_actions = obs["actions"]  # [8, 4, 4]
-		# history_rewards = obs["rewards"]  # [8, 4]
-		history_skills = obs["skills"]  # [8, 4, 512]
 		history_maskings = obs["maskings"]
 		timestep += 1
 
 		done_prev = done.copy()
 
-		# cur_skill_pos = np.array([0 for _ in range(n_envs)])
-
-		if use_optimal_next_skill:
-			cur_skill_pos = np.min([cur_skill_pos + rew, max_skills], axis=0)
-		else:
-			if ((timestep - 1) % termination_pred_interval) == 0 and (timestep > 30):
-				maybe_skill_done = termination.predict(
-					observations=history_observations[:, -1, ...],  # Current observations
-					first_observations=first_observations,
-					skills=history_skills[:, -1, :semantic_skill_dim],
-					binary=True
-				)
-				skill_done = np.where(maybe_skill_done == 1)[0]
-				first_observations[skill_done] = history_observations[skill_done, -1, ...]
-				cur_skill_pos = np.min([cur_skill_pos + maybe_skill_done, max_skills], axis=0)
-
-		cur_skill_pos = cur_skill_pos.astype("i4")
-		cur_skills = target_skills[np.arange(n_envs), cur_skill_pos, ...]
-
 		timesteps = np.arange(timestep - subseq_len, timestep)[np.newaxis, ...]
 		timesteps = np.repeat(timesteps, axis=0, repeats=n_envs)
 		timesteps[timesteps < 0] = -1
 
-		actions = low_policy.predict(
+		actions = baseline.predict(
 			observations=history_observations,
 			actions=history_actions,
-			skills=history_skills,
+			rtgs=rtgs,
+			sequential_requirement=sequential_requirement,
+			non_functionality=non_functionality,
+			param_for_skills=param_for_skills,
 			maskings=history_maskings,
 			timesteps=timesteps,
-			to_np=True
+			to_np=True,
+			**prompts, **prompts_maskings
 		)
-		step_results = [env.step(act.copy(), cur_skills[i].copy()) for env, act, i in zip(envs, actions, range(n_envs))]
+
+		step_results = [
+			env.step(act.copy(), dummy_parameterized_skills.copy())
+			for env, act, i in zip(envs, actions, range(n_envs))
+		]
 		obs_list = [result[I_OBS] for result in step_results]
 
 		obs = tree_map(lambda *arr: np.stack(arr, axis=0), *obs_list)
@@ -101,13 +91,17 @@ def evaluate_comde(
 		rew = rew * (1 - rew_mul_done)
 		returns += rew
 
+		if rtgs is not None:
+			rtgs_for_concat = rtgs_for_concat - rew.astype("float64")
+			rtgs = np.concatenate((rtgs, rtgs_for_concat.reshape(-1, 1)), axis=-1)
+			rtgs = rtgs[:, 1:]
+
 		if save_results:
 			for k in range(n_envs):
 				eval_infos[f"env_{k}"]["observations"].append(obs_list[k])
 				eval_infos[f"env_{k}"]["actions"].append(actions[k])
 				eval_infos[f"env_{k}"]["rewards"].append(rew[k])
 				eval_infos[f"env_{k}"]["infos"].append(step_results[k][I_INFO])
-				eval_infos[f"env_{k}"]["dones"].append(done[k])
 		else:
 			for k in range(n_envs):
 				eval_infos[f"env_{k}"]["rewards"].append(rew[k])

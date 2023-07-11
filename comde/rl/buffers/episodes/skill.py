@@ -6,8 +6,9 @@ from comde.rl.buffers.episodes.base import Episode
 
 
 class SkillContainedEpisode(Episode):
-	def __init__(self):
-		super(SkillContainedEpisode, self).__init__()
+	def __init__(self, cfg: Dict):
+		super(SkillContainedEpisode, self).__init__(cfg=cfg)
+		self.cfg = cfg
 		self.first_observations = []
 		self.skills = []
 		self.skills_done = []
@@ -55,6 +56,7 @@ class SkillContainedEpisode(Episode):
 		super_data = super(SkillContainedEpisode, self).get_numpy_subtrajectory(from_, to_, batch_mode=batch_mode)
 		current_data = {
 			"first_observations": np.array(self.first_observations[from_: to_]),
+			"initial_few_skills_idxs": np.array(self.skills_idxs[:self.n_init_segment]),
 			"skills": np.array(self.skills[from_: to_]),
 			"skills_done": np.array(self.skills_done[from_: to_]),
 			"skills_idxs": np.array(self.skills_idxs[from_: to_]),

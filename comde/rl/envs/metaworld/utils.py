@@ -67,6 +67,14 @@ WIND_TO_ADJECTIVE = {
 	"-0.1": "gust",  # Chat gpt가 flurry보다 약하고 breeze보다 강한 애라고 함
 	"0.0": "breeze"
 }
+
+# 0: Slow, 1: Normal, 2: Fast
+IDX_TO_PARAMETERS = {
+	1: {0: 1.5, 1: 10.0, 2: 25.0},
+	3: {0: 6.0, 1: 13.0, 2: 25.0},
+	4: {0: 1.5, 1: 5.0, 2: 15.0},
+	6: {0: 3.0, 1: 8.0, 2: 25.0}
+}
 SCALE = 1
 
 # text_variations: Key: main_texts // value: variations of main_texts

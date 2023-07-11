@@ -11,6 +11,7 @@ from comde.utils.common.natural_languages.language_guidances import template
 from comde.utils.common.safe_eval import safe_eval_to_float
 from spirl.rl.envs import kitchen
 from .utils import (
+	IDX_TO_PARAMETERS,
 	SEQUENTIAL_REQUIREMENTS,
 	SEQUENTIAL_REQUIREMENTS_VARIATIONS,
 	NON_FUNCTIONALITIES_VARIATIONS,
@@ -39,6 +40,7 @@ class FrankaKitchen(ComdeSkillEnv):
 	skill_index_mapping = {v: k for k, v in onehot_skills_mapping.items()}
 	non_functionalities = ["wind"]
 	wind_default_param = {k: 0.0 for k in range(7)}
+	param_dim = 1
 
 	sequential_requirements_vector_mapping = None
 	non_functionalities_vector_mapping = None
@@ -81,12 +83,15 @@ class FrankaKitchen(ComdeSkillEnv):
 	@staticmethod
 	def get_skill_infos():
 		return skill_infos
-
+	
 	def set_str_parameter(self, parameter: str):
 		if (parameter not in ["breeze", "default", "gust", "flurry"]) or (type(parameter) != str):
 			raise NotImplementedError(f"{parameter} is not supported for Franka kitchen environment.")
 
 		self.str_parameter = parameter
+
+	def get_idx_to_parameter_dict(self):
+		return deepcopy(IDX_TO_PARAMETERS)
 
 	def eval_param(self, param):
 		return safe_eval_to_float(param)
@@ -106,6 +111,7 @@ class FrankaKitchen(ComdeSkillEnv):
 			raise NotImplementedError(f"{self.str_parameter} is not supported in Franka kitchen environment.")
 
 		obs, rew, done, info = super(FrankaKitchen, self).step(action)
+		info["task"] = deepcopy(self.task)
 		return obs, rew, done, info
 
 	@staticmethod

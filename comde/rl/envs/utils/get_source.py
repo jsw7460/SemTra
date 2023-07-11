@@ -32,6 +32,7 @@ def get_source_skills(
 			source_skill_idxs.append(skill_rep.index)
 
 		np_source_skills = np.array(source_skill_vectors)
+
 		return {"np_source_skills": np_source_skills, "source_skill_idxs": source_skill_idxs}
 	else:
 		return {"np_source_skills": None, "source_skill_idxs": None}
@@ -48,7 +49,6 @@ def get_batch_source_skills(  # Evaluation on batch environment
 
 	np_source_skills = [skill_dict["np_source_skills"] for skill_dict in skill_dict_list]
 	source_skill_idxs = [skill_dict["source_skill_idxs"] for skill_dict in skill_dict_list]
-
 	return {"np_source_skills": np_source_skills, "source_skill_idxs": source_skill_idxs}
 
 

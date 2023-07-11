@@ -1,4 +1,4 @@
-_target_: comde.baselines.TargetAllPromptDT
+_target_: comde.baselines.SensorFlaxVIMA
 seed: ${seed}
 cfg:
   obs_mean: 0.0
@@ -7,6 +7,7 @@ cfg:
   dt_cfg:
     gpt2_config:
       vocab_size: 1 # Does not matter
+      add_cross_attention: True
       n_positions: 1024
       n_layer: 3
       n_head: 4
@@ -15,6 +16,7 @@ cfg:
       attn_pdrop: 0.1
     obs_dim: ${observation_dim}
     act_dim: ${action_dim}
+    only_prompt: True
     hidden_size: 64
     act_scale: ${act_scale}
     max_ep_len: 1024
@@ -28,22 +30,16 @@ cfg:
   param_dim: ${env.param_dim}
   param_repeats: ${env.param_repeats}
   act_scale: ${act_scale}
-  image_dim: 512  # Clip (Not VClip) embedding shape
+  prompt_dim: 768
 
   firstimage_path: ${env.firstimage_path}
-  n_target_skill: ${env.n_target_skill}
-  n_source_video: 1
-  lr: 1e-4
 
-  policy_cfg:
-    output_dim: ${action_dim}
-    net_arch:
-      - 256
-      - 256
-      - 256
-      - 256
-      - 256
-    activation_fn: relu
-    dropout: 0.0
-    squash_output: True
-    layer_norm: False
+  skill_video_path: ${env.skill_video_path}
+  task_video_path: ${env.task_video_path}
+  sensor_instruction_path: ${env.first_few_sensors_path}
+  sensor_subseq_len: 20
+  n_target_skill: ${env.n_target_skill}
+
+  n_source_video: 1
+#  n_target_skill: 3
+  lr: 1e-4

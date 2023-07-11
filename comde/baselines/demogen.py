@@ -51,7 +51,14 @@ class DemoGen(BaseLowPolicy):
 		self.__policy = None
 		self.__gravity = None
 
-		episodic_inst_path = cfg["episodic_instruction_path"]
+		self.episodic_inst = None
+		self.video_feature_dict = None
+
+		if init_build_model:
+			self.build_model()
+
+	def _set_dictionaries(self):
+		episodic_inst_path = self.cfg["episodic_instruction_path"]
 		with open(episodic_inst_path, "rb") as f:
 			self.episodic_inst = pickle.load(f)
 
@@ -59,10 +66,8 @@ class DemoGen(BaseLowPolicy):
 		with open(videofeature_path, "rb") as f:
 			self.video_feature_dict = pickle.load(f)
 
-		if init_build_model:
-			self.build_model()
-
 	def build_model(self):
+		self._set_dictionaries()
 		self._build_policy()
 		self._build_gravity()
 
@@ -70,7 +75,7 @@ class DemoGen(BaseLowPolicy):
 		policy_cfg = self.cfg["policy_cfg"].copy()
 		policy_lr = policy_cfg.pop("lr")
 		policy = create_mlp(**policy_cfg)
-		policy = Scaler(base_model=policy, scale=self.cfg["act_scale"])
+		policy = Scaler(base_model=policy, scale=np.array(self.cfg["act_scale"]))
 		init_obs = np.zeros((1, self.observation_dim))
 		init_demo = np.zeros((1, self.video_dim))
 		init_params = np.zeros((1, self.nonfunc_dim + self.total_param_dim))
@@ -90,14 +95,23 @@ class DemoGen(BaseLowPolicy):
 		tx = optax.adam(gravity_lr)
 		self.__gravity = Model.create(model_def=gravity, inputs=[rngs, gravity_input], tx=tx)
 
-	def update(self, replay_data: ComDeBufferSample) -> Dict:
-		video_info = get_video_text_embeddings(
+	def get_source_target_info(self, replay_data: ComDeBufferSample):
+		info = get_video_text_embeddings(
 			video_feature_dict=self.video_feature_dict,
 			text_dict=self.episodic_inst,
 			replay_data=replay_data
 		)
-		source_video_embeddings = video_info["source_video_embeddings"]
-		target_video_embedding = video_info["target_video_embeddings"]
+
+		ret_info = {
+			"source": info["source_video_embeddings"],
+			'target': info["target_video_embeddings"]
+		}
+		return ret_info
+
+	def update(self, replay_data: ComDeBufferSample) -> Dict:
+		info = self.get_source_target_info(replay_data)
+		source_video_embeddings = info["source"]
+		target_video_embedding = info["target"]
 
 		new_gravity, gravity_info = gravity_update(
 			rng=self.rng,

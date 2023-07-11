@@ -70,6 +70,8 @@ class SkillMLP(BaseLowPolicy):
 		self.model = Model.create(model_def=mlp, inputs=[rngs, init_obs, init_skills], tx=tx)
 
 	def update(self, replay_data: ComDeBufferSample) -> Dict:
+		print("first observations", replay_data.first_observations.shape)
+		print("first actions", replay_data.first_actions.shape)
 
 		skills_dict = self.get_parameterized_skills(replay_data)
 		skills = skills_dict["parameterized_skills"]
@@ -82,8 +84,10 @@ class SkillMLP(BaseLowPolicy):
 			skills=skills,
 			maskings=replay_data.maskings
 		)
+
 		self.model = new_model
 		self.rng, _ = jax.random.split(self.rng)
+		self.n_update += 1
 
 		return info
 

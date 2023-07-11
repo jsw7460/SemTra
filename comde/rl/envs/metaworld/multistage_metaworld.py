@@ -2,6 +2,7 @@ import random
 from copy import deepcopy
 from itertools import permutations
 from typing import List, Dict, Union, Tuple
+import math
 
 import gym
 import numpy as np
@@ -16,6 +17,7 @@ from .utils import (
 	SEQUENTIAL_REQUIREMENTS,
 	POSSIBLE_WINDS,
 	POSSIBLE_SPEEDS,
+	IDX_TO_PARAMETERS,
 	SCALE,
 	SEQUENTIAL_REQUIREMENTS_VARIATIONS,
 	NON_FUNCTIONALITIES_VARIATIONS,
@@ -34,10 +36,13 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 	non_functionalities = ["wind", "speed"]
 	speed_default_param = {1: 25.0, 3: 25.0, 4: 15.0, 6: 25.0}
 	wind_default_param = {1: 0.0, 3: 0.0, 4: 0.0, 6: 0.0}
+	param_dim = 1
 
 	sequential_requirements_vector_mapping = None
 	non_functionalities_vector_mapping = None
 	has_been_called = False
+
+	idx_to_parameter = {0: 0.1, 1: 0.2, 2: 0.3}
 
 	def __str__(self):
 		return "metaworld"
@@ -73,6 +78,18 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 				mapping = self.get_non_functionalities_mapping(NON_FUNCTIONALITIES_VARIATIONS)
 				MultiStageMetaWorld.non_functionalities_vector_mapping = mapping
 
+	def get_idx_from_parameter(self, skill_idx: int, parameter: float):
+		param_dict = IDX_TO_PARAMETERS[int(skill_idx)]
+		for k, v in param_dict.items():
+			if math.fabs(parameter - v) < 1e-9:
+				return k
+		raise NotImplementedError()
+
+	def get_parameter_from_idx(self):
+		raise NotImplementedError()
+
+	def get_idx_to_parameter_dict(self):
+		return deepcopy(IDX_TO_PARAMETERS)
 
 	def reset(self, **kwargs):
 		self.timestep_per_skills = {k: 0 for k in self.task}

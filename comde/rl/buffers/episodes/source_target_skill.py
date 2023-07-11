@@ -9,8 +9,8 @@ PAD_IDX_FOR_SKILL = -1	# Do not change this
 
 class SourceTargetSkillContainedEpisode(SkillContainedEpisode):
 
-	def __init__(self):
-		super(SourceTargetSkillContainedEpisode, self).__init__()
+	def __init__(self, cfg: Dict):
+		super(SourceTargetSkillContainedEpisode, self).__init__(cfg=cfg)
 
 		self.source_skills = []
 		self.n_source_skills = 0

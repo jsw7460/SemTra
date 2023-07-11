@@ -9,7 +9,7 @@ from comde.comde_modules.common.scaler import Scaler
 from comde.comde_modules.low_policies.naive.architectures.customed.gpt_modules import FlaxGPT2ModuleWoTimePosEmb
 
 
-class PrimFlaxVIMA(nn.Module):
+class PrimSensorFlaxVIMA(nn.Module):
 	gpt2_config: Dict
 	obs_dim: int
 	act_dim: int
@@ -33,6 +33,9 @@ class PrimFlaxVIMA(nn.Module):
 	emb_prm = None
 	emb_ln = None
 
+	emb_sensor_prompt = None
+	emb_lang_prompt = None
+
 	transformer = None
 	pred_obs = None
 	pred_act = None
@@ -46,6 +49,9 @@ class PrimFlaxVIMA(nn.Module):
 		self.emb_prompt = nn.Dense(self.hidden_size)  # On top of the tokenizer (e.g., T5, BERT, ...)
 		self.emb_prm = nn.Dense(self.hidden_size)  # Embed (optimal) parameter
 		self.emb_ln = nn.LayerNorm(self.hidden_size)
+
+		self.emb_sensor_prompt = nn.Dense(self.hidden_size)
+		self.emb_lang_prompt = nn.Dense(self.hidden_size)
 
 		pred_act = nn.Dense(self.act_dim)
 		self.pred_act = Scaler(base_model=pred_act, scale=jnp.array(self.act_scale))
@@ -61,8 +67,12 @@ class PrimFlaxVIMA(nn.Module):
 		maskings: jnp.ndarray,  # state-action mask	[b, l]
 		timesteps: jnp.ndarray,
 		param_for_skills: jnp.ndarray,  # [b, M, d]
-		prompts: jnp.ndarray,  # [b, l', d] (Key-value)
-		prompts_maskings: jnp.ndarray,  # [b, l']
+
+		sensor_prompts: jnp.ndarray,
+		sensor_prompts_maskings: jnp.ndarray,
+		language_prompts: jnp.ndarray,  # [b, l', d] (Key-value)
+		language_prompts_maskings: jnp.ndarray,  # [b, l']
+
 		deterministic: bool = False
 	):
 		batch_size = observations.shape[0]
@@ -83,6 +93,12 @@ class PrimFlaxVIMA(nn.Module):
 		traj_masks = jnp.stack((maskings, maskings), axis=1)  # [b, 2, l]
 		traj_masks = einops.rearrange(traj_masks, "b c l -> b l c")
 		traj_masks = traj_masks.reshape(batch_size, 2 * subseq_len)
+
+		sensor_prompts = self.emb_sensor_prompt(sensor_prompts)
+		language_prompts = self.emb_lang_prompt(language_prompts)
+
+		prompts = jnp.concatenate((sensor_prompts, language_prompts), axis=-2)
+		prompts_maskings = jnp.concatenate((sensor_prompts_maskings, language_prompts_maskings), axis=-1)
 
 		prompts_emb = self.emb_prompt(prompts)
 		params_emb = self.emb_prm(param_for_skills)

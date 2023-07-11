@@ -14,6 +14,7 @@ defaults:
   - prompt_learner: transformer
   - translate_learner: transformer
   - language_space: bert
+  - sensor_encoder: transformer
 
 save_prefix: /home/jsw7460/comde_save/train/
 save_suffix: foo

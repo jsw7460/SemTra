@@ -56,8 +56,32 @@ weight_templates = {
 		]
 }
 
+
+vehicle_templates = {
+	"default":
+		[
+			"None"
+		],
+	"non_default":
+		[
+			"Drive {vehicle}, following the directions in {video}",
+			"Operate {vehicle} by adhering to the instructions provided in {video}.",
+			"Navigate {vehicle} while following the guidance given in {video}.",
+			"Drive {vehicle} in accordance with the directions presented in {video}.",
+			"Follow the instructions in {video} to drive {vehicle}.",
+			"Use {video} as a guide to operate {vehicle}.",
+			"Follow the provided directions in {video} to drive {vehicle}.",
+			"Adhere to the instructions in {video} while operating {vehicle}.",
+			"Drive {vehicle} by following the prescribed guidance in {video}.",
+			"Operate {vehicle} according to the directions outlined in {video}.",
+			"Employ {video} as a reference to drive {vehicle}."
+		]
+}
+
+
 template = {
 	"speed": speed_templates,
 	"wind": wind_templates,
-	"weight": weight_templates
+	"weight": weight_templates,
+	"vehicle": vehicle_templates
 }	# type: Dict[str, Dict[str, list[str]]]

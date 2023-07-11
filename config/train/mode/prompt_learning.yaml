@@ -9,3 +9,4 @@ batch_size: 256
 save_source_trajectory: False
 datadir_limit: 999999 # No meaning
 step_per_dataset: 5000
+register_language_embedding: True

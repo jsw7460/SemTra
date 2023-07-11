@@ -25,6 +25,7 @@ def get_episodic_level_skills(replay_data: ComDeBufferSample, param_repeats: int
 
 	source_skills_idxs = replay_data.source_skills_idxs[:, :n_target_skill, ...]
 	target_skills_idxs = replay_data.target_skills_idxs[:, :n_target_skill, ...]
+
 	for i, (source_idx, target_idx) in enumerate(zip(source_skills_idxs, target_skills_idxs)):
 		# i: loop over batch
 		source_params = [source_parameter[i][idx] for idx in source_idx]
@@ -32,8 +33,11 @@ def get_episodic_level_skills(replay_data: ComDeBufferSample, param_repeats: int
 		batch_source_params.append(source_params)
 		batch_target_params.append(target_params)
 
-	batch_source_params = np.array(batch_source_params)[..., np.newaxis]  # b, n_source_skill
-	batch_target_params = np.array(batch_target_params)[..., np.newaxis]  # b, n_target_skill
+	batch_source_params = np.array(batch_source_params)  # b, n_source_skill or b, n, d
+	batch_target_params = np.array(batch_target_params)  # b, n_target_skill or b, n, d
+	if batch_source_params.ndim == 2:
+		batch_source_params = batch_source_params[..., np.newaxis]
+		batch_target_params = batch_target_params[..., np.newaxis]
 	batch_source_params = np.repeat(batch_source_params, axis=-1, repeats=param_repeats)	# b, n_source_skills, param_dim
 	batch_target_params = np.repeat(batch_target_params, axis=-1, repeats=param_repeats)	# b, n_target_skills, param_dim
 	batch_size = source_skills.shape[0]
@@ -43,8 +47,10 @@ def get_episodic_level_skills(replay_data: ComDeBufferSample, param_repeats: int
 
 	skill_dim = source_skills.shape[-1]
 	param_dim = batch_source_params.shape[-1]
+
 	parameterized_source_skills = np.zeros((batch_size, n_target_skill, skill_dim + param_dim))
 	parameterized_target_skills = np.zeros((batch_size, n_target_skill, skill_dim + param_dim))
+
 	parameterized_source_skills[..., :skill_dim] = source_skills
 	parameterized_source_skills[..., skill_dim:] = batch_source_params
 	# parameterized_source_skills = np.concatenate((source_skills, batch_source_params), axis=-1)

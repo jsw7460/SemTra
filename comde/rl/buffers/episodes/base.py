@@ -8,7 +8,9 @@ class Episode:
 		To support a variable length episode, we use a list, not a numpy with predefined length
 	"""
 
-	def __init__(self):
+	def __init__(self, cfg: Dict):
+		self.cfg = cfg
+		self.n_init_segment = cfg["n_init_segment"]
 		self.observations = []
 		self.next_observations = []
 		self.actions = []
@@ -45,6 +47,8 @@ class Episode:
 		# TODO: We discard the info
 
 		data = {
+			"initial_few_observations": np.array(self.observations[: self.n_init_segment]),
+			"initial_few_actions": np.array(self.actions[: self.n_init_segment]),
 			"observations": np.array(self.observations[from_: to_]),
 			"next_observations": np.array(self.next_observations[from_: to_]),
 			"actions": np.array(self.actions[from_: to_]),

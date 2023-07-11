@@ -25,7 +25,6 @@ def resnet50_forward(img: np.ndarray) -> np.ndarray:
 	emb = _resnet50_model(img).cpu().detach().numpy()
 	return emb
 
-
 def _init_pretrained_model():
 	global _weights
 	global _resnet50_model

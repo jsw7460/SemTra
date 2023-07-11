@@ -11,6 +11,7 @@ pretrained_modules:
 env_name: ${env.name}
 termination_pred_interval: 30
 use_optimal_next_skill: False
+register_language_embedding: False
 
 tasks: ???
 

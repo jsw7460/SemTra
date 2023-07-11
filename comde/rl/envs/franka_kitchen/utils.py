@@ -38,6 +38,9 @@ WIND_TO_ADJECTIVE = {
 }
 ADJECTIVE_TO_WIND = {str(v): k for k, v in WIND_TO_ADJECTIVE.items()}
 
+# 0: breeze, 1: gust, 2: flurry
+IDX_TO_PARAMETERS = {k: {0: 0.0, 1: -0.1, 2: -0.3} for k in range(7)}
+
 skill_infos = defaultdict(list)
 for idx, (key, variations) in enumerate(texts_variations.items()):
 	for text in variations:

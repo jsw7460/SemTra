@@ -1,10 +1,15 @@
 import pickle
-from typing import Dict
+from typing import Dict, List
 
 import jax
+import jax.random
 import numpy as np
 import optax
 
+from comde.baselines.algos.forwards import (
+	demogen_gravity_forward as gravity_forward,
+	demogen_policy_forward as policy_forward
+)
 from comde.baselines.algos.updates.bcz import (
 	bcz_policy_update as policy_update,
 	bcz_gravity_update as gravity_update
@@ -16,6 +21,7 @@ from comde.comde_modules.common.utils import create_mlp
 from comde.rl.buffers.type_aliases import ComDeBufferSample
 from comde.utils.jax_utils.general import get_basic_rngs
 from comde.utils.jax_utils.model import Model
+from comde.utils.jax_utils.type_aliases import Params
 
 
 class SensorBCZ(BCZ):
@@ -124,3 +130,48 @@ class SensorBCZ(BCZ):
 		self.__policy = new_policy
 
 		return {**gravity_info, **policy_info}
+
+	def predict_demo(
+		self,
+		source_video_embeddings: np.ndarray,  # [b, d]
+		sequential_requirement: np.ndarray,
+		to_np: bool = True
+	):
+		gravity_input = np.concatenate((source_video_embeddings, sequential_requirement), axis=-1)
+		self.rng, episodic_instruction = gravity_forward(rng=self.rng, model=self.__gravity, model_input=gravity_input)
+		if to_np:
+			return np.array(episodic_instruction)
+		else:
+			return episodic_instruction
+
+	def predict_action(
+		self,
+		observations: np.ndarray,
+		non_functionality: np.ndarray,
+		current_params_for_skills: np.ndarray,
+		episodic_instruction: np.ndarray,
+		to_np: bool = True
+	):
+		policy_input = np.concatenate(
+			(observations, episodic_instruction, non_functionality, current_params_for_skills),
+			axis=-1
+		)
+		self.rng, actions = policy_forward(rng=self.rng, model=self.__policy, policy_input=policy_input)
+
+		if to_np:
+			return np.array(actions)
+		else:
+			return actions
+
+	def _excluded_save_params(self) -> List:
+		return SensorBCZ.PARAM_COMPONENTS
+
+	def _get_save_params(self) -> Dict[str, Params]:
+		params_dict = {}
+		for component_str in SensorBCZ.PARAM_COMPONENTS:
+			component = getattr(self, component_str)
+			params_dict[component_str] = component.params
+		return params_dict
+
+	def _get_load_params(self) -> List[str]:
+		return SensorBCZ.PARAM_COMPONENTS

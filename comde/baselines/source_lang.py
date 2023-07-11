@@ -30,7 +30,6 @@ class SourceLanguagePromptDT(VLPromptDT):
 			self.build_model()
 
 	def get_prompts(self, replay_data: ComDeBufferSample):
-
 		qkv_info = bert_base_forward(replay_data.language_guidance)
 
 		prompts = qkv_info["language_embedding"]

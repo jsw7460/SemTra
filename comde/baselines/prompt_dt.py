@@ -96,7 +96,11 @@ class VLPromptDT(BaseLowPolicy):
 		)
 
 	def get_param_for_skills(self, replay_data: ComDeBufferSample):
-		skill_param_dict = get_episodic_level_skills(replay_data, param_repeats=self.param_repeats)
+		skill_param_dict = get_episodic_level_skills(
+			replay_data=replay_data,
+			param_repeats=self.param_repeats,
+			n_target_skill=self.cfg["n_target_skill"]
+		)
 		return skill_param_dict["param_for_source_skills"]
 
 	def get_prompts_from_components(self, source_skills_idxs: np.ndarray, language_guidance: List[str]):
@@ -166,8 +170,8 @@ class VLPromptDT(BaseLowPolicy):
 			observations=replay_data.observations,
 			actions=replay_data.actions,
 			rtgs=rtgs,
-			prompts=prompts,
-			prompts_maskings=prompts_maskings,
+			prompts={"prompts": prompts},
+			prompts_maskings={"prompts_maskings": prompts_maskings},
 			sequential_requirement=replay_data.sequential_requirement,
 			non_functionality=replay_data.non_functionality,
 			param_for_skills=param_for_source_skills,
