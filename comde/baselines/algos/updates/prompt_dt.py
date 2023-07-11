@@ -14,8 +14,8 @@ def promptdt_update(
 	observations: jnp.ndarray,
 	actions: jnp.ndarray,  # [b, l, d]
 	rtgs: jnp.ndarray,  # [b, l, 1]
-	prompts: jnp.ndarray,  # [b, M, d]
-	prompts_maskings: jnp.ndarray,  # [b, M]: indicate whether dummy source skills
+	prompts: Dict[str, jnp.ndarray],  # [b, M, d]
+	prompts_maskings: Dict[str, jnp.ndarray],  # [b, M]: indicate whether dummy source skills
 	sequential_requirement: jnp.ndarray,  # [b, d]
 	non_functionality: jnp.ndarray,  # [b, d]
 	param_for_skills: jnp.ndarray,  # [b, M, d]
@@ -33,13 +33,12 @@ def promptdt_update(
 			observations=observations,
 			actions=actions,
 			rtgs=rtgs,
-			prompts=prompts,
-			prompts_maskings=prompts_maskings,
 			sequential_requirement=sequential_requirement,
 			non_functionality=non_functionality,
 			param_for_skills=param_for_skills,
 			timesteps=timesteps,
 			maskings=maskings,
+			**prompts, **prompts_maskings,
 			rngs={"dropout": dropout_key}
 		)
 		action_preds = action_preds.reshape(-1, action_dim) * maskings.reshape(-1, 1)

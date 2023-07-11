@@ -48,7 +48,7 @@ class PrimFlaxVIMA(nn.Module):
 		self.emb_ln = nn.LayerNorm(self.hidden_size)
 
 		pred_act = nn.Dense(self.act_dim)
-		self.pred_act = Scaler(base_model=pred_act, scale=self.act_scale)
+		self.pred_act = Scaler(base_model=pred_act, scale=jnp.array(self.act_scale))
 
 	def __call__(self, *args, **kwargs):
 		y = self.forward_with_all_components(*args, **kwargs)

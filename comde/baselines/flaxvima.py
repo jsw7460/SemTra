@@ -38,7 +38,7 @@ class FlaxVIMA(BaseLowPolicy):
 
 		self.prompt_dim = cfg["prompt_dim"]
 		firstimage_path = cfg["firstimage_path"]
-		with open(firstimage_path + "_vit", "rb") as f:
+		with open(firstimage_path + "_vit", "rb") as f:		# Use ViT !!!!!!!! (Otherwise, dimension mismatch)
 			firstimage_mapping = pickle.load(f)  # type: Dict[Union[str, int], List]
 
 		if -1 in firstimage_mapping.keys() or "-1" in firstimage_mapping.keys():
@@ -90,7 +90,11 @@ class FlaxVIMA(BaseLowPolicy):
 		)
 
 	def get_param_for_skills(self, replay_data: ComDeBufferSample):
-		skill_param_dict = get_episodic_level_skills(replay_data, param_repeats=self.param_repeats)
+		skill_param_dict = get_episodic_level_skills(
+			replay_data=replay_data,
+			param_repeats=self.param_repeats,
+			n_target_skill=self.cfg["n_target_skill"]
+		)
 		return skill_param_dict["param_for_source_skills"]
 
 	def get_prompts_from_components(
@@ -146,15 +150,12 @@ class FlaxVIMA(BaseLowPolicy):
 			maskings=replay_data.maskings,
 			timesteps=replay_data.timesteps,
 			params_for_skills=params_for_skills,
-			prompts=prompts,
-			prompts_maskings=prompts_maskings,
+			prompts={"prompts": prompts},
+			prompts_maskings={"prompts_maskings": prompts_maskings},
 		)
 		self.rng, _ = jax.random.split(self.rng)
 		self.__model = new_policy
 		self.n_update += 1
-
-		action_preds = info["action_preds"]
-		target_actions = info["target_actions"]
 
 		return info
 

@@ -58,8 +58,8 @@ def flaxvima_update(
 	maskings: jnp.ndarray,  # [b, l]
 	timesteps: jnp.ndarray,
 	params_for_skills: jnp.ndarray,
-	prompts: jnp.ndarray,  # [b, M]
-	prompts_maskings: jnp.ndarray,  # [b, M]: indicate whether dummy source skills
+	prompts: Dict[str, jnp.ndarray],  # [b, M]
+	prompts_maskings: Dict[str, jnp.ndarray],  # [b, M]: indicate whether dummy source skills
 ) -> Tuple[Model, Dict[str, Any]]:
 	rng, dropout_key, dist_key = jax.random.split(rng, 3)
 	action_dim = actions.shape[-1]
@@ -74,9 +74,8 @@ def flaxvima_update(
 			actions=actions,
 			timesteps=timesteps,
 			param_for_skills=params_for_skills,
-			prompts=prompts,
-			prompts_maskings=prompts_maskings,
             deterministic=False,
+			**prompts, **prompts_maskings,
 			rngs={"dropout": dropout_key, "dist": dist_key}
 		)
 

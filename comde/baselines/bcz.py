@@ -52,13 +52,9 @@ class BCZ(BaseLowPolicy):
 	def __init__(self, seed: int, cfg: Dict, init_build_model: bool = True):
 		super(BCZ, self).__init__(seed=seed, cfg=cfg, init_build_model=init_build_model)
 		self.video_parsing = True
-		episodic_inst_path = cfg["episodic_instruction_path"]
-		with open(episodic_inst_path, "rb") as f:
-			self.episodic_inst = pickle.load(f)
 
-		videofeature_path = self.cfg["videofeature_path"]
-		with open(videofeature_path, "rb") as f:
-			self.video_feature = pickle.load(f)
+		self.episodic_inst = None
+		self.video_feature = None
 
 		self.video_dim = self.cfg["video_dim"]
 		self.language_dim = self.cfg["language_dim"]
@@ -72,11 +68,20 @@ class BCZ(BaseLowPolicy):
 	def __str__(self):
 		return "BCZ"
 
+	def _set_dictionaries(self):
+		episodic_inst_path = self.cfg["episodic_instruction_path"]
+		with open(episodic_inst_path, "rb") as f:
+			self.episodic_inst = pickle.load(f)
+
+		videofeature_path = self.cfg["videofeature_path"]
+		with open(videofeature_path, "rb") as f:
+			self.video_feature = pickle.load(f)
+
 	def _build_policy(self):
 		policy_cfg = self.cfg["policy_cfg"].copy()
 		lr = policy_cfg.pop("lr")
 		policy = create_mlp(**policy_cfg)
-		policy = Scaler(base_model=policy, scale=self.cfg["act_scale"])
+		policy = Scaler(base_model=policy, scale=np.array(self.cfg["act_scale"]))
 		init_obs = np.zeros((1, self.observation_dim))
 		init_inst = np.zeros((1, self.language_dim))
 		init_params = np.zeros((1, self.nonfunc_dim + self.total_param_dim))
@@ -97,26 +102,36 @@ class BCZ(BaseLowPolicy):
 		self.__gravity = Model.create(model_def=gravity, inputs=[rngs, init_gravity_input], tx=tx)
 
 	def build_model(self):
+		self._set_dictionaries()
 		self._build_gravity()
 		self._build_policy()
 
-	def update(self, replay_data: ComDeBufferSample) -> Dict:
-		video_text_info = get_video_text_embeddings(
+	def get_source_target_info(self, replay_data: ComDeBufferSample):
+		info = get_video_text_embeddings(
 			video_feature_dict=self.video_feature,
 			text_dict=self.episodic_inst,
 			replay_data=replay_data
 		)
-		source_video_embeddings = video_text_info["source_video_embeddings"]
-		target_text_embs = video_text_info["target_text_embs"]
+		ret_info = {
+			"source": info["source_video_embeddings"],
+			"target": info["target_text_embs"],
+			"available_idxs": info["video_found_idxs"]
+		}
+		return ret_info
 
-		video_found_idxs = np.array(video_text_info["video_found_idxs"])
 
+	def update(self, replay_data: ComDeBufferSample) -> Dict:
+		source_target_info = self.get_source_target_info(replay_data)
+		source_video_embeddings = source_target_info["source"]
+		target_text_embs = source_target_info["target"]
+
+		available_idxs = np.array(source_target_info["available_idxs"])
 		new_gravity, gravity_info = gravity_update(
 			rng=self.rng,
 			gravity=self.__gravity,
-			source_video_embeddings=source_video_embeddings[video_found_idxs],
-			sequential_requirement=replay_data.sequential_requirement[video_found_idxs],
-			episodic_instructions=target_text_embs[video_found_idxs]
+			source_video_embeddings=source_video_embeddings[available_idxs],
+			sequential_requirement=replay_data.sequential_requirement[available_idxs],
+			episodic_instructions=target_text_embs[available_idxs]
 		)
 		self.rng, _ = jax.random.split(self.rng)
 
@@ -128,12 +143,12 @@ class BCZ(BaseLowPolicy):
 		new_policy, policy_info = policy_update(
 			rng=self.rng,
 			policy=self.__policy,
-			observations=replay_data.observations[video_found_idxs],
+			observations=replay_data.observations[available_idxs],
 			episodic_inst=episodic_inst,
-			non_functionality=replay_data.non_functionality[video_found_idxs],
-			parameters=params_for_skills[video_found_idxs],
-			actions=replay_data.actions[video_found_idxs],
-			maskings=replay_data.maskings[video_found_idxs]
+			non_functionality=replay_data.non_functionality[available_idxs],
+			parameters=params_for_skills[available_idxs],
+			actions=replay_data.actions[available_idxs],
+			maskings=replay_data.maskings[available_idxs]
 		)
 		self.__gravity = new_gravity
 		self.__policy = new_policy
