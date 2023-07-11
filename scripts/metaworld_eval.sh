@@ -1,6 +1,6 @@
-starts=50000
+starts=100000
 n_iter=50
-n_parallel=3
+n_parallel=1
 
 for ((iter=0; iter<n_iter; iter++)); do
   for ((j=0; j<n_parallel; j++)); do
@@ -8,14 +8,14 @@ for ((iter=0; iter<n_iter; iter++)); do
     step=$((starts + offset + 5000 * j))
     echo $step
     CUDA_VISIBLE_DEVICES=1 python3 eval_comde.py \
-    date=2023-06-21 \
-    pretrained_suffix=mw_speed_5dir \
+    date=2023-07-07 \
+    pretrained_suffix=semtra_woremove \
     env=metaworld \
-    use_optimal_target_skill=False \
-    use_optimal_next_skill=False \
+    use_optimal_target_skill=True \
+    use_optimal_next_skill=True \
     non_functionality=speed \
     sequential_requirement=sequential \
-    save_suffix=mw_speed_5dir \
+    save_suffix=semtra_woremove \
     n_eval=1 \
     step=$step &
   done

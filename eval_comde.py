@@ -23,7 +23,6 @@ from comde.utils.interfaces.i_savable.i_savable import IJaxSavable
 
 @hydra.main(version_base=None, config_path="config/eval", config_name="eval_base.yaml")
 def program(cfg: DictConfig) -> None:
-
 	random.seed(cfg.seed)
 	np.random.seed(cfg.seed)
 

@@ -18,6 +18,12 @@ sequential_requirements_path: /home/jsw7460/mnt/comde_datasets/language_embeddin
 non_functionalities_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/language_guidance/nonfunctional_bert_base_mapping
 normalization_path: /home/jsw7460/mnt/comde_datasets/normalizations/carla
 
+firstimage_path: /home/jsw7460/mnt/comde_datasets/carla/vehicle/firstimage_mapping
+task_video_path: /home/jsw7460/mnt/comde_datasets/videos/carla/task_video_mappings
+videofeature_path: /home/jsw7460/mnt/comde_datasets/videos/carla/task_video_mappings
+skill_video_path: /home/jsw7460/mnt/comde_datasets/videos/carla/skill_video_mappings
+episodic_instruction_path: /home/jsw7460/mnt/comde_datasets/carla/episodic_instructions/episodic_instruction_bert_base
+
 observation_keys:
   - img_embedding
   - sensors

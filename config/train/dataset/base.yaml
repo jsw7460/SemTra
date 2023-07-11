@@ -7,6 +7,9 @@ default_source_skills: ${env.default_source_skills}
 np_parameter: ${env.np_parameter}
 shuffle_dataset: ${env.shuffle_dataset}
 eval_tasks_path: ${env.eval_tasks_path}
+
+episode_cfg:
+  n_init_segment: 5
 task_masking:
 language_masking:
   -

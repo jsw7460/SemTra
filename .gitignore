@@ -200,4 +200,8 @@ comde_rlbench/
 !config/wandb
 !config/**/wandb
 *.sh
+soft_prompt_comde.py
+**/soft_prompt_transformer.py
+**/soft_prompting.py
+
 #misc/

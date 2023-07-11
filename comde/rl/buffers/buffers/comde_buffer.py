@@ -41,7 +41,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		del self.representative_to_indices
 
 		cfg = deepcopy(cfg)
-
+		self.cfg = cfg
 		self.num_skills_done_relabel = cfg["num_skills_done_relabel"]
 		self.max_source_skills = cfg["max_source_skills"]
 		self.max_target_skills = cfg["max_target_skills"]
@@ -58,7 +58,8 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		self.observation_keys = cfg["observation_keys"]
 		# If parameter is numpy -> use eval function, otherwise ast.literal_eval
 		self.eval_param = self.env.eval_param
-		self.episode_class = SourceStateEpisode if self.save_source_trajectory else SourceTargetSkillContainedEpisode
+		self.param_dim = self.env.param_dim
+		self.episode_class = SourceTargetSkillContainedEpisode
 
 	def add_dict_chunk(self, dataset: Dict, representative: str = None, clear_info: bool = False) -> None:
 		raise NotImplementedError("This is only for pickle file. ComDe does not support it.")
@@ -77,12 +78,13 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		trajectory_paths = paths["trajectory"]
 
 		if self.save_source_trajectory:
-			ep: SourceStateEpisode
+			raise NotImplementedError("Obsolete")
+			# ep: SourceStateEpisode
 		else:
 			ep: SourceTargetSkillContainedEpisode
 
 		for path in trajectory_paths:
-			episode = self.episode_class()
+			episode = self.episode_class(self.cfg["episode_cfg"])
 			trajectory = h5py.File(path, "r")
 
 			dataset = self.preprocess_h5py_trajectory(
@@ -160,7 +162,6 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		skills_idxs = np.array(trajectory["skills_idxs"])
 		parameter = str(trajectory["parameter"][()], "utf-8")  #
 		parameter = self.eval_param(parameter)
-		
 		if not self.env.valid_parameter(parameter):
 			return None
 
@@ -172,7 +173,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		if -1 in parameter.keys():
 			raise LookupError("Skill index -1 is for the skill which is padded. Please fix here.")
 		else:
-			parameter.update({-1: 0.0})
+			parameter.update({-1: np.zeros((self.param_dim,))})
 
 		source_parameter = self.default_source_skills[non_functionality].copy()
 
@@ -182,8 +183,12 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		)
 		params_for_skills = self.env.get_buffer_parameter(params_for_skills)
 
-		sequential_requirement_vector = sequential_requirements_mapping[sequential_requirement]
-		non_functionality_vector = non_functionalities_mapping[non_functionality]
+		if sequential_requirements_mapping is not None:
+			sequential_requirement_vector = sequential_requirements_mapping[sequential_requirement]
+			non_functionality_vector = non_functionalities_mapping[non_functionality]
+		else:
+			sequential_requirement_vector = {k: np.zeros(768,) for k in range(10)}
+			non_functionality_vector = {k: np.zeros(768,) for k in range(10)}
 
 		# === Compute first observations ===
 		first_observations = np.zeros_like(observations)
@@ -295,23 +300,3 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			parameters=parameters
 		)
 		return buffer_sample
-
-# @staticmethod
-# def get_params_for_skills(
-# 	skills_idxs: np.ndarray,  # [l, ]
-# 	parameter: Dict,
-# ) -> np.ndarray:
-# 	"""
-# 	:param skills_idxs:	# [sequence length, ]
-# 	:param parameter:
-# 	:return: [seq_len, param_dim]
-# 	"""
-#
-# 	seq_len = skills_idxs.shape[0]
-# 	raw_param_dim = np.array([list(parameter.values())[0]]).shape[-1]
-# 	return_parameter = np.zeros((seq_len, raw_param_dim))
-# 	for skill_idx, param in parameter.items():
-# 		idxs = np.where(skills_idxs == skill_idx)
-# 		return_parameter[idxs] = param
-#
-# 	return return_parameter

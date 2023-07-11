@@ -31,9 +31,8 @@ cfg:
   image_dim: 512  # Clip (Not VClip) embedding shape
 
   firstimage_path: ${env.firstimage_path}
-
+  n_target_skill: ${env.n_target_skill}
   n_source_video: 1
-  n_target_skill: 3
   lr: 1e-4
 
   policy_cfg:

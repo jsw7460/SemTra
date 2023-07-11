@@ -23,6 +23,10 @@ firstimage_path: /home/jsw7460/mnt/comde_datasets/kitchen/wind/4_target_skills/f
 
 task_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/task_video_embeddings
 skill_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/skill_video_embeddings
+first_few_sensors_path: /home/jsw7460/mnt/comde_datasets/kitchen/first_few_sensors/first_few_sensors
+
+n_skill: 7
+n_target_skill: 4
 
 observation_keys:
   - observations

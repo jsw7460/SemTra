@@ -127,3 +127,70 @@ def flaxvima_forward(
 		deterministic=True
 	)
 	return rng, prediction
+
+
+@jax.jit
+def sensor_flaxvima_forward(
+	rng: jnp.ndarray,
+	model: Model,
+	observations: jnp.ndarray,  # d_o
+	actions: jnp.ndarray,  # d_a
+	maskings: jnp.ndarray,
+	timesteps: jnp.ndarray,
+	param_for_skills: jnp.ndarray,
+	sensor_prompts: jnp.ndarray,
+	sensor_prompts_maskings: jnp.ndarray,
+	language_prompts: jnp.ndarray,
+	language_prompts_maskings: jnp.ndarray,
+):
+	rng, _ = jax.random.split(rng)
+	prediction = model.apply_fn(
+		{"params": model.params},
+		observations=observations,
+		actions=actions,
+		maskings=maskings,
+		timesteps=timesteps,
+		param_for_skills=param_for_skills,
+		sensor_prompts=sensor_prompts,
+		sensor_prompts_maskings=sensor_prompts_maskings,
+		language_prompts=language_prompts,
+		language_prompts_maskings=language_prompts_maskings,
+		deterministic=True
+	)
+	return rng, prediction
+
+@jax.jit
+def sensor_promptdt_forward(
+	rng: jnp.ndarray,
+	model: Model,
+	observations: jnp.ndarray,
+	actions: jnp.ndarray,
+	rtgs: jnp.ndarray,
+	sensor_prompts: jnp.ndarray,
+	sensor_prompts_maskings: jnp.ndarray,
+	language_prompts: jnp.ndarray,
+	language_prompts_maskings: jnp.ndarray,
+	sequential_requirement: jnp.ndarray,
+	non_functionality: jnp.ndarray,
+	param_for_skills: jnp.ndarray,
+	timesteps: jnp.ndarray,
+	maskings: jnp.ndarray
+):
+	rng, _ = jax.random.split(rng)
+	prediction = model.apply_fn(
+		{"params": model.params},
+		observations=observations,
+		actions=actions,
+		rtgs=rtgs,
+		sensor_prompts=sensor_prompts,
+		sensor_prompts_maskings=sensor_prompts_maskings,
+		language_prompts=language_prompts,
+		language_prompts_maskings=language_prompts_maskings,
+		sequential_requirement=sequential_requirement,
+		non_functionality=non_functionality,
+		param_for_skills=param_for_skills,
+		timesteps=timesteps,
+		maskings=maskings,
+		deterministic=True
+	)
+	return rng, prediction

@@ -11,6 +11,8 @@ language_guidance_path: /home/jsw7460/mnt/comde_datasets/clip_mappings/language_
 
 skill_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/skill_video_embeddings
 task_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/task_video_embeddings
+first_few_sensors_path: /home/jsw7460/mnt/comde_datasets/metaworld/first_few_sensors/first_few_sensors
+
 
 template_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/language_guidance/BERT_metaworld_templates
 n_target: 3

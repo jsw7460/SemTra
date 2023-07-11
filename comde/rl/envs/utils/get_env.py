@@ -66,7 +66,6 @@ def get_batch_env(
 	cfg: Dict = None,
 ) -> List[Union[SkillHistoryEnv, ComdeSkillEnv]]:
 	envs = []  # type: List[SkillHistoryEnv]
-
 	for task in tasks:
 		env = get_env(
 			env_class=env_class,

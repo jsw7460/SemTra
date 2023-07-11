@@ -27,6 +27,7 @@ def load_data_paths(cfg: Dict, env: Union[ComdeSkillEnv, SkillInfoEnv], rm_eval_
 	eval_tasks_path = cfg["env"]["eval_tasks_path"]
 
 	if (not rm_eval_tasks) or (cfg["mode"]["mode"] == "baseline") or (eval_tasks_path == "None"):
+		print("No Remove File" * 9999)
 		return hdf_files
 
 	with open(eval_tasks_path, "rb") as f:

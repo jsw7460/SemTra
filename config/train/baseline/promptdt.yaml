@@ -36,9 +36,9 @@ cfg:
   conditioning_mode: ???  # skill / task
   skill_video_path: ${env.skill_video_path}
   task_video_path: ${env.task_video_path}
+  n_target_skill: ${env.n_target_skill}
 
   n_source_video: 1
-  n_target_skill: 3
   lr: 1e-4
 
   policy_cfg:

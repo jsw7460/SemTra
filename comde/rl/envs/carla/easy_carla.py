@@ -1,3 +1,5 @@
+import random
+from copy import deepcopy
 import pickle
 import sys
 from copy import deepcopy
@@ -6,6 +8,8 @@ sys.path.append("/home/jsw7460/comde/easy_carla/")
 
 from easy_carla.carla_env import SkillAttatchedCarlaEnvironment
 from easy_carla.utils.config import ExperimentConfigs, LidarConfigs
+from comde.utils.common.natural_languages.language_guidances import template
+
 from typing import List, Dict, Union
 from carla import VehicleControl
 
@@ -19,6 +23,8 @@ from .utils import (
 	NON_FUNCTIONALITIES_VARIATIONS
 )
 
+vehicle_parameter_dicts = None	# type: Dict
+
 array = np.array  # DO NOT REMOVE THIS !
 EPS = 1e-12
 
@@ -29,6 +35,7 @@ class EasyCarla(ComdeSkillEnv):
 	"""
 	# Image embedding dim = 1000 (Resnet 50)
 	# Sensor dim = 104
+	TARGET_LOCATION = (82.84961, 69.852951, -0.007765)
 	OBSERVATION_DIM = 1104  # Image embedding dim + Sensor dim
 	ACTION_DIM = 3
 	default_vehicle = "audi.a2"
@@ -41,16 +48,18 @@ class EasyCarla(ComdeSkillEnv):
 	non_functionalities = ["vehicle"]
 	skill_index_mapping = {v: k for k, v in onehot_skills_mapping.items()}
 	vehicle_default_param = None
+	param_dim = 22
 
 	sequential_requirements_vector_mapping = None
 	non_functionalities_vector_mapping = None
 	has_been_called = False
 
 	def __init__(self, seed: int, task: List, n_target: int, cfg: Dict = None):
-
+		self.t = 0
 		self.port = cfg.get("port", None)
 		self.observation_keys = cfg["observation_keys"]
 
+		cfg["carla_cfg"]["config"]["random_route"] = False
 		with open(cfg["normalization_path"], "rb") as f:
 			normalization_dict = pickle.load(f)
 
@@ -60,8 +69,19 @@ class EasyCarla(ComdeSkillEnv):
 		self.img_emb_min = normalization_dict["img_emb_min"]
 		self.action_max = normalization_dict["action_max"]
 		self.action_min = normalization_dict["action_min"]
+
 		self.param_max = normalization_dict["param_max"]
 		self.param_min = normalization_dict["param_min"]
+
+		self.param_sweep = np.where(self.param_max == self.param_min)
+
+		vehicle_type = cfg.get("parameter", "default")
+		if vehicle_type == "default" or "audi" in vehicle_type.lower():
+			self.vehicle_type = "audi.a2"
+		elif ("carlacola" in vehicle_type.lower()) or ("carlamotors" in vehicle_type.lower()):
+			self.vehicle_type = "carlamotors.carlacola"
+		else:
+			raise NotImplementedError(f"Undefined vehicle type: {self.vehicle_type}")
 
 		self.normalization_dict = {
 			"img_embedding": {"max": self.img_emb_max, "min": self.img_emb_min},
@@ -78,6 +98,7 @@ class EasyCarla(ComdeSkillEnv):
 
 		self.obs_max = np.hstack(obs_max)
 		self.obs_min = np.hstack(obs_min)
+		self.obs_sweep = np.where(self.obs_max == self.obs_min)
 
 		if type(task[0]) == int:
 			for i in range(len(task)):
@@ -86,7 +107,6 @@ class EasyCarla(ComdeSkillEnv):
 		self._img_embedding = None  # Required if we have to embed raw image
 		base_env = self.get_base_env(cfg)
 		base_env.skill_list = task.copy()
-
 		super(EasyCarla, self).__init__(env=base_env, seed=seed, task=task, n_target=n_target, cfg=cfg)
 
 		self.dotmap_observation_space = self.observation_space
@@ -107,15 +127,27 @@ class EasyCarla(ComdeSkillEnv):
 			EasyCarla.non_functionalities_vector_mapping = mapping
 
 	def get_rtg(self):
-		raise NotImplementedError("Implement return-to-go for Carla environment.")
+		return 5.0	# The number of turning in target task (Now, not used for any model)
+		# raise NotImplementedError("Implement return-to-go for Carla environment.")
+
+	def get_parameter_from_adjective(self, adjective: str):
+		adjective = adjective.lower()
+		if ("audi" in adjective) or ("default" in adjective):
+			return self.params_dict["audi.a2"]
+		elif ("carlamotors" in adjective) or ("carlacola" in adjective):
+			return self.params_dict["carlamotors.carlacola"]
+		else:
+			raise NotImplementedError(f"Undefined vehicle type: {adjective}")
 
 	def get_base_env(self, cfg: Dict) -> gym.Env:
 		from comde.utils.common.pretrained_forwards.th_resnet_50 import resnet50_forward
 		self._img_embedding = resnet50_forward
 		carla_cfg = cfg["carla_cfg"]
 		exp_configs = carla_cfg.pop("config")
-		exp_configs["vehicle_type"] = "audi.a2"
+
+		exp_configs["vehicle_type"] = self.vehicle_type
 		exp_configs["lidar"] = LidarConfigs(**exp_configs["lidar"])
+		cfg["random_route"] = False
 		exp_configs["max_steps"] = 3000
 		if self.port is not None:
 			carla_cfg["carla_port"] = self.port	# Override
@@ -123,15 +155,20 @@ class EasyCarla(ComdeSkillEnv):
 			config = ExperimentConfigs(**exp_configs)
 		else:
 			config = ExperimentConfigs(**exp_configs)
-		return SkillAttatchedCarlaEnvironment(config=config, **carla_cfg)
+		base_env = SkillAttatchedCarlaEnvironment(config=config, **carla_cfg)
+		base_env.weather = "ClearNoon"
+		return base_env
 
 	def load_param_dict(self):
 		with open(self.cfg["params_dict_path"], "rb") as f:
 			self.params_dict = pickle.load(f)
 
+		global vehicle_parameter_dicts
+		vehicle_parameter_dicts = deepcopy(self.params_dict)
 		EasyCarla.vehicle_default_param = self.params_dict[EasyCarla.default_vehicle]
 
 	def postprocess_observation(self, obs: Union[Dict[str, np.ndarray], np.ndarray]):
+		obs = deepcopy(obs)
 		img = obs["image"]
 		img = img[np.newaxis, ...]
 		emb = self._img_embedding(img)
@@ -163,51 +200,90 @@ class EasyCarla(ComdeSkillEnv):
 		parameter: Union[float, Dict] = None,
 		video_parsing: bool = True
 	):
-		print("Sequential requirement", sequential_requirement)
-		print("Non functionality", non_functionality)
-		print("Parameter", parameter)
-		print("Video parsing", video_parsing)
-		exit()
+		if parameter is None:
+			parameter = EasyCarla.get_default_parameter(non_functionality)
+
+		if video_parsing:
+			source_skills = ComdeSkillEnv.idxs_to_str_skills(EasyCarla.skill_index_mapping, source_skills_idx)
+			source_skills = ", and then ".join(source_skills)
+		else:
+			source_skills = "video"
+		fmt = random.choice(template["vehicle"]["non_default"])
+
+		p = np.array(list(parameter.values())[0])
+		possible_params = np.array([list(vehicle.values())[0] for vehicle in vehicle_parameter_dicts.values()])
+
+		matched_vehicle_idx = np.argmin(np.mean((p - possible_params) ** 2, axis=-1), axis=0)
+
+		vehicle = list(vehicle_parameter_dicts.keys())[matched_vehicle_idx]
+		if "audi" in vehicle:
+			vehicle = "audi"
+		elif "carlacola" in vehicle:
+			vehicle = "carlacola"
+		else:
+			raise NotImplementedError()
+
+		fmt = fmt.format(vehicle=vehicle, video=source_skills)
+		return fmt
 
 	def get_buffer_observation(self, observation: np.ndarray):
-		# assert np.all(observation >= self.obs_min) and np.all(observation <= self.obs_max), \
-		# 		f"Observation: {observation}, Min: {self.obs_min}, Max: {self.obs_max}"
-		return (observation - self.obs_min) / (self.obs_max - self.obs_min + EPS)
+		observation = (observation - self.obs_min) / (self.obs_max - self.obs_min + EPS)
+		observation[..., self.obs_sweep] = 0.0
+		return observation
 
 	def get_buffer_action(self, action: np.ndarray):
-		return action
-		# assert np.all(action >= self.action_min) and np.all(action <= self.action_max)
-		# action = (action - self.action_min) / (self.action_max - self.action_min)
-		# return action
+		return (action - self.action_min) / (self.action_max - self.action_min)
 
 	def get_step_action(self, action: np.ndarray):
 		return action * (self.action_max - self.action_min) + self.action_min
 
 	def get_buffer_parameter(self, parameter: np.ndarray):
-		# print("What is the parameter type?", parameter.dtype)
-		# print("Before 5th", parameter[..., 5])
 		parameter = (parameter - self.param_min) / (self.param_max - self.param_min + 1E-9)
-		# print("Dominator", (parameter - self.param_min)[..., 5])
-		# print("After 5th", parameter[..., 5])
+		parameter[..., self.param_sweep] = 0.0
 		parameter[parameter > 0.5] = 1.0
-		parameter[parameter < 0.5] = 0.0
-		# print("Output parameter?", parameter)
+		parameter[parameter <= 0.5] = 0.0
 		return parameter
 
+	def get_expert_action(self) -> np.ndarray:
+		action, _ = self.env.compute_action()
+		action = np.array([action.throttle, action.steer, action.brake])
+		return action
+
+	def get_current_location(self):
+		location = self.env.vehicle.get_location()
+		x = location.x
+		y = location.y
+		z = location.z
+		return np.array([x, y, z])
+
 	def step(self, action: np.ndarray):
-		action = self.get_step_action(action)
-		if self.count < 10:
-			print("Optimal action", action)
+		action = action.copy()
+		expert_action = self.get_expert_action()
+		pred_action = self.get_step_action(action)
+		pred_action[0] /= 5
+		self.t += 1
+
+		if (self.t % 10) == 0:
+			print("Expert action")
+			action = expert_action
 		else:
-			print("Predict action", action)
+			action = pred_action
 		vehicle_control = self.postprocess_action(action)
 		obs, rew, done, info = super(EasyCarla, self).step(vehicle_control)
+		rew = rew - 2.5	# Should arrive in shortest path
+
+		current_location = self.get_current_location()
+		distance_to_target = np.mean((current_location - np.array(EasyCarla.TARGET_LOCATION)) ** 2)
+		if distance_to_target < 1.0:
+			done = True
+
 		obs = self.postprocess_observation(obs)
 		return obs, rew, done, info
 
 	def reset(self, **kwargs):
 		obs = super(EasyCarla, self).reset(**kwargs)
-		return self.postprocess_observation(obs)
+		obs = self.postprocess_observation(obs)
+		return obs
 
 	@staticmethod
 	def get_skill_infos():

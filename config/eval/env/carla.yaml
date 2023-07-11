@@ -8,8 +8,10 @@ params_dict_path: /home/jsw7460/mnt/comde_datasets/carla/param_dicts/param_dict
 source_skills_path: /home/jsw7460/mnt/comde_datasets/source_skills/carla/optimal_four_skills
 template_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/language_guidance/BERT_carla_templates
 normalization_path: /home/jsw7460/mnt/comde_datasets/normalizations/carla
+task_video_path: /home/jsw7460/mnt/comde_datasets/videos/carla/task_video_mappings
 
 timelimit: 3000
-termination_pred_interval: 10
+termination_pred_interval: 100
 n_target: 222
 port: 7460
+parameter: ${parameter}

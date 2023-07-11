@@ -35,8 +35,10 @@ def get_optimal_template(
 			param_for_skill = []
 			for optimal_idx in optimal_idxs:  # iteration for the number of envs
 				param_for_skill.append(get_params_for_skills(optimal_idx, parameter_dict))
+
 			param_for_skill = np.array(param_for_skill)
 			param_for_skill = env.get_buffer_parameter(param_for_skill)
+			print("param for skill", param_for_skill)
 			param_for_skill = np.repeat(param_for_skill, repeats=param_repeats, axis=-1)
 			params_for_skills.append(param_for_skill)
 

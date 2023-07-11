@@ -9,7 +9,8 @@ from comde.evaluations.modes.baselines import (
 	evaluate_flatbc,
 	evaluate_demogen,
 	evaluate_promptdt,
-	evaluate_bcz
+	evaluate_bcz,
+	evaluate_vima
 )
 from comde.evaluations.modes.comde_eval import evaluate_comde
 from comde.utils.common.pretrained_forwards.jax_bert_base import bert_base_forward
@@ -38,7 +39,10 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 
 		info.update({"sequential_requirement": "not_used"})
 
-	elif mode in ["demogen", "promptdt", "bcz", "vima", "flaxvima"]:
+	elif mode in [
+		"demogen", "promptdt", "bcz", "vima", "flaxvima",
+		"sensordemogen", "sensorbcz", "sensorflaxvima", "sensorsourcelanguagepromptdt"
+	]:
 
 		envs = kwargs["envs"]
 		seq_req_mapping = envs[0].sequential_requirements_vector_mapping[cfg.sequential_requirement]
@@ -54,29 +58,53 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 
 		source_skills_idxs = kwargs["source_skills_idx"]
 
-		if mode in ["demogen", "bcz"]:
-			if mode == "demogen":
-				with open(cfg["env"]["task_video_path"], "rb") as f:
-					vl_feature_dict = pickle.load(f)
-
-			elif mode == "bcz":
-				if str(envs[0]) == "metaworld":
-					vl_feature_dict = pretrained_models["baseline"].video_feature
-				else:
+		if mode in ["demogen", "bcz", "sensordemogen", "sensorbcz"]:
+			if "sensor" not in mode:
+				if mode == "demogen":
 					with open(cfg["env"]["task_video_path"], "rb") as f:
 						vl_feature_dict = pickle.load(f)
+
+				elif mode == "bcz":
+					if str(envs[0]) == "metaworld":
+						vl_feature_dict = pretrained_models["baseline"].video_feature
+					else:
+						with open(cfg["env"]["task_video_path"], "rb") as f:
+							vl_feature_dict = pickle.load(f)
+				else:
+					raise NotImplementedError()
+
+				text_dict = pretrained_models["baseline"].episodic_inst
+				source_video_embeddings = []
+				for src_sk in source_skills_idxs:
+					src_sk = " ".join([str(sk) for sk in src_sk])
+					src_emb = vl_feature_dict.get(src_sk, list(text_dict[src_sk].values()))
+					src_emb = random.choice(src_emb)
+					source_video_embeddings.append(src_emb)
+
+				source_video_embeddings = np.array(source_video_embeddings)
+
+			elif "sensor" in mode:
+				if mode in ["sensordemogen", "sensorbcz"]:
+					with open(cfg["env"]["first_few_sensors_path"], "rb") as f:
+						sensor_dict = pickle.load(f)
+
+					source_obss = []
+					source_acts = []
+					for src_sk in source_skills_idxs:
+						src_obs = [random.choice(sensor_dict[sk])["observations"] for sk in src_sk]
+						src_act = [random.choice(sensor_dict[sk])["actions"] for sk in src_sk]
+
+						source_obss.append(np.concatenate(src_obs, axis=0))
+						source_acts.append(np.concatenate(src_act, axis=0))
+
+					so = np.stack(source_obss, axis=0)	# [b, l, d]
+					sa = np.stack(source_acts, axis=0)	# [b, l, d]
+					batch_size = so.shape[0]
+					# Actually not video, but just naming ...
+					source_video_embeddings = np.concatenate((so, sa), axis=-1).reshape(batch_size, -1)
+
 			else:
 				raise NotImplementedError()
-
-			text_dict = pretrained_models["baseline"].episodic_inst
-			source_video_embeddings = []
-			for src_sk in source_skills_idxs:
-				src_sk = " ".join([str(sk) for sk in src_sk])
-				src_emb = vl_feature_dict.get(src_sk, list(text_dict[src_sk].values()))
-				src_emb = random.choice(src_emb)
-				source_video_embeddings.append(src_emb)
-
-			source_video_embeddings = np.array(source_video_embeddings)
 
 			arguments.update({
 				**kwargs["pretrained_models"],
@@ -86,7 +114,7 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 				"param_for_skill": param_for_skill
 			})
 
-		elif mode in ["vima", "flaxvima"]:
+		elif mode in ["vima", "flaxvima", "sensorflaxvima", "sensorsourcelanguagepromptdt"]:
 			language_guidances = []
 			for t, env in enumerate(envs):
 				lg = env.get_language_guidance_from_template(
@@ -101,6 +129,8 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 			source_skills_vecs = np.array(source_skills_vecs)
 			n_source_skills = np.array([source_skills_vecs.shape[1] for _ in range(n_envs)])
 			model = pretrained_models["baseline"]
+			rtgs = np.array([env.get_rtg() for env in envs])
+
 			if mode == "vima":
 				prompts, prompts_assets, prompts_maskings, prompts_assets_maskings = model.get_prompts_from_components(
 					language_guidances=language_guidances,
@@ -121,14 +151,44 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 					n_source_skills=n_source_skills,
 					source_skills_idxs=source_skills_idxs
 				)
+				prompts = {"prompts": prompts}
+				prompts_maskings = {"prompts_maskings": prompts_maskings}
+
+			elif mode in ["sensorflaxvima", "sensorsourcelanguagepromptdt"]:
+				prompts_dict = model.get_prompts_from_components(
+					language_guidances=language_guidances,
+					source_skills=source_skills_vecs,
+					n_source_skills=n_source_skills,
+					source_skills_idxs=source_skills_idxs
+				)
+				prompts = {
+					"language_prompts": prompts_dict["language_prompts"],
+					"sensor_prompts": prompts_dict["sensor_prompts"]
+				}
+				prompts_maskings = {
+					"language_prompts_maskings": prompts_dict["language_prompts_maskings"],
+					"sensor_prompts_maskings": prompts_dict["sensor_prompts_maskings"]
+				}
+
+				if mode == "sensorsourcelanguagepromptdt":
+					rtgs = np.array([env.get_rtg() for env in envs])
+					non_functionality = non_functionalities[:, 0, ...]
+					arguments.update({
+						"rtgs": rtgs,
+						"sequential_requirement": sequential_requirement,
+						"non_functionality": non_functionality
+					})
+
 			else:
 				raise NotImplementedError()
 
 			arguments.update({
 				**kwargs["pretrained_models"],
+
 				"prompts": prompts,
 				"prompts_maskings": prompts_maskings,
 				"param_for_skills": param_for_skill,
+				"rtgs": rtgs,
 			})
 
 		else:
@@ -211,27 +271,41 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 def get_evaluation_function(kwargs: Dict, custom_seed: int):
 	if "baseline" in kwargs["pretrained_models"]:
 		model = kwargs["pretrained_models"]["baseline"]
-		if str(model) == "FlatBC":
+		model_name = str(model)
+		if model_name == "FlatBC":
 			fn = evaluate_flatbc
-			mode = "flatbc"
-		elif str(model) == "DemoGen":
+			mode = model_name.lower()
+		elif model_name == "DemoGen":
 			fn = evaluate_demogen
-			mode = "demogen"
-		elif str(model) in ["VLPromptDT", "SourceLanguagePromptDT", "TargetAllPromptDT"]:
+			mode = model_name.lower()
+		elif model_name in ["VLPromptDT", "SourceLanguagePromptDT", "TargetAllPromptDT"]:
 			fn = evaluate_promptdt
 			mode = "promptdt"
-		elif str(model) == "BCZ":
+		elif model_name == "BCZ":
 			fn = evaluate_bcz
-			mode = "bcz"
-		elif str(model) == "VIMA":
-			fn = evaluate_promptdt
-			mode = "vima"
-		elif str(model) == "FlaxVIMA":
-			fn = evaluate_promptdt
-			mode = "flaxvima"
+			mode = model_name.lower()
+		elif model_name == "VIMA":
+			fn = evaluate_vima
+			mode = model_name.lower()
+		elif model_name == "FlaxVIMA":
+			fn = evaluate_vima
+			mode = model_name.lower()
+
+		elif model_name == "SensorDemoGen":
+			fn = evaluate_demogen
+			mode = model_name.lower()
+		elif model_name == "SensorBCZ":
+			fn = evaluate_bcz
+			mode = model_name.lower()
+		elif model_name == "SensorFlaxVIMA":
+			fn = evaluate_vima
+			mode = model_name.lower()
+		elif model_name == "SensorSourceLanguagePromptDT":
+			fn = evaluate_vima
+			mode = model_name.lower()
+
 		else:
 			raise NotImplementedError(f"Not implemented baseline: {str(model)}")
-
 	else:
 		mode = "comde"
 		fn = evaluate_comde
