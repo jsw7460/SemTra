@@ -1,0 +1,40 @@
+_target_: comde.comde_modules.sensor_encoder.SensorEncoder
+seed: ${seed}
+cfg:
+
+  predict_component: degree # skill or degree or both
+
+  obs_mean: 0.0
+  obs_std: 1.0
+  n_skill: {env.n_skill}
+
+  language_dim: ${language_dim}
+  observation_dim: ${observation_dim}
+  action_dim: ${action_dim}
+  skill_dim: ${skill_dim}
+  non_functionality_dim: ${non_functionality_dim}
+  param_dim: ${env.param_dim}
+  param_repeats: ${env.param_repeats}
+  act_scale: ${act_scale}
+  coef_skill_loss: 1.0
+  coef_param_loss: 0.0
+
+  videofeature_path: ${env.videofeature_path}
+  episodic_instruction_path: ${env.episodic_instruction_path}
+  lr: 5e-4
+
+  predictor_cfg:
+    gpt2_config:
+      vocab_size: 1
+      n_positions: 1024
+      n_layer: 4
+      n_head: 4
+      activation_function: relu
+      resid_pdrop: 0.1
+      embd_pdropo: 0.1
+      attn_pdrop: 0.1
+      layer_norm_epsilon: 0
+    n_skill: ${env.n_skill}
+    n_param: 3
+    hidden_size: 256
+    max_ep_len: 1024

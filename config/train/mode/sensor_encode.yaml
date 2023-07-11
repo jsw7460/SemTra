@@ -1,0 +1,12 @@
+mode: comde
+trainer: comde.trainer.sensor_encoder_trainer.SensorEncoderTrainer
+modules:
+  - sensor_encoder
+
+intent_dim: 1024
+save_source_trajectory: False
+save_interval: 5000
+datadir_limit: 10
+step_per_dataset: 5000
+register_language_embedding: False
+
