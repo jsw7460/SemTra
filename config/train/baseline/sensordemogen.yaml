@@ -1,0 +1,47 @@
+_target_: comde.baselines.SensorDemoGen
+seed: ${seed}
+cfg:
+  obs_mean: 0.0
+  obs_std: 1.0
+
+  language_dim: ${language_dim}
+  observation_dim: ${observation_dim}
+  action_dim: ${action_dim}
+  skill_dim: ${skill_dim}
+  non_functionality_dim: ${non_functionality_dim}
+  param_dim: ${env.param_dim}
+  param_repeats: ${env.param_repeats}
+  act_scale: ${act_scale}
+  video_dim: 768
+
+  videofeature_path: ${env.videofeature_path}
+  episodic_instruction_path: ${env.episodic_instruction_path}
+  sensor_instruction_path: ${env.first_few_sensors_path}
+  sensor_subseq_len: 20
+  n_target_skill: ${env.n_target_skill}
+
+  policy_cfg:
+    output_dim: ${action_dim}
+    net_arch:
+      - 128
+      - 128
+      - 128
+      - 128
+    activation_fn: relu
+    dropout: 0.0
+    squash_output: True
+    layer_norm: False
+    lr: 1e-4
+
+  gravity_cfg:
+    output_dim: ${baseline.cfg.video_dim}
+    net_arch:
+      - 512
+      - 256
+      - 128
+      - 256
+    activation_fn: relu
+    dropout: 0.0
+    squash_output: False
+    layer_norm: False
+    lr: 1e-4
