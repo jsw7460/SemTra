@@ -22,8 +22,7 @@ def get_optimal_template(
 	if cfg.non_functionality in ["speed", "wind", "weight", "vehicle"]:
 		params_for_skills = []
 		params_to_check = []
-
-		for env in envs:
+		for optimal_idx, env in zip(optimal_idxs, envs):
 			param_to_check = env.get_parameter_from_adjective(cfg.parameter)
 			parameter_dict = deepcopy(param_to_check)
 			params_to_check.append(parameter_dict)
@@ -32,17 +31,14 @@ def get_optimal_template(
 				np.any(np.array(list(parameter_dict.values())) != np.array(list(param_to_check.values()))):
 				continue
 
-			param_for_skill = []
-			for optimal_idx in optimal_idxs:  # iteration for the number of envs
-				param_for_skill.append(get_params_for_skills(optimal_idx, parameter_dict))
-
-			param_for_skill = np.array(param_for_skill)
+			# for optimal_idx in optimal_idxs:  # iteration for the number of envs
+			param_for_skill = get_params_for_skills(optimal_idx, parameter_dict)
 			param_for_skill = env.get_buffer_parameter(param_for_skill)
-			print("param for skill", param_for_skill)
 			param_for_skill = np.repeat(param_for_skill, repeats=param_repeats, axis=-1)
 			params_for_skills.append(param_for_skill)
 
-		params_for_skills = np.stack(params_for_skills, axis=0)  # [n_envs, target_skill_len, param_dim]
+		params_for_skills = np.stack(params_for_skills, axis=0)
+
 	else:
 		raise NotImplementedError("Undefined non functionality")
 

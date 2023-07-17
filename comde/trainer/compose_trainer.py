@@ -68,6 +68,7 @@ class ComposeTrainer(BaseTrainer):
 	def make_dataset(self) -> Dict[str, List]:
 		# source_skills = []
 		target_skills = []
+		target_skills_str = []
 		language_guidances = []
 		target_skills_idxs = []
 		n_source_skills = []
@@ -75,6 +76,7 @@ class ComposeTrainer(BaseTrainer):
 		envs = []
 		while len(language_guidances) < self.batch_size:
 			env = random.choice(list(self.envs.values()))
+			idx_to_str = env.skill_index_mapping
 			language_guidance, info = env.generate_random_language_guidance(video_parsing=True, avoid_impossible=True)
 
 			if language_guidance is None:
@@ -82,6 +84,11 @@ class ComposeTrainer(BaseTrainer):
 
 			source_skills_idx = info["source_skills_idx"]
 			target_skills_idx = info["target_skills_idx"]
+
+			target_skill_str = [idx_to_str[sk] for sk in target_skills_idx]
+			target_skill_str = " then ".join(target_skill_str)
+
+			target_skills_str.append(target_skill_str)
 
 			n_target_pad = self.max_target_skills - len(target_skills_idx)
 			target_skills_idx = target_skills_idx + [-1 for _ in range(n_target_pad)]
@@ -111,46 +118,25 @@ class ComposeTrainer(BaseTrainer):
 			language_guidance=language_guidances,
 			target_skills=target_skills,
 			target_skills_idxs=target_skills_idxs,
+			target_skills_str=target_skills_str,
 			n_source_skills=n_source_skills,
 			n_target_skills=n_target_skills
 		)
 
 		info = {"buffer_sample": buffer_sample, "envs": envs}
-
 		return info
-
-	# # Make minibatch dataset
-	# n_chunk = max(len(language_guidances) // self.batch_size, 1)
-	# _target_skills = np.array_split(target_skills, n_chunk, axis=0)
-	# _target_skills_idxs = np.array_split(target_skills_idxs, n_chunk, axis=0)
-	# _n_source_skills = np.array_split(n_source_skills, n_chunk, axis=0)
-	# _n_target_skills = np.array_split(n_target_skills, n_chunk, axis=0)
-	#
-	# buffer_samples = []
-	# pos = 0
-	# for ts, tsi, nss, nts in zip(_target_skills, _target_skills_idxs, _n_source_skills, _n_target_skills):
-	# 	language_guidance = language_guidances[pos: pos + len(ts)]
-	# 	pos += len(ts)
-	# 	buffer_sample = ComDeBufferSample(
-	# 		language_guidance=language_guidance,
-	# 		target_skills=ts,
-	# 		target_skills_idxs=tsi,
-	# 		n_source_skills=nss,
-	# 		n_target_skills=nts
-	# 	)
-	# 	buffer_samples.append(buffer_sample)
-	#
-	# info = {"buffer_samples": buffer_samples, "envs": envs}
-	#
-	# return info
 
 	def run(self):
 		for _ in range(self.step_per_dataset):
 			replay_data = self.make_dataset()["buffer_sample"]
+
 			info = self.seq2seq.update(replay_data=replay_data)
 
 			self.record_from_dicts(info, mode="train")
 			self.n_update += 1
+
+			if (self.n_update % 100) == 0:
+				self.evaluate()
 
 			if (self.n_update % self.log_interval) == 0:
 				self.dump_logs(step=self.n_update)
@@ -158,7 +144,15 @@ class ComposeTrainer(BaseTrainer):
 			if (self.n_update % self.save_interval) == 0:
 				self.save()
 
+	def _gpt2_evaluate(self):
+		dataset = self.make_dataset()
+		replay_data = dataset["buffer_sample"]
+		self.seq2seq.evaluate(replay_data)
+
 	def evaluate(self) -> None:
+		self._gpt2_evaluate()
+		return None
+
 		dataset = self.make_dataset()
 		replay_data = dataset["buffer_sample"]
 		envs = dataset["envs"]

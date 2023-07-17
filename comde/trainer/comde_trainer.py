@@ -45,6 +45,7 @@ class ComdeTrainer(BaseTrainer):
 		skills = [random.choice(sk) for sk in list(self.skill_infos.values())]
 		skills.sort(key=lambda sk: sk.index)
 		skills = [sk.vec for sk in skills]
+
 		self.append_dummy_skill(skills)
 		self.__last_onehot_skills = np.array([sk for sk in skills])
 

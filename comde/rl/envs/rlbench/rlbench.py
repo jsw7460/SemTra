@@ -7,19 +7,24 @@ import numpy as np
 
 from comde.rl.envs.base import ComdeSkillEnv
 from comde.rl.envs.rlbench.utils import (
+	OBS_DIM,
+	ACT_DIM,
 	RLBENCH_ALL_TASKS,
 	SEQUENTIAL_REQUIREMENT,
 	WEIGHT_TO_ADJECTIVE,
 	SEQUENTIAL_REQUIREMENTS_VARIATIONS,
 	NON_FUNCTIONALITIES_VARIATIONS,
-	get_task_class,
 	get_weight,
 	object_in_task,
 	skill_infos
 )
 from comde.utils.common.natural_languages.language_guidances import template
-from comde_rlbench.RLBench.comde.comde_env import ComdeEnv as ComdeRLBench
-from comde_rlbench.RLBench.rlbench.comde_const import COMDE_WEIGHTS
+from semtra_rlbench.gym.semtra_env import SemtraEnv
+from semtra_rlbench.semtra_const import (
+	SEMTRA_WEIGHTS as COMDE_WEIGHTS,
+	SEMTRA_PANDA_HANDLE as COMDE_PANDA_HANDLE,
+	SEMTRA_PANDA_PROPERTY as COMDE_PANDA_PROPERTY
+)
 
 
 class DummyRLBench(gym.Env):
@@ -49,7 +54,7 @@ class RLBench(ComdeSkillEnv):
 	skill_index_mapping = {v: k for k, v in onehot_skills_mapping.items()}
 	skill_indices = list(skill_index_mapping.keys())
 	non_functionalities = ["weight"]
-	weight_default_param = {k: v[0] for k, v in COMDE_WEIGHTS.items()}
+	weight_default_param = {k: v["default"] for k, v in COMDE_WEIGHTS.items()}
 
 	sequential_requirements_vector_mapping = None
 	non_functionalities_vector_mapping = None
@@ -67,11 +72,14 @@ class RLBench(ComdeSkillEnv):
 		dummy: bool = False,
 		register_language_embedding: bool = True
 	):
+		self.__t = 0
+		self.idx_task = deepcopy(task)
+		task = deepcopy(task)
 		if not dummy:
-			task_class = get_task_class(task)
-			from comde_rlbench.RLBench.rlbench.comde_tasks import ComdeTask8
-			task_class = ComdeTask8
-			base_env = ComdeRLBench(task_class=task_class, place_seq=[3, 1, 2, 4])
+			str_task = [RLBench.skill_index_mapping[sk] for sk in task]
+			str_task = [sk.replace(" ", "_") for sk in str_task]
+			skill_list = {sk: "default" for sk in str_task}  # Why list...?
+			base_env = SemtraEnv(skill_list=skill_list, render_mode="rgb_array")
 		else:
 			base_env = DummyRLBench()
 
@@ -80,6 +88,10 @@ class RLBench(ComdeSkillEnv):
 				task[i] = self.skill_index_mapping[task[i]]
 		base_env.skill_list = deepcopy(task)
 		super(RLBench, self).__init__(env=base_env, seed=seed, task=task, n_target=n_target, cfg=cfg)
+
+		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(OBS_DIM,))
+		self.action_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(ACT_DIM,))
+		self.arm_mode_thresh = 0.0001
 
 		if not RLBench.has_been_called:
 			RLBench.has_been_called = True
@@ -96,9 +108,9 @@ class RLBench(ComdeSkillEnv):
 	def get_buffer_action(self, action: np.ndarray):
 		action = action.copy()
 		tmp0 = action[..., : 7]
-		tmp1 = action[..., -3: ]
+		tmp1 = action[..., -3:]
 		action[..., : 7] = 2 * tmp0
-		action[..., -3: ] = np.tanh(0.1 * np.log(tmp1))
+		action[..., -3:] = np.tanh(0.1 * np.log(tmp1))
 		return action
 
 	def get_step_action(self, action: np.ndarray):

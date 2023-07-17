@@ -45,7 +45,7 @@ class ComDeBufferSample(NamedTuple):
 	n_source_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b,]
 
 	n_target_skills: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b,]
-	language_guidance: List = []
+	language_guidance: List[str] = []
 	sequential_requirement: Union[np.ndarray, th.tensor] = np.empty(0, )	# [b, d]
 	str_sequential_requirement: List = []		# String
 	str_non_functionality: List = []		# String
@@ -70,6 +70,7 @@ class ComDeBufferSample(NamedTuple):
 	timesteps: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
 	rtgs: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l]
 	true_subseq_len: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, ]
+	target_skills_str: List[str] = None
 
 	# Maybe required (for some baseline which requires source state and actions)
 	source_observations: Union[np.ndarray, th.Tensor] = np.empty(0,)

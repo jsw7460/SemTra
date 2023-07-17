@@ -7,7 +7,6 @@ from transformers import FlaxBertModel, AutoTokenizer
 tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")  # type: Optional[AutoTokenizer,]
 model = None  # type: Optional[FlaxBertModel]
 
-
 @jax.jit
 def _bert_encode(**kwargs):
 	return model(**kwargs)["last_hidden_state"]

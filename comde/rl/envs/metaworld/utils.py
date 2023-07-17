@@ -37,26 +37,34 @@ for idx, (key, variations) in enumerate(texts_variations.items()):
 		)
 		skill_infos[key].append(skill_rep)
 
+
 SEQUENTIAL_REQUIREMENTS = ["sequential", "reverse"]
 for (a, b) in list(permutations(range(8), 2)):
 	SEQUENTIAL_REQUIREMENTS.append(f"replace {a} with {b}")
 
 POSSIBLE_SPEEDS = {
 	1: {"default": 25.0, "non_default": {"normal": 10.0, "slow": 1.5}},
+	2: {"default": 25.0, "non_default": {"normal": 0.75, "slow": 0.5}},
 	3: {"default": 25.0, "non_default": {"normal": 13.0, "slow": 6.0}},
 	4: {"default": 15.0, "non_default": {"normal": 5.0, "slow": 1.5}},
+	5: {"default": 15.0, "non_default": {"normal": 8.5, "slow": 7.0}},
 	6: {"default": 25.0, "non_default": {"normal": 8.0, "slow": 3.0}}
 }
+
 SPEED_TO_ADJECTIVE = {
 	1: {"25.0": "fast", "10.0": "normal", "1.5": "slow"},
+	2: {"25.0": "fast", "0.75": "normal", "0.5": "slow"},
 	3: {"25.0": "fast", "13.0": "normal", "6.0": "slow"},
 	4: {"15.0": "fast", "5.0": "normal", "1.5": "slow"},
+	5: {"15.0": "fast", "8.5": "normal", "7.0": "slow"},
 	6: {"25.0": "fast", "8.0": "normal", "3.0": "slow"}
 }
 ADJECTIVE_TO_SPEED = {
 	1: {v: eval(k) for k, v in SPEED_TO_ADJECTIVE[1].items()},
+	2: {v: eval(k) for k, v in SPEED_TO_ADJECTIVE[2].items()},
 	3: {v: eval(k) for k, v in SPEED_TO_ADJECTIVE[3].items()},
 	4: {v: eval(k) for k, v in SPEED_TO_ADJECTIVE[4].items()},
+	5: {v: eval(k) for k, v in SPEED_TO_ADJECTIVE[5].items()},
 	6: {v: eval(k) for k, v in SPEED_TO_ADJECTIVE[6].items()},
 }
 POSSIBLE_WINDS = [
@@ -71,8 +79,10 @@ WIND_TO_ADJECTIVE = {
 # 0: Slow, 1: Normal, 2: Fast
 IDX_TO_PARAMETERS = {
 	1: {0: 1.5, 1: 10.0, 2: 25.0},
+	2: {0: 0.5, 1: 0.75, 2: 25.0},
 	3: {0: 6.0, 1: 13.0, 2: 25.0},
 	4: {0: 1.5, 1: 5.0, 2: 15.0},
+	5: {0: 7.0, 1: 8.5, 2: 15.0},
 	6: {0: 3.0, 1: 8.0, 2: 25.0}
 }
 SCALE = 1
@@ -736,7 +746,223 @@ SEQUENTIAL_REQUIREMENTS_VARIATIONS = {
 		"Prefer opening the door to pressing the button",
 		"Opt for opening the door over pressing the button",
 		"Trade pressing the button for opening the door"
-	]
+	],
+	"replace 1 with 2": [
+		"Substitute sliding the puck with pulling down the handle.",
+		"Exchange the action of sliding the puck with pulling down the handle.",
+		"Swap sliding the puck for pulling down the handle.",
+		"Replace the task of sliding the puck by pulling down the handle.",
+		"Use pulling down the handle instead of sliding the puck.",
+		"Substitute the motion of sliding the puck with pulling down the handle.",
+		"Replace the action of sliding the puck with the task of pulling down the handle.",
+		"Exchange the puck sliding action for pulling down the handle.",
+		"Use the handle's pulling down action as a replacement for sliding the puck.",
+		"Replace the slide of the puck with the downward pull of the handle."
+	],
+	"replace 1 with 5": [
+		"Substitute sliding the puck with pulling up the lever.",
+		"Exchange the action of sliding the puck with pulling up the lever.",
+		"Swap sliding the puck for pulling up the lever.",
+		"Replace the task of sliding the puck by pulling up the lever.",
+		"Use pulling up the lever instead of sliding the puck.",
+		"Substitute the motion of sliding the puck with pulling up the lever.",
+		"Replace the action of sliding the puck with the task of pulling up the lever.",
+		"Exchange the puck sliding action for pulling up the lever.",
+		"Use the lever's upward pull as a replacement for sliding the puck.",
+		"Replace the slide of the puck with the upward pull of the lever."
+	],
+	"replace 2 with 1": [
+		"Substitute pulling down the handle with sliding the puck.",
+		"Exchange the action of pulling down the handle with sliding the puck.",
+		"Swap pulling down the handle for sliding the puck.",
+		"Replace the task of pulling down the handle by sliding the puck.",
+		"Use sliding the puck instead of pulling down the handle.",
+		"Substitute the motion of pulling down the handle with sliding the puck.",
+		"Replace the action of pulling down the handle with the task of sliding the puck.",
+		"Exchange the handle pulling down action for sliding the puck.",
+		"Use the puck sliding action as a replacement for pulling down the handle.",
+		"Replace the downward pull of the handle with the slide of the puck."
+	],
+	"replace 2 with 3": [
+		"Substitute pulling down the handle with closing the drawer.",
+		"Exchange the action of pulling down the handle with closing the drawer.",
+		"Swap pulling down the handle for closing the drawer.",
+		"Replace the task of pulling down the handle by closing the drawer.",
+		"Use closing the drawer instead of pulling down the handle.",
+		"Substitute the motion of pulling down the handle with closing the drawer.",
+		"Replace the action of pulling down the handle with the task of closing the drawer.",
+		"Exchange the handle pulling down action for closing the drawer.",
+		"Use the drawer's closing action as a replacement for pulling down the handle.",
+		"Replace the downward pull of the handle with the closing of the drawer."
+	],
+	"replace 2 with 4": [
+		"Substitute pulling down the handle with pushing the button.",
+		"Exchange the action of pulling down the handle with pushing the button.",
+		"Swap pulling down the handle for pushing the button.",
+		"Replace the task of pulling down the handle by pushing the button.",
+		"Use pushing the button instead of pulling down the handle.",
+		"Substitute the motion of pulling down the handle with pushing the button.",
+		"Replace the action of pulling down the handle with the task of pushing the button.",
+		"Exchange the handle pulling down action for pushing the button.",
+		"Use the button's push action as a replacement for pulling down the handle.",
+		"Replace the downward pull of the handle with the push of the button."
+	],
+	"replace 2 with 5": [
+		"Substitute pulling down the handle with pulling up the lever.",
+		"Exchange the action of pulling down the handle with pulling up the lever.",
+		"Swap pulling down the handle for pulling up the lever.",
+		"Replace the task of pulling down the handle by pulling up the lever.",
+		"Use pulling up the lever instead of pulling down the handle.",
+		"Substitute the motion of pulling down the handle with pulling up the lever.",
+		"Replace the action of pulling down the handle with the task of pulling up the lever.",
+		"Exchange the handle pulling down action for pulling up the lever.",
+		"Use the lever's upward pull as a replacement for pulling down the handle.",
+		"Replace the downward pull of the handle with the upward pull of the lever."
+	],
+	"replace 2 with 6": [
+		"Substitute pulling down the handle with opening the door.",
+		"Exchange the action of pulling down the handle with opening the door.",
+		"Swap pulling down the handle for opening the door.",
+		"Replace the task of pulling down the handle by opening the door.",
+		"Use opening the door instead of pulling down the handle.",
+		"Substitute the motion of pulling down the handle with opening the door.",
+		"Replace the action of pulling down the handle with the task of opening the door.",
+		"Exchange the handle pulling down action for opening the door.",
+		"Use the door's opening action as a replacement for pulling down the handle.",
+		"Replace the downward pull of the handle with the act of opening the door."
+	],
+	"replace 3 with 2": [
+		"Substitute closing the drawer with pulling down the handle.",
+		"Exchange the action of closing the drawer with pulling down the handle.",
+		"Swap closing the drawer for pulling down the handle.",
+		"Replace the task of closing the drawer by pulling down the handle.",
+		"Use pulling down the handle instead of closing the drawer.",
+		"Substitute the motion of closing the drawer with pulling down the handle.",
+		"Replace the action of closing the drawer with the task of pulling down the handle.",
+		"Exchange the drawer closing action for pulling down the handle.",
+		"Use the handle's downward pull as a replacement for closing the drawer.",
+		"Replace the act of closing the drawer with the downward pull of the handle."
+	],
+	"replace 3 with 5": [
+		"Substitute closing the drawer with pulling up the lever.",
+		"Exchange the action of closing the drawer with pulling up the lever.",
+		"Swap closing the drawer for pulling up the lever.",
+		"Replace the task of closing the drawer by pulling up the lever.",
+		"Use pulling up the lever instead of closing the drawer.",
+		"Substitute the motion of closing the drawer with pulling up the lever.",
+		"Replace the action of closing the drawer with the task of pulling up the lever.",
+		"Exchange the drawer closing action for pulling up the lever.",
+		"Use the lever's upward pull as a replacement for closing the drawer.",
+		"Replace the act of closing the drawer with the upward pull of the lever."
+	],
+	"replace 4 with 2": [
+		"Substitute pushing the button with pulling down the handle.",
+		"Exchange the action of pushing the button with pulling down the handle.",
+		"Swap pushing the button for pulling down the handle.",
+		"Replace the task of pushing the button by pulling down the handle.",
+		"Use pulling down the handle instead of pushing the button.",
+		"Substitute the motion of pushing the button with pulling down the handle.",
+		"Replace the action of pushing the button with the task of pulling down the handle.",
+		"Exchange the button pushing action for pulling down the handle.",
+		"Use the handle's downward pull as a replacement for pushing the button.",
+		"Replace the act of pushing the button with the downward pull of the handle."
+	],
+	"replace 4 with 5": [
+		"Substitute pushing the button with pulling up the lever.",
+		"Exchange the action of pushing the button with pulling up the lever.",
+		"Swap pushing the button for pulling up the lever.",
+		"Replace the task of pushing the button by pulling up the lever.",
+		"Use pulling up the lever instead of pushing the button.",
+		"Substitute the motion of pushing the button with pulling up the lever.",
+		"Replace the action of pushing the button with the task of pulling up the lever.",
+		"Exchange the button pushing action for pulling up the lever.",
+		"Use the lever's upward pull as a replacement for pushing the button.",
+		"Replace the act of pushing the button with the upward pull of the lever."
+	],
+	"replace 5 with 1": [
+		"Substitute pulling up the lever with sliding the puck.",
+		"Exchange the action of pulling up the lever with sliding the puck.",
+		"Swap pulling up the lever for sliding the puck.",
+		"Replace the task of pulling up the lever by sliding the puck.",
+		"Use sliding the puck instead of pulling up the lever.",
+		"Substitute the motion of pulling up the lever with sliding the puck.",
+		"Replace the action of pulling up the lever with the task of sliding the puck.",
+		"Exchange the lever pulling up action for sliding the puck.",
+		"Use the puck sliding action as a replacement for pulling up the lever.",
+		"Replace the upward pull of the lever with the slide of the puck."
+	],
+	"replace 5 with 2": [
+		"Substitute pulling up the lever with pulling down the handle.",
+		"Exchange the action of pulling up the lever with pulling down the handle.",
+		"Swap pulling up the lever for pulling down the handle.",
+		"Replace the task of pulling up the lever by pulling down the handle.",
+		"Use pulling down the handle instead of pulling up the lever.",
+		"Substitute the motion of pulling up the lever with pulling down the handle.",
+		"Replace the action of pulling up the lever with the task of pulling down the handle.",
+		"Exchange the lever pulling up action for pulling down the handle.",
+		"Use the handle's downward pull as a replacement for pulling up the lever.",
+		"Replace the upward pull of the lever with the downward pull of the handle."
+	],
+	"replace 5 with 3": [
+		"Substitute pulling up the lever with closing the drawer.",
+		"Exchange the action of pulling up the lever with closing the drawer.",
+		"Swap pulling up the lever for closing the drawer.",
+		"Replace the task of pulling up the lever by closing the drawer.",
+		"Use closing the drawer instead of pulling up the lever.",
+		"Substitute the motion of pulling up the lever with closing the drawer.",
+		"Replace the action of pulling up the lever with the task of closing the drawer.",
+		"Exchange the lever pulling up action for closing the drawer.",
+		"Use the drawer's closing action as a replacement for pulling up the lever.",
+		"Replace the upward pull of the lever with the act of closing the drawer."
+	],
+	"replace 5 with 4": [
+		"Substitute pulling up the lever with pushing the button.",
+		"Exchange the action of pulling up the lever with pushing the button.",
+		"Swap pulling up the lever for pushing the button.",
+		"Replace the task of pulling up the lever by pushing the button.",
+		"Use pushing the button instead of pulling up the lever.",
+		"Substitute the motion of pulling up the lever with pushing the button.",
+		"Replace the action of pulling up the lever with the task of pushing the button.",
+		"Exchange the lever pulling up action for pushing the button.",
+		"Use the button's push action as a replacement for pulling up the lever.",
+		"Replace the upward pull of the lever with the push of the button."
+	],
+	"replace 5 with 6": [
+		"Substitute pulling up the lever with opening the door.",
+		"Exchange the action of pulling up the lever with opening the door.",
+		"Swap pulling up the lever for opening the door.",
+		"Replace the task of pulling up the lever by opening the door.",
+		"Use opening the door instead of pulling up the lever.",
+		"Substitute the motion of pulling up the lever with opening the door.",
+		"Replace the action of pulling up the lever with the task of opening the door.",
+		"Exchange the lever pulling up action for opening the door.",
+		"Use the door's opening action as a replacement for pulling up the lever.",
+		"Replace the upward pull of the lever with the act of opening the door."
+	],
+	"replace 6 with 2": [
+		"Substitute opening the door with pulling down the handle.",
+		"Exchange the action of opening the door with pulling down the handle.",
+		"Swap opening the door for pulling down the handle.",
+		"Replace the task of opening the door by pulling down the handle.",
+		"Use pulling down the handle instead of opening the door.",
+		"Substitute the motion of opening the door with pulling down the handle.",
+		"Replace the action of opening the door with the task of pulling down the handle.",
+		"Exchange the door opening action for pulling down the handle.",
+		"Use the handle's downward pull as a replacement for opening the door.",
+		"Replace the act of opening the door with the downward pull of the handle."
+	],
+	"replace 6 with 5": [
+		"Substitute opening the door with pulling up the lever.",
+		"Exchange the action of opening the door with pulling up the lever.",
+		"Swap opening the door for pulling up the lever.",
+		"Replace the task of opening the door by pulling up the lever.",
+		"Use pulling up the lever instead of opening the door.",
+		"Substitute the motion of opening the door with pulling up the lever.",
+		"Replace the action of opening the door with the task of pulling up the lever.",
+		"Exchange the door opening action for pulling up the lever.",
+		"Use the lever's upward pull as a replacement for opening the door.",
+		"Replace the act of opening the door with the upward pull of the lever."
+	],
 }
 
 # for k, v in SEQUENTIAL_REQUIREMENTS_VARIATIONS.items():

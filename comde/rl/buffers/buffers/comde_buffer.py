@@ -9,7 +9,6 @@ from stable_baselines3.common.vec_env import VecNormalize
 
 from comde.rl.buffers.buffers.episodic import EpisodicMaskingBuffer
 from comde.rl.buffers.episodes.source_target_skill import SourceTargetSkillContainedEpisode
-from comde.rl.buffers.episodes.source_target_state import SourceStateEpisode
 from comde.rl.buffers.type_aliases import ComDeBufferSample
 from comde.rl.envs.base import ComdeSkillEnv
 from comde.rl.envs.utils.skill_to_vec import SkillInfoEnv
@@ -79,7 +78,7 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 
 		if self.save_source_trajectory:
 			raise NotImplementedError("Obsolete")
-			# ep: SourceStateEpisode
+		# ep: SourceStateEpisode
 		else:
 			ep: SourceTargetSkillContainedEpisode
 
@@ -187,8 +186,8 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			sequential_requirement_vector = sequential_requirements_mapping[sequential_requirement]
 			non_functionality_vector = non_functionalities_mapping[non_functionality]
 		else:
-			sequential_requirement_vector = {k: np.zeros(768,) for k in range(10)}
-			non_functionality_vector = {k: np.zeros(768,) for k in range(10)}
+			sequential_requirement_vector = {k: np.zeros(768, ) for k in range(10)}
+			non_functionality_vector = {k: np.zeros(768, ) for k in range(10)}
 
 		# === Compute first observations ===
 		first_observations = np.zeros_like(observations)

@@ -4,6 +4,7 @@ import jax
 import numpy as np
 from transformers import FlaxBertModel, AutoTokenizer
 
+
 tokenizer = AutoTokenizer.from_pretrained("bert-large-uncased")  # type: Optional[AutoTokenizer,]
 model = None  # type: Optional[FlaxBertModel]
 

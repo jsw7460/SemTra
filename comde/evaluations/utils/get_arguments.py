@@ -234,6 +234,7 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 
 			# Note: This raise an error if the number of source skills is different
 			non_functionality = non_functionalities[:, 0, ...]
+
 			rtgs = np.array([env.get_rtg() for env in envs])
 
 			arguments.update({
@@ -250,12 +251,12 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 
 	elif mode == "comde":
 		non_functionalities = kwargs["non_functionalities"]
+		non_functionalities = np.zeros_like(non_functionalities)
 
 		if cfg["use_optimal_target_skill"]:
 			semantic_skills_sequence = semantic_skills_sequence
 		else:
 			semantic_skills_sequence = kwargs["pred_target_skills"]
-			# semantic_skills_sequence = semantic_skills_sequence
 
 		arguments.update({
 			**kwargs["pretrained_models"],

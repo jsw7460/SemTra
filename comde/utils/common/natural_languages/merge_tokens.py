@@ -10,6 +10,8 @@ OffsetInfo = Dict[str, int]
 
 
 def merge_env_tokens(envs: List[Union[ComdeSkillEnv, SkillInfoEnv]]) -> Tuple[TokenDict, OffsetInfo]:
+
+	# If skill translator is trained for multiple environments simultaneously, this function is necessary
 	token_dicts = [env.skill_infos for env in envs]
 	offset_info = dict()
 

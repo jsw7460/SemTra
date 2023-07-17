@@ -6,6 +6,7 @@ from comde.rl.envs.base import ComdeSkillEnv
 from comde.trainer.base import BaseTrainer
 from comde.utils.common.natural_languages.prompt_templates import prompt_templates
 from comde.utils.common.natural_languages.language_processing import number_to_words
+from comde.utils.common.timeit import timeit
 
 
 class PromptTrainer(BaseTrainer):
@@ -24,6 +25,7 @@ class PromptTrainer(BaseTrainer):
 		self.n_examples = cfg["prompt_learner"]["cfg"]["n_example"]
 		self.__last_onehot_skills = None
 
+	@timeit
 	def _make_batch_training_data(self):
 		prompts = []
 		target_inputs = []
@@ -55,7 +57,6 @@ class PromptTrainer(BaseTrainer):
 			example = random.choices(all_examples, k=self.n_examples)
 			example = " ".join(example)
 			examples.append(example)
-
 		info = {
 			"examples": examples,
 			"target_inputs": target_inputs,

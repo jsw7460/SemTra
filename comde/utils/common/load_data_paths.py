@@ -27,8 +27,7 @@ def load_data_paths(cfg: Dict, env: Union[ComdeSkillEnv, SkillInfoEnv], rm_eval_
 	eval_tasks_path = cfg["env"]["eval_tasks_path"]
 
 	if (not rm_eval_tasks) or (cfg["mode"]["mode"] == "baseline") or (eval_tasks_path == "None"):
-		print("No Remove File" * 9999)
-		return hdf_files
+		return hdf_files, data_dirs
 
 	with open(eval_tasks_path, "rb") as f:
 		str_eval_tasks = pickle.load(f)  # type: List[List[str]]
@@ -54,6 +53,5 @@ def load_data_paths(cfg: Dict, env: Union[ComdeSkillEnv, SkillInfoEnv], rm_eval_
 				continue
 		if add:
 			file_wo_eval_tasks.append(path)
-
 	del hdf_files
-	return file_wo_eval_tasks
+	return file_wo_eval_tasks, data_dirs
