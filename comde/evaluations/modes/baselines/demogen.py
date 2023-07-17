@@ -5,6 +5,7 @@ import numpy as np
 
 from comde.baselines.demogen import DemoGen
 from comde.rl.envs.utils import TimeLimitEnv
+from comde.evaluations.utils.postprocess_evaldata import postprocess_eval_data as postprocess
 
 I_OBS = 0
 I_REWARD = 1
@@ -87,8 +88,10 @@ def evaluate_demogen(
 		rewards = eval_infos[f"env_{k}"]["rewards"]
 		eval_infos[f"env_{k}"]["return"] = np.sum(rewards)
 
+	# n_tasks = sum([env.n_target for env in envs])
+	# eval_fmt = f"Returns: {returns} \n" \
+	# 		   f"Total sum: {returns.sum()} among {len(envs)} tasks \n" \
+	# 		   f"Total success ratio: {100 * (returns.sum() / n_tasks)}"
+
 	n_tasks = sum([env.n_target for env in envs])
-	eval_fmt = f"Returns: {returns} \n" \
-			   f"Total sum: {returns.sum()} among {len(envs)} tasks \n" \
-			   f"Total success ratio: {100 * (returns.sum() / n_tasks)}"
-	return eval_infos, eval_fmt
+	return postprocess(eval_infos=eval_infos, n_tasks=n_tasks)

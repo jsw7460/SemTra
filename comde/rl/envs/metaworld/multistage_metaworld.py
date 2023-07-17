@@ -27,15 +27,16 @@ from .utils import (
 
 class MultiStageMetaWorld(ComdeSkillEnv):
 	mw_obs_dim = 140
-	tasks_idxs = {"easy": [1, 3, 4, 6]}
+	# tasks_idxs = {"easy": [1, 3, 4, 6]}		# 원래 이거임 !!!!!!!!
+	tasks_idxs = {"easy": [1, 2, 3, 4, 5, 6]}
 	onehot_skills_mapping = {
 		"box": 0, "puck": 1, "handle": 2, "drawer": 3, "button": 4, "lever": 5, "door": 6, "stick": 7
 	}
 	skill_index_mapping = {v: k for k, v in onehot_skills_mapping.items()}
 
 	non_functionalities = ["wind", "speed"]
-	speed_default_param = {1: 25.0, 3: 25.0, 4: 15.0, 6: 25.0}
-	wind_default_param = {1: 0.0, 3: 0.0, 4: 0.0, 6: 0.0}
+	speed_default_param = {1: 25.0, 2: 25.0, 3: 25.0, 4: 15.0, 5: 15.0, 6: 25.0}
+	wind_default_param = {1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0, 5: 0.0, 6: 0.0}
 	param_dim = 1
 
 	sequential_requirements_vector_mapping = None
@@ -272,7 +273,6 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 		return language_guidance, _info
 
 	def ingradients_to_parameter(self, ingradients: Dict[str, str], scale: bool = True):
-
 		non_functionality = ingradients["non_functionality"]
 		param_applied_skill = ingradients["skill"]
 		param = ingradients["param"]

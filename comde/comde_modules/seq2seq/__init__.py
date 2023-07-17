@@ -1,5 +1,6 @@
 from .lstm.lstm import SkillToSkillLSTM
 from .lstm.mlp import SkillToSkillMLP
+from .transformer.pretrained_llm_translation import GPT2SkillTranslator
 from .transformer.semantic_skill_translation import SemanticSkillTranslator
 from .transformer.incontext_prompting import IncontextTransformer
 # from .transformer.promptlearning_transformer import PromptLearningTransformer

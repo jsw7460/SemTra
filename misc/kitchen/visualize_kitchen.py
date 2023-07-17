@@ -19,8 +19,8 @@ if __name__ == '__main__':
 	# ========= Hyper parameters =========
 	# ====================================
 	data_prefix = Path("/home/jsw7460/comde_save/eval/")
-	date = Path("2023-06-26")
-	model = Path("kt_gpt_long")
+	date = Path("2023-07-16")
+	model = Path("kt_semtra_2804")
 	data_suffix = Path("eval_0")
 	data_path = data_prefix / date / model / data_suffix
 	# ====================================
@@ -34,7 +34,6 @@ if __name__ == '__main__':
 
 	for data in dataset.values():
 		env_name = data["env_name"]
-		print(data["rewards"])
 		returns = sum(data["rewards"])
 		video_save_prefix.mkdir(parents=True, exist_ok=True)
 		video_title = video_save_prefix / Path(f"{returns}_{env_name}")

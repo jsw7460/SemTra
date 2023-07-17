@@ -1,11 +1,9 @@
 import random
 
 random.seed(7)
-import math
 
 from copy import deepcopy
 from typing import Dict, Union
-from termcolor import colored
 
 from comde.utils.common.load_data_paths import load_data_paths
 
@@ -24,13 +22,10 @@ def program(cfg: DictConfig) -> None:
 
 	env_name = cfg["env"]["name"].lower()
 	# Dummy env for obtain an observation and action space.
-	env = get_dummy_env(env_name, cfg["env"], register_language_embedding=cfg["mode"]["register_language_embedding"])
-	hdf_files = load_data_paths(cfg, env)
-	dataset_window_size = cfg["dataset_window_size"]
+	env = get_dummy_env(env_name, cfg["env"], register_language_embedding=False)
+	hdf_files, hdf_dirs = load_data_paths(cfg, env, rm_eval_tasks=False)
 
-	print(colored(f"Some trajectories containing evaluation tasks will be removed", "red"))
-	cfg["n_trained_trajectory"] = len(hdf_files)
-	# dataset_window_size = len(hdf_files) // dataset_window_size
+	dataset_window_size = len(hdf_files) // len(hdf_dirs)
 
 	if cfg["state_normalization"]:
 		raise NotImplementedError("Obsolete")
@@ -51,10 +46,9 @@ def program(cfg: DictConfig) -> None:
 		**modules_dict
 	)
 
-	n_slide = math.ceil(len(hdf_files) / dataset_window_size)
 	for n_iter in range(cfg["max_iter"]):
-		n_iter = (n_iter % n_slide)
-		trajectories = hdf_files[n_iter * dataset_window_size: (n_iter + 1) * dataset_window_size]
+		data_start = n_iter % len(hdf_dirs)
+		trajectories = hdf_files[data_start * dataset_window_size: (data_start + 1) * dataset_window_size]
 		random.shuffle(trajectories)
 
 		replay_buffer = ComdeBuffer(

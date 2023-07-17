@@ -5,7 +5,6 @@ from typing import Dict, List, Optional, Union
 import jax.random
 import numpy as np
 import optax
-from transformers import AutoTokenizer
 
 from comde.comde_modules.seq2seq.algos.forward import skilltoskill_transformer_forward as prompt_transformer_forward
 from comde.comde_modules.seq2seq.algos.updates.promptlearning_transformer import promptlearning_transformer_updt as updt
@@ -238,9 +237,9 @@ class IncontextTransformer(BaseSeqToSeq):
 		predictions = [pred.tolist() for pred in predictions]
 		lang_gen = self.tokenizer.batch_decode(predictions, skip_special_tokens=skip_special_tokens)  # type: List[str]
 
-		# for i in range(2):
-		# 	print("Input", target_inputs[i])
-		# 	print("Pred", lang_gen[i])
+		for i in range(2):
+			print("Input", target_inputs[i])
+			print("Pred", lang_gen[i])
 
 		if parse:
 			return IncontextTransformer.batch_parse(lang_gen)

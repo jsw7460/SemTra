@@ -192,7 +192,7 @@ def program(cfg: DictConfig) -> None:
 
 		# 3. Parameter
 		params_for_skills = np.array(params_for_skills)
-		params_for_skills = np.repeat(params_for_skills[np.newaxis, ...], repeats=cfg.n_eval, axis=0)
+	# params_for_skills = np.repeat(params_for_skills[np.newaxis, ...], repeats=cfg.n_eval, axis=0)
 
 	n_eval = cfg.n_eval
 
@@ -202,8 +202,8 @@ def program(cfg: DictConfig) -> None:
 
 	returns_mean = 0.0
 
-	for n_trial, (_, param_for_skill) in enumerate(zip(range(cfg.n_eval), params_for_skills)):
-
+	for n_trial, (_, _) in enumerate(zip(range(cfg.n_eval), params_for_skills)):
+		param_for_skill = params_for_skills
 		seed = cfg["seed"] + n_trial
 		for env in envs:
 			env.seed = cfg["seed"] + n_trial

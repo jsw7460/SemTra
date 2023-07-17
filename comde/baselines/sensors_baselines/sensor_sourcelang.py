@@ -111,7 +111,6 @@ class SensorSourceLanguagePromptDT(SourceLanguagePromptDT):
 		source_obss = []
 		source_acts = []
 		for src_sk in source_skills_idxs:
-			print("SRC SK", src_sk)
 			src_obs = [random.choice(self.sensors_inst[sk])["observations"] for sk in src_sk]
 			src_act = [random.choice(self.sensors_inst[sk])["actions"] for sk in src_sk]
 

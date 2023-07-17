@@ -25,7 +25,8 @@ class SemanticSkillTranslator(BaseSeqToSeq):
 	PARAM_COMPONENTS = ["_SemanticSkillTranslator__model"]
 
 	def __init__(
-		self, seed: int,
+		self,
+		seed: int,
 		cfg: Dict,
 		custom_tokens: Dict[str, LanguageRepresentation],
 		init_build_model: bool = True
@@ -48,6 +49,7 @@ class SemanticSkillTranslator(BaseSeqToSeq):
 			self.build_model()
 
 	def register_vocabulary(self):
+		# This function is called by the trainer
 
 		if self.custom_tokens is not None:
 			self.tokens = deepcopy(self.custom_tokens)

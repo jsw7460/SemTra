@@ -193,4 +193,4 @@ class ComdeSkillEnv(gym.Wrapper):
 		return True
 
 	def get_buffer_parameter(self, parameter: np.ndarray):
-		return parameter
+		return parameter.copy()

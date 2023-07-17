@@ -39,7 +39,7 @@ language_dim: ${language_space.language_dim}
 subseq_len: 5
 batch_size: 256
 max_iter: 500
-dataset_window_size: 2500
+dataset_window_size: 10000
 step_per_dataset: ${mode.step_per_dataset}
 log_interval: 100
 save_interval: ${mode.save_interval}

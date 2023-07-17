@@ -87,7 +87,6 @@ class FrankaKitchen(ComdeSkillEnv):
 	def set_str_parameter(self, parameter: str):
 		if (parameter not in ["breeze", "default", "gust", "flurry"]) or (type(parameter) != str):
 			raise NotImplementedError(f"{parameter} is not supported for Franka kitchen environment.")
-
 		self.str_parameter = parameter
 
 	def get_idx_to_parameter_dict(self):
