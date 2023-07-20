@@ -16,9 +16,11 @@ E.g., dataset_path=/home/user_name/wind/4_target_skills/ for below example.
 
 ## Evaluation
 ```
-python3 eval_comde.py env={env} pretrained_suffix={SAVED_FILE_NAME} sequential_requirement={SEQ} non_functionality={NF} parameter={PRM}
+python3 eval_comde.py env={env} pretrained_suffix={SAVED_FILE_NAME} step={STEP} date={2023-mm-dd} sequential_requirement={SEQ} non_functionality={NF} parameter={PRM}
 ```
-pretrained_suffix: same with the save_suffix at the training.
+pretrained_suffix: same with the save_suffix at the training.\
+step: pretrained model's number of iterations (so, integer value). Baseline is saved at every 50000step and semtra is saved at every 5000step.
+date: the date when you run your training code.
 
 sequential_requirement (Optional): one of ['sequential', 'reverse', 'replace x with y']. x and y are 'indices' of skills (integer value). You can see these values in environment codes, e.g., comde/rl/envs/franka_kitchen/franka_kitchen.py
 
