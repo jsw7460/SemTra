@@ -16,7 +16,14 @@ E.g., dataset_path=/home/user_name/wind/4_target_skills/ for below example.
 
 ## Evaluation
 ```
-python3 eval_comde.py env={env} pretrained_suffix={SAVED_FILE_NAME} step={STEP} date={2023-mm-dd} sequential_requirement={SEQ} non_functionality={NF} parameter={PRM}
+python3 eval_comde.py \
+env={env} \
+pretrained_suffix={SAVED_FILE_NAME} \
+step={STEP} \
+date={2023-mm-dd} \
+sequential_requirement={SEQ} \
+non_functionality={NF} \
+parameter={PRM}
 ```
 pretrained_suffix: same with the save_suffix at the training.\
 step: pretrained model's number of iterations (so, integer value). Baseline is saved at every 50000step and semtra is saved at every 5000step.
