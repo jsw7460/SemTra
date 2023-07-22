@@ -202,7 +202,9 @@ def program(cfg: DictConfig) -> None:
 
 	returns_mean = 0.0
 
-	for n_trial, (_, _) in enumerate(zip(range(cfg.n_eval), params_for_skills)):
+	param_for_skill = params_for_skills
+	# for n_trial, (_, _) in enumerate(zip(range(cfg.n_eval), params_for_skills)):
+	for n_trial in range(cfg.n_eval):
 		param_for_skill = params_for_skills
 		seed = cfg["seed"] + n_trial
 		for env in envs:

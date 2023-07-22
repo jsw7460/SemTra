@@ -40,7 +40,7 @@ class ComposeTrainer(BaseTrainer):
 
 	def prepare_run(self):
 		super(ComposeTrainer, self).prepare_run()
-
+		random.seed(self.cfg["seed"])
 		skills = [sk[0] for sk in list(self.skill_infos.values())]
 		skills.sort(key=lambda sk: sk.index)
 		skills = [sk.vec for sk in skills]
@@ -86,15 +86,15 @@ class ComposeTrainer(BaseTrainer):
 			target_skills_idx = info["target_skills_idx"]
 
 			target_skill_str = [idx_to_str[sk] for sk in target_skills_idx]
-			target_skill_str = " then ".join(target_skill_str)
+			target_skill_str = ", ".join(target_skill_str)
 
 			target_skills_str.append(target_skill_str)
 
-			n_target_pad = self.max_target_skills - len(target_skills_idx)
-			target_skills_idx = target_skills_idx + [-1 for _ in range(n_target_pad)]
-
 			n_source_skills.append(len(source_skills_idx))
 			n_target_skills.append(len(target_skills_idx))
+
+			n_target_pad = self.max_target_skills - len(target_skills_idx)
+			target_skills_idx = target_skills_idx + [-1 for _ in range(n_target_pad)]
 
 			offset = self.offset_info[str(env)]
 			target_skills_idx = self._get_target_skill_vector(target_skills_idx, offset)
@@ -135,7 +135,7 @@ class ComposeTrainer(BaseTrainer):
 			self.record_from_dicts(info, mode="train")
 			self.n_update += 1
 
-			if (self.n_update % 100) == 0:
+			if (self.n_update % 5) == 0:
 				self.evaluate()
 
 			if (self.n_update % self.log_interval) == 0:
@@ -147,39 +147,37 @@ class ComposeTrainer(BaseTrainer):
 	def _gpt2_evaluate(self):
 		dataset = self.make_dataset()
 		replay_data = dataset["buffer_sample"]
-		self.seq2seq.evaluate(replay_data)
+		eval_info = self.seq2seq.evaluate(replay_data)
+		return eval_info
 
 	def evaluate(self) -> None:
-		self._gpt2_evaluate()
-		return None
+		# eval_info = self._gpt2_evaluate()
+		# return None
 
 		dataset = self.make_dataset()
 		replay_data = dataset["buffer_sample"]
-		envs = dataset["envs"]
+		# envs = dataset["envs"]
 
 		eval_info = self.seq2seq.evaluate(replay_data)
-		batch_match_ratio = eval_info["__batch_match_ratio"]
-		eval_dict = {
-			"sequential(%)": [],
-			"reverse(%)": [],
-			"replace(%)": [],
-		}
-		for lg, match_ratio, env in zip(replay_data.language_guidance, batch_match_ratio, envs):
+		# batch_match_ratio = eval_info["__batch_match_ratio"]
+		# eval_dict = {
+		# 	"sequential(%)": [],
+		# 	"reverse(%)": [],
+		# 	"replace(%)": [],
+		# }
+		# for lg, match_ratio, env in zip(replay_data.language_guidance, batch_match_ratio, envs):
+		#
+		# 	if "sequential" in lg:
+		# 		eval_dict["sequential(%)"].append(match_ratio)
+		# 	elif "reverse" in lg:
+		# 		eval_dict["reverse(%)"].append(match_ratio)
+		# 	elif "replace" in lg:
+		# 		eval_dict["replace(%)"].append(match_ratio)
+		#
+		# for k, v in eval_dict.items():
+		# 	eval_dict[k] = np.mean(np.array(v)) * 100
 
-			print(lg, env)
-			print("\n\n")
-
-			if "sequential" in lg:
-				eval_dict["sequential(%)"].append(match_ratio)
-			elif "reverse" in lg:
-				eval_dict["reverse(%)"].append(match_ratio)
-			elif "replace" in lg:
-				eval_dict["replace(%)"].append(match_ratio)
-
-		for k, v in eval_dict.items():
-			eval_dict[k] = np.mean(np.array(v)) * 100
-
-		self.record_from_dicts({**eval_info, **eval_dict}, mode="eval")
+		self.record_from_dicts({**eval_info}, mode="eval")
 		self.dump_logs(step=self.n_update)
 
 	def dump_logs(self, step: int):

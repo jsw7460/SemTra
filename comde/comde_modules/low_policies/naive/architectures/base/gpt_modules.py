@@ -643,13 +643,13 @@ class FlaxGPT2Model(FlaxGPT2PreTrainedModel):
 	module_class = FlaxGPT2Module
 
 
-append_call_sample_docstring(
-	FlaxGPT2Model,
-	_TOKENIZER_FOR_DOC,
-	_CHECKPOINT_FOR_DOC,
-	FlaxBaseModelOutputWithPastAndCrossAttentions,
-	_CONFIG_FOR_DOC,
-)
+# append_call_sample_docstring(
+# 	FlaxGPT2Model,
+# 	_TOKENIZER_FOR_DOC,
+# 	_CHECKPOINT_FOR_DOC,
+# 	FlaxBaseModelOutputWithPastAndCrossAttentions,
+# 	_CONFIG_FOR_DOC,
+# )
 
 
 class FlaxGPT2LMHeadModule(nn.Module):
@@ -747,10 +747,10 @@ class FlaxGPT2LMHeadModel(FlaxGPT2PreTrainedModel):
 		return model_kwargs
 
 
-append_call_sample_docstring(
-	FlaxGPT2LMHeadModel,
-	_TOKENIZER_FOR_DOC,
-	_CHECKPOINT_FOR_DOC,
-	FlaxCausalLMOutputWithCrossAttentions,
-	_CONFIG_FOR_DOC,
-)
+# append_call_sample_docstring(
+# 	FlaxGPT2LMHeadModel,
+# 	_TOKENIZER_FOR_DOC,
+# 	_CHECKPOINT_FOR_DOC,
+# 	FlaxCausalLMOutputWithCrossAttentions,
+# 	_CONFIG_FOR_DOC,
+# )

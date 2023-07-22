@@ -1,4 +1,5 @@
 from typing import Dict
+import random
 from typing import Union
 
 import hydra
@@ -8,6 +9,8 @@ from omegaconf import DictConfig, OmegaConf
 from comde.rl.envs import get_dummy_env
 from comde.trainer.compose_trainer import ComposeTrainer
 from comde.utils.common.natural_languages.merge_tokens import merge_env_tokens
+import numpy as np
+import torch as th
 
 
 @hydra.main(version_base=None, config_path="config/train", config_name="comde_base.yaml")
@@ -17,6 +20,10 @@ def program(cfg: DictConfig) -> None:
 	assert cfg["mode"]["mode"] == "translate_learning", \
 		f"Your mode is {cfg['mode']['mode']}. " \
 		"Please add 'mode=translate_learning' to your command line if you want to train semantic skill translator"
+
+	random.seed(cfg["seed"])
+	np.random.seed(cfg["seed"])
+	th.manual_seed(cfg["seed"])
 
 	metaworld = get_dummy_env("metaworld", register_language_embedding=False, cfg=cfg["env"])
 	kitchen = get_dummy_env("kitchen", register_language_embedding=False, cfg=cfg["env"])

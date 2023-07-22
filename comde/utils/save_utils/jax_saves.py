@@ -14,9 +14,10 @@ import flax
 import gym
 import jax
 import numpy as np
+import torch as th
 
-from comde.utils.save_utils.common import open_path, data_to_json, json_to_data
 from comde.utils.jax_utils.type_aliases import TensorDict, Params
+from comde.utils.save_utils.common import open_path, data_to_json, json_to_data
 
 
 def get_system_info(print_info: bool = True) -> Tuple[Dict[str, str], str]:
@@ -70,8 +71,14 @@ def save_to_zip_file(
 			archive.writestr("data", serialized_data)
 		if params is not None:
 			for file_name, dict_ in params.items():
-				with archive.open(file_name + ".jax", mode="w") as param_file:
-					param_file.write(flax.serialization.to_bytes(dict_))
+				try:  # jax
+					bytes_dict = flax.serialization.to_bytes(dict_)
+					with archive.open(file_name + ".jax", mode="w") as param_file:
+						param_file.write(bytes_dict)
+				except:  # torch
+					with archive.open(file_name + ".pth", mode="w", force_zip64=True) as param_file:
+						th.save(dict_, param_file)
+
 		# Save system info about the current python env
 		archive.writestr("system_info.txt", get_system_info(print_info=False)[1])
 
@@ -132,12 +139,23 @@ def load_from_zip_file(
 			# Check for all .pth files and load them using th.load.
 			# "pytorch_variables.pth" stores PyTorch variables, and any other .pth
 			# files store state_dicts of variables with custom names (e.g. policy, policy.optimizer)
-			pth_files = [file_name for file_name in namelist if os.path.splitext(file_name)[1] == ".jax"]
+			pth_files = [file_name for file_name in namelist if os.path.splitext(file_name)[1] in [".jax", ".pth"]]
 			params = dict()
 			for file_path in pth_files:
 				with archive.open(file_path, mode="r") as param_file:
-					_params = param_file.read()
+					if ".jax" in file_path:	# Jax
+						_params = param_file.read()
+					else:	# Torch
+						file_content = io.BytesIO()
+						file_content.write(param_file.read())
+						# go to start of file
+						file_content.seek(0)
+						# Load the parameters with the right ``map_location``.
+						# Remove ".pth" ending with splitext
+						_params = th.load(file_content, map_location="cuda:0")
+
 					params[file_path.split('.')[0]] = _params
+
 
 	except zipfile.BadZipFile:
 		# load_path wasn't a zip file

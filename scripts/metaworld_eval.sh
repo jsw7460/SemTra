@@ -1,6 +1,6 @@
-starts=100000
+starts=70000
 n_iter=50
-n_parallel=3
+n_parallel=2
 
 for ((iter=0; iter<n_iter; iter++)); do
   for ((j=0; j<n_parallel; j++)); do
@@ -9,8 +9,8 @@ for ((iter=0; iter<n_iter; iter++)); do
     echo $step
     CUDA_VISIBLE_DEVICES=0 python3 eval_comde.py \
     date=2023-07-16 \
-    pretrained_suffix=mw_semtra_7460rm \
-    save_suffix=mw_semtra_7460rm \
+    pretrained_suffix=mw_normal \
+    save_suffix=mw_normal \
     env=metaworld \
     use_optimal_target_skill=True \
     use_optimal_next_skill=False \

@@ -1,7 +1,7 @@
-starts=50000
+starts=100000
 n_iter=150
 n_parallel=3
-gpu_idx=0
+gpu_idx=1
 
 for ((iter=0; iter<n_iter; iter++)); do
   for ((j=0; j<n_parallel; j++)); do
@@ -9,12 +9,12 @@ for ((iter=0; iter<n_iter; iter++)); do
     step=$((starts + offset + 5000 * j))
     echo $step
     CUDA_VISIBLE_DEVICES=$gpu_idx python3 eval_comde.py \
-    date=2023-07-16 \
-    pretrained_suffix=kt_semtra_2804rm \
-    save_suffix=kt_semtra_2804rm \
+    date=2023-07-19 \
+    pretrained_suffix=kt_5v \
+    save_suffix=kt_5v \
     env=kitchen \
     use_optimal_target_skill=True \
-    use_optimal_next_skill=False \
+    use_optimal_next_skill=True \
     non_functionality=wind \
     n_eval=1 \
     step=$step &

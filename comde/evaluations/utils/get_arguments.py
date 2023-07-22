@@ -251,7 +251,7 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 
 	elif mode == "comde":
 		non_functionalities = kwargs["non_functionalities"]
-		non_functionalities = np.zeros_like(non_functionalities)
+		# non_functionalities = np.zeros_like(non_functionalities)
 
 		if cfg["use_optimal_target_skill"]:
 			semantic_skills_sequence = semantic_skills_sequence
