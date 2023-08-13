@@ -1,3 +1,6 @@
+from jax.config import config
+
+config.update("jax_debug_nans", True)
 import random
 
 random.seed(7)
@@ -13,7 +16,6 @@ from omegaconf import DictConfig, OmegaConf
 
 from comde.rl.buffers import ComdeBuffer
 from comde.rl.envs import get_dummy_env
-from comde.utils.common.normalization import get_observation_statistics
 
 
 @hydra.main(version_base=None, config_path="config/train", config_name="comde_base.yaml")
@@ -26,12 +28,6 @@ def program(cfg: DictConfig) -> None:
 	hdf_files, hdf_dirs = load_data_paths(cfg, env, rm_eval_tasks=False)
 
 	dataset_window_size = len(hdf_files) // len(hdf_dirs)
-
-	if cfg["state_normalization"]:
-		raise NotImplementedError("Obsolete")
-		statistics = get_observation_statistics(data_dirs)
-		low_policy_cfgs = cfg["low_policy"]  # type: Dict
-		low_policy_cfgs["cfg"].update({**statistics})
 
 	modules_dict = {}
 	for module in cfg["modules"]:

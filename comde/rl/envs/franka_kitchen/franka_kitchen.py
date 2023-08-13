@@ -72,6 +72,16 @@ class FrankaKitchen(ComdeSkillEnv):
 		base_env._env.seed(seed)
 		super(FrankaKitchen, self).__init__(env=base_env, seed=seed, task=task, n_target=n_target, cfg=cfg)
 
+		self.nonstationary_mean = 0.0
+		self.timestep = 0
+		self.nonstationary_ft = lambda timestep: 0.25 * np.sin((8 * np.pi * timestep) / 280)
+		self.nonstationary_type = cfg.get("nonstationary_type", "None")
+
+		if cfg is not None:
+			self.nonstationary_mean = float(cfg.get("nonstationary_mean", 0.0))
+
+		print("\n\n\nNonstationary type:", self.nonstationary_type, f"Mean: {self.nonstationary_mean}", "\n\n\n")
+
 		if not FrankaKitchen.has_been_called:
 			FrankaKitchen.has_been_called = True
 			if register_language_embedding:
@@ -83,7 +93,7 @@ class FrankaKitchen(ComdeSkillEnv):
 	@staticmethod
 	def get_skill_infos():
 		return skill_infos
-	
+
 	def set_str_parameter(self, parameter: str):
 		if (parameter not in ["breeze", "default", "gust", "flurry"]) or (type(parameter) != str):
 			raise NotImplementedError(f"{parameter} is not supported for Franka kitchen environment.")
@@ -98,6 +108,32 @@ class FrankaKitchen(ComdeSkillEnv):
 	def get_rtg(self):
 		return self.n_target
 
+	def get_nonstationary_param(self):
+
+		if self.nonstationary_type == "sin":
+			if np.random.uniform(0, 1) < 0.5:
+				nonstationary_param = self.nonstationary_ft(self.timestep)
+			else:
+				nonstationary_param = self.nonstationary_ft(self.timestep ** 2)
+
+			return nonstationary_param
+
+		elif self.nonstationary_type == "bias":
+			noise = np.random.uniform(0, 0.1)
+			if np.random.uniform(0, 1) < 0.25:
+				return - self.nonstationary_mean + noise
+			else:
+				return self.nonstationary_mean + noise
+
+		elif self.nonstationary_type == "zigzag":
+			if np.random.uniform(0, 1) < 0.5:
+				return 0.45
+			else:
+				return -0.45
+
+		else:
+			return 0.0
+
 	def step(self, action: np.ndarray):
 		action = action.copy()
 		if self.str_parameter in ["default", "breeze"]:
@@ -108,6 +144,10 @@ class FrankaKitchen(ComdeSkillEnv):
 			action[0] -= 0.3
 		else:
 			raise NotImplementedError(f"{self.str_parameter} is not supported in Franka kitchen environment.")
+
+		nonstationary_param = self.get_nonstationary_param()
+		action[1] += nonstationary_param
+		self.timestep += 1
 
 		obs, rew, done, info = super(FrankaKitchen, self).step(action)
 		info["task"] = deepcopy(self.task)

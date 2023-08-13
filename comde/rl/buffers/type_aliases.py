@@ -52,6 +52,7 @@ class ComDeBufferSample(NamedTuple):
 	non_functionality: Union[np.ndarray, th.tensor] = np.empty(0, )	# [b, d]
 	source_parameters: List[Dict] = []
 	parameters: List[Dict] = []
+	online_context: Union[np.ndarray, th.Tensor] = None	# [b, d]
 
 	skills: Union[np.ndarray, th.Tensor] = np.empty(0, )  # [b, l, d]
 	skills_order: Union[np.ndarray, th.Tensor] = np.empty(0, )	# [b, l]

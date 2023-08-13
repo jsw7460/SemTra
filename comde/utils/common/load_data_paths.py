@@ -38,6 +38,7 @@ def load_data_paths(cfg: Dict, env: Union[ComdeSkillEnv, SkillInfoEnv], rm_eval_
 		idx_eval_task = env.str_to_idxs_skills(env.onehot_skills_mapping, eval_task, to_str=True)
 		eval_tasks.append(idx_eval_task)
 
+	n_removed = 0
 	file_wo_eval_tasks = []
 	for path in hdf_files:
 		trajectory = h5py.File(path, "r")
@@ -50,6 +51,7 @@ def load_data_paths(cfg: Dict, env: Union[ComdeSkillEnv, SkillInfoEnv], rm_eval_
 			_eval_task = "".join(eval_task)
 			if _train_task in _eval_task:
 				add = False
+				n_removed += 1
 				continue
 		if add:
 			file_wo_eval_tasks.append(path)

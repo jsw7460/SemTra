@@ -1,6 +1,6 @@
 path: comde.rl.envs.franka_kitchen.franka_kitchen.FrankaKitchen
 
-# What tasks you evaluate
+# What taswks you evaluate
 eval_tasks_path: /home/jsw7460/mnt/comde_datasets/tasks_for_evals/kitchen/idx_eval-9
 
 # Prediction of Semantic skill encoder: Dict [Task -> Predicted skills sequence]
@@ -9,6 +9,8 @@ template_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mapping
 first_few_sensors_path: /home/jsw7460/mnt/comde_datasets/kitchen/first_few_sensors/first_few_sensors
 
 task_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/task_video_embeddings
+nonstationary_mean: 0.0
+nonstationary_type: None
 
 timelimit: 350
 termination_pred_interval: 9

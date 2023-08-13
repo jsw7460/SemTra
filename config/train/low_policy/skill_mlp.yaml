@@ -15,6 +15,7 @@ cfg:
   batch_norm: False
   use_bias: True
   act_scale: ${act_scale}
+  online_context_dim: ${mode.online_context_dim}
 
   lr: 1e-4
 

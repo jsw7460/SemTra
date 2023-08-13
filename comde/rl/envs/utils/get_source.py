@@ -16,9 +16,7 @@ def get_source_skills(
 	task = [str(t) for t in task]
 	task_str = "".join(task).replace(" ","")
 
-	stripped_task_to_source_skills = {
-		k.replace(" ", "").replace("_", ""): v for k, v in task_to_source_skills.items()
-	}
+	stripped_task_to_source_skills = {k.replace(" ", "").replace("_", ""): v for k, v in task_to_source_skills.items()}
 
 	source_skills = stripped_task_to_source_skills[task_str][sequential_requirement]
 
@@ -32,8 +30,8 @@ def get_source_skills(
 			source_skill_idxs.append(skill_rep.index)
 
 		np_source_skills = np.array(source_skill_vectors)
-
 		return {"np_source_skills": np_source_skills, "source_skill_idxs": source_skill_idxs}
+
 	else:
 		return {"np_source_skills": None, "source_skill_idxs": None}
 
@@ -71,3 +69,51 @@ def get_optimal_semantic_skills(
 	optimal_target_idxs = np.array(optimal_target_idxs)
 	optimal_target_skills = np.array(optimal_target_skills)
 	return optimal_target_skills, optimal_target_idxs
+
+
+# illustrations_predictions_idxs = [
+# 	[6, 4, 3],
+# 	[1, 4, 6],
+# 	[6, 1, 1],
+# 	[1, 1, 3],
+# 	[1, 1, 6],
+# 	[1, 6, 4],
+# 	[1, 3, 4],
+# 	[1, 6, 1]
+# ]
+#
+# illustrations_predictions_skills = [
+# 	["door", "button", "drawer"],
+# 	["puck", "button", "door"],
+# 	["door", "puck", "puck"],
+# 	["puck", "puck", "drawer"],
+# 	["puck", "puck", "door"],
+# 	["puck", "door", "button"],
+# 	["puck", "drawer", "button"],
+# 	["puck", "door", "button"],
+# 	["puck", "door", "puck"]
+# ]
+#
+#
+#
+# def get_optimal_semantic_skills(
+# 	envs: List[SkillHistoryEnv],
+# 	skill_infos,
+# ) -> Tuple[np.ndarray, np.ndarray]:
+# 	optimal_target_idxs = []
+# 	optimal_target_skills = []
+# 	for i, env in enumerate(envs):
+#
+# 		skill_list = illustrations_predictions_skills[i]
+# 		optimal_target_skill = np.array([skill_infos[skill][0].vec for skill in skill_list])
+#
+# 		n_target = env.n_target
+# 		optimal_target_idx = illustrations_predictions_idxs[i][:n_target]	# Truncate it !
+# 		optimal_target_skill = optimal_target_skill[:n_target]	# Truncate it !
+#
+# 		optimal_target_idxs.append(optimal_target_idx)
+# 		optimal_target_skills.append(optimal_target_skill)
+#
+# 	optimal_target_idxs = np.array(optimal_target_idxs)
+# 	optimal_target_skills = np.array(optimal_target_skills)
+# 	return optimal_target_skills, optimal_target_idxs

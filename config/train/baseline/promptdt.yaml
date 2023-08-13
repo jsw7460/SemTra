@@ -37,6 +37,7 @@ cfg:
   skill_video_path: ${env.skill_video_path}
   task_video_path: ${env.task_video_path}
   n_target_skill: ${env.n_target_skill}
+  online_context_dim: 0 # Transformer -> Depends on the history
 
   n_source_video: 1
   lr: 1e-4

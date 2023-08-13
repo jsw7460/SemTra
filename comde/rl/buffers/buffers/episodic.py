@@ -1,15 +1,15 @@
 from collections import defaultdict
 from typing import List, Dict, Optional, Union, Tuple
 
-import gym
 import numpy as np
 from stable_baselines3.common.vec_env import VecNormalize
 
 from comde.rl.buffers.buffers.base_buffer import BaseBuffer
 from comde.rl.buffers.episodes.base import Episode
 from comde.rl.buffers.type_aliases import ComDeBufferSample
-
 from comde.rl.envs.base import ComdeSkillEnv
+
+
 class EpisodicMaskingBuffer(BaseBuffer):
 	BUFFER_COMPONENTS = \
 		{

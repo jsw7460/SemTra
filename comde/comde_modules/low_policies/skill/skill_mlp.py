@@ -63,7 +63,9 @@ class SkillMLP(BaseLowPolicy):
 		)
 
 		init_obs = np.zeros((1, self.observation_dim))
-		init_skills = np.zeros((1, self.skill_dim + self.nonfunc_dim + self.total_param_dim))
+		# skill_dim = semantic / nonfunc_dim = nonfunctionality
+		# total_param_dim = parameter / online_context_dim = online context inference dim
+		init_skills = np.zeros((1, self.skill_dim + self.nonfunc_dim + self.total_param_dim + self.online_context_diim))
 
 		self.rng, rngs = get_basic_rngs(self.rng)
 		tx = optax.adam(self.cfg["lr"])
@@ -73,13 +75,26 @@ class SkillMLP(BaseLowPolicy):
 		skills_dict = self.get_parameterized_skills(replay_data)
 		skills = skills_dict["parameterized_skills"]
 
+		# a = replay_data.actions[0, ..., 0]
+		# print(a)
+
+		if replay_data.online_context is not None:
+			observations = replay_data.observations[:, -1, ...]
+			actions = replay_data.actions[:, -1, ...]
+			maskings = replay_data.maskings[:, -1]
+			skills = skills[:, -1, ...]
+		else:
+			observations = replay_data.observations
+			actions = replay_data.actions
+			maskings = replay_data.maskings
+
 		new_model, info = skill_mlp_updt(
 			rng=self.rng,
 			mlp=self.model,
-			observations=replay_data.observations,
-			actions=replay_data.actions,
+			observations=observations,
+			actions=actions,
 			skills=skills,
-			maskings=replay_data.maskings
+			maskings=maskings
 		)
 
 		self.model = new_model
@@ -123,16 +138,13 @@ class SkillMLP(BaseLowPolicy):
 		self,
 		replay_data: ComDeBufferSample
 	) -> Dict:
-		observations = replay_data.observations
+		observations = replay_data.observations[:, -1, ...]
 		actions = replay_data.actions[:, -1, ...]
-		if self.cfg["use_optimal_lang"]:
-			raise NotImplementedError("Obsolete")
-		skills_dict = self.get_parameterized_skills(replay_data)
-		skills = skills_dict["parameterized_skills"]
-		maskings = replay_data.maskings[:, -1]
 
-		if maskings is None:
-			raise NotImplementedError("No mask")
+		skills_dict = self.get_parameterized_skills(replay_data)
+		skills = skills_dict["parameterized_skills"][:, -1, ...]
+
+		maskings = replay_data.maskings[:, -1]
 		maskings = maskings.reshape(-1, 1)
 		pred_actions = self.predict(observations=observations, skills=skills)
 

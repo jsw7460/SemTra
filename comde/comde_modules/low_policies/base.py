@@ -22,7 +22,6 @@ class BaseLowPolicy(ComdeBaseModule, IJaxSavable, ITrainable):
 		"""
 			:param cfg: This contains a configuration of a model architecture
 		"""
-
 		self.observation_dim = cfg["observation_dim"]
 		self.action_dim = cfg["action_dim"]
 
@@ -31,6 +30,7 @@ class BaseLowPolicy(ComdeBaseModule, IJaxSavable, ITrainable):
 		self.param_dim = cfg["param_dim"]
 		self.param_repeats = cfg.get("param_repeats", None)
 		self.total_param_dim = self.param_dim * self.param_repeats
+		self.online_context_diim = cfg.get("online_context_dim", 0)
 
 		if init_build_model:
 			self.normalization_mean = cfg["obs_mean"]
@@ -41,14 +41,23 @@ class BaseLowPolicy(ComdeBaseModule, IJaxSavable, ITrainable):
 			Return parameterized skills: [Skill @ Non-functionality @ Parameter]
 		"""
 		if replay_data.parameterized_skills is not None:
-			return replay_data.parameterized_skills
+			raise NotImplementedError("Parameterized skills should be None")
+			# return replay_data.parameterized_skills
 		else:
 			skills = replay_data.skills
 			non_func = np.broadcast_to(replay_data.non_functionality[:, np.newaxis, ...], skills.shape)
 			params = replay_data.params_for_skills
 			params = np.repeat(params, repeats=self.param_repeats, axis=-1)
 
-			parameterized_skills = np.concatenate((skills, non_func, params), axis=-1)
+			if replay_data.online_context is not None:
+				skills = skills[:, -1, ...]
+				non_func = non_func[:, -1, ...]
+				params = params[:, -1, ...]
+				online_context = replay_data.online_context
+				parameterized_skills = np.concatenate((skills, non_func, params, online_context), axis=-1)
+				parameterized_skills = parameterized_skills[:, np.newaxis, ...]
+			else:
+				parameterized_skills = np.concatenate((skills, non_func, params), axis=-1)
 			return {
 				"parameterized_skills": parameterized_skills,
 				"repeated_params": params,

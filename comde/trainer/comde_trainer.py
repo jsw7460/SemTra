@@ -3,6 +3,7 @@ from typing import Dict, List, Optional
 
 import numpy as np
 
+from comde.comde_modules.environment_encoder.base import BaseEnvEncoder
 from comde.comde_modules.low_policies.base import BaseLowPolicy
 from comde.comde_modules.seq2seq.base import BaseSeqToSeq
 from comde.comde_modules.termination.base import BaseTermination
@@ -20,6 +21,7 @@ class ComdeTrainer(BaseTrainer):
 		env: SkillInfoEnv,
 		low_policy: BaseLowPolicy,  # "skill decoder" == "low policy"
 		termination: BaseTermination,
+		env_encoder: BaseEnvEncoder = None,
 		seq2seq: Optional[BaseSeqToSeq] = None,
 	):
 		"""
@@ -36,6 +38,8 @@ class ComdeTrainer(BaseTrainer):
 		super(ComdeTrainer, self).__init__(cfg=cfg, env=env)
 
 		self.low_policy = low_policy
+		self.env_encoder = env_encoder
+
 		self.seq2seq = seq2seq
 		self.termination = termination
 		self.info_records = {"info/suffix": self.cfg["save_suffix"]}
@@ -85,6 +89,11 @@ class ComdeTrainer(BaseTrainer):
 		n_skills = replay_data.n_source_skills
 
 		for seq_req, nf, prm, sources, n_sk in zip(seq_reqs, nfs, params, sk_idxs, n_skills):
+			# print("seq req", seq_req)
+			# print("nf", nf)
+			# print("parameter", {k: v for k, v in prm.items() if k != -1})
+			# print("source skills idxs", sources[:n_sk])
+
 			language_guidance = env.get_language_guidance_from_template(
 				sequential_requirement=seq_req,
 				non_functionality=nf,
@@ -115,10 +124,23 @@ class ComdeTrainer(BaseTrainer):
 				info = self.seq2seq.update(replay_data=replay_data, low_policy=self.low_policy)
 			else:
 				info = dict()
-			replay_data = replay_data._replace(parameterized_skills=None)
 
-			info.update(self.low_policy.update(replay_data))
-			info.update(self.termination.update(replay_data))
+			if self.env_encoder is not None:
+				encoder_info = self.env_encoder.update(
+					replay_buffer=replay_buffer,  # Pass replay buffer
+					low_policy=self.low_policy,
+					last_onehot_skills=self.__last_onehot_skills
+				)
+				info.update(**encoder_info["encoder_info"])
+				replay_data = encoder_info["replay_data"]
+				replay_data = replay_data._replace(online_context=info["__quantized_h"])
+				info.update(self.low_policy.update(replay_data))
+				info.update(self.termination.update(replay_data))
+
+			else:
+				replay_data = replay_data._replace(parameterized_skills=None)
+				info.update(self.low_policy.update(replay_data))
+				info.update(self.termination.update(replay_data))
 
 			self.record_from_dicts(info, mode="train")
 			self.n_update += 1
@@ -130,22 +152,32 @@ class ComdeTrainer(BaseTrainer):
 				self.save()
 
 	def evaluate(self, replay_buffer: ComdeBuffer):
-		eval_data = replay_buffer.sample(128)  # type: ComDeBufferSample
+		with replay_buffer.history_mode():
+			eval_data = replay_buffer.sample(128)  # type: ComDeBufferSample
 		eval_data = self._preprocess_replay_data(eval_data)
+		eval_data = eval_data._replace(parameterized_skills=None)
 
 		if self.cfg["update_seq2seq"]:
-			info1 = self.seq2seq.evaluate(replay_data=eval_data)
+			seq2seq_info = self.seq2seq.evaluate(replay_data=eval_data)
 		else:
-			info1 = dict()
-		info1.update({"__parameterized_skills": None})
-		parameterized_skills = info1["__parameterized_skills"]
+			seq2seq_info = {}
+			
+		if self.env_encoder is not None:
+			env_encoder_info = self.env_encoder.evaluate(eval_data)
+			eval_data = eval_data._replace(online_context=env_encoder_info.pop("__quantized"))
+		else:
+			env_encoder_info = {}
 
-		info2 = self.low_policy.evaluate(
-			replay_data=eval_data._replace(parameterized_skills=parameterized_skills),
+		low_policy_info = self.low_policy.evaluate(replay_data=eval_data)
+		termination_info = self.termination.evaluate(replay_data=eval_data)
+
+		self.record_from_dicts(
+			seq2seq_info,
+			env_encoder_info,
+			low_policy_info,
+			termination_info,
+			mode="eval"
 		)
-		info3 = self.termination.evaluate(replay_data=eval_data)
-
-		self.record_from_dicts(info1, info2, info3, mode="eval")
 		self.dump_logs(step=self.n_update)
 
 	def dump_logs(self, step: int):

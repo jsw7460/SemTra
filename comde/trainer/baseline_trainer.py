@@ -33,6 +33,12 @@ class BaselineTrainer(BaseTrainer):
 		self.video_parsing = baseline.video_parsing
 		self.baseline = baseline
 		self.info_records = {"info/suffix": self.cfg["save_suffix"]}
+		self.train_online_context = cfg["train_online_context"]
+		if self.train_online_context:
+			self.wind_axis = cfg["env"]["wind_axis"]
+			# self.winds = [-.6, -.3, 0, .3, .6]
+			self.winds = [-0.3, -0.15, 0.0, 0.15, 0.3]
+			print("@"*999, self.winds)
 
 	def prepare_run(self):
 		super(BaselineTrainer, self).prepare_run()
@@ -54,6 +60,13 @@ class BaselineTrainer(BaseTrainer):
 	def run(self, replay_buffer: ComdeBuffer):
 		for _ in range(self.step_per_dataset):
 			replay_data = replay_buffer.sample(self.batch_size)  # type: ComDeBufferSample
+
+			if self.train_online_context:
+				winds = np.array(random.choices(self.winds, k=self.batch_size))
+				nonstationary_actions = replay_data.actions
+				nonstationary_actions[..., self.wind_axis] += winds[..., np.newaxis]
+				replay_data = replay_data._replace(actions=nonstationary_actions)
+
 			replay_data = self._preprocess_replay_data(replay_data)
 			info = self.baseline.update(replay_data)
 

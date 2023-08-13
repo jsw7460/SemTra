@@ -1,4 +1,4 @@
-_target_: comde.baselines.DemoGen
+_target_: comde.baselines.BCZNonst
 seed: ${seed}
 cfg:
   obs_mean: 0.0
@@ -32,7 +32,7 @@ cfg:
     lr: 1e-4
 
   gravity_cfg:
-    output_dim: ${baseline.cfg.video_dim}
+    output_dim: ${baseline.cfg.language_dim}
     net_arch:
       - 256
       - 128
@@ -42,3 +42,13 @@ cfg:
     squash_output: False
     layer_norm: False
     lr: 1e-4
+
+  encoder_cfg:
+    subseq_len: ${subseq_len}
+    embed_dim: 32
+    hidden_dim: ${env_encoder.cfg.context_dim}
+    dropout: 0.0
+    activation_fn: relu
+    embed_net_arch:
+      - 32
+      - 32

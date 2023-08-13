@@ -11,6 +11,7 @@ act_scale: 1.35
 
 eval_tasks_path: /home/jsw7460/mnt/comde_datasets/tasks_for_evals/metaworld/9tasks
 language_space: ${language_space.language_space}
+wind_axis: 1
 
 num_skills_done_relabel: 1
 skill_infos_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/kitchen/bert_base_skills_mapping
@@ -21,7 +22,7 @@ episodic_instruction_path: /home/jsw7460/mnt/comde_datasets/kitchen/episodic_ins
 videofeature_path: /home/jsw7460/mnt/comde_datasets/kitchen/wind/4_target_skills/videofeature_mapping
 firstimage_path: /home/jsw7460/mnt/comde_datasets/kitchen/wind/4_target_skills/firstimage_mapping
 
-task_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/task_video_embeddings
+task_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/task_video_embeddings # (위의 videofeature_path)와 사실상 동일한 Data임.
 skill_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/skill_video_embeddings
 first_few_sensors_path: /home/jsw7460/mnt/comde_datasets/kitchen/first_few_sensors/first_few_sensors
 
