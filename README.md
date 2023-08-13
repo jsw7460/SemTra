@@ -1,6 +1,8 @@
-# ComDe
+# SemTra Training
 
-## Training
+## Skill sequence generator
+
+## Behavior decoder & Skill boundary detector
 ```
 python3 train_comde.py env={env} dataset_path={PATH_FOR_DATASET} save_suffix={FILENAME_FOR_SAVE}
 ```
@@ -14,7 +16,7 @@ E.g., dataset_path=/home/user_name/wind/4_target_skills/ for below example.
         ├── ./wind/4_target_skills/1
         ├── ./wind/4_target_skills/2
 
-## Evaluation
+# Semtra Evaluation
 ```
 python3 eval_comde.py \
 env={env} \
