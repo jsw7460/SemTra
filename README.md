@@ -75,4 +75,4 @@ parameter (Optional): speed -> ['slow', 'normal', 'fast'],  wind -> ['breeze', '
 
 ### Visualization
 If you want to visualize the evaluation result, please add 'save_results=True' in your command line when you run evaluation. You can define your save path by save_suffix='{FILENAME_FOR_EVALUATION}'.
-After that, a state-action trajectory is saved. According to your evaluation environment, please see the codes in misc/{env}/{visualize_xxx}.
+After that, a state-action trajectory is saved. Based on your evaluation environment, please see the codes in misc/{env}/{visualize_xxx}.
