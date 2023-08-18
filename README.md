@@ -1,6 +1,6 @@
 # SemTra Training
 Semtra consists of six modules. Due to the modularized structure, we separate the training codes.
-(1) multi-modal skill encoder, (2) semantic skill sequence generator, (3) skill boundary detector, (4) context encoder, (5) online context encoder, (6) behavior decoder
+(1) multi-modal skill encoder, (2) semantic skill sequence generator, (3) skill boundary detector, (4) context encoder, (5) online context encoder, and (6) behavior decoder.
 
 ## Setup
 (1) Install environment using environment configure file:
