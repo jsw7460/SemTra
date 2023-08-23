@@ -8,8 +8,11 @@ import numpy as np
 from comde.utils.common import pretrained_forwards
 from comde.utils.common.natural_languages.lang_representation import SkillRepresentation
 
-with open("/home/jsw7460/metaworld_skill_infos", "rb") as f:
-	SKILL_INFOS = pickle.load(f)
+
+SKILL_INFOS = None
+
+# with open("/home/jsw7460/metaworld_skill_infos", "rb") as f:
+# 	SKILL_INFOS = pickle.load(f)
 
 
 class SkillInfoEnv(gym.Wrapper):

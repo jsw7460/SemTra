@@ -62,7 +62,7 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 			for i in range(len(task)):
 				task[i] = self.skill_index_mapping[task[i]]
 
-		base_env = SingleTask(seed=seed, task=task, released_thresh=cfg["released_thresh"])
+		base_env = SingleTask(seed=seed, task=task)
 		super(MultiStageMetaWorld, self).__init__(env=base_env, seed=seed, task=task, n_target=n_target, cfg=cfg)
 
 		self.nonstationary_mean = 0.0

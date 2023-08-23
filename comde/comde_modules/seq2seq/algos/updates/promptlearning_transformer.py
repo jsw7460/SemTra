@@ -8,7 +8,6 @@ from comde.utils.jax_utils.type_aliases import Params
 from comde.utils.common.timeit import timeit
 
 
-@timeit
 @jax.jit
 def promptlearning_transformer_updt(
 	rng: jnp.ndarray,

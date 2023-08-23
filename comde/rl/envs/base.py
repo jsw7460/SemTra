@@ -9,11 +9,14 @@ import numpy as np
 from comde.utils.common import pretrained_forwards
 
 
-with open("/home/jsw7460/metaworld_sequential_requirements_mapping", "rb") as f:
-	SEQUENTIAL_REQUIREMENTS = pickle.load(f)
+SEQUENTIAL_REQUIREMENTS = None
+NON_FUNCTIONALITIES = None
 
-with open("/home/jsw7460/metaworld_non_functionalities_mapping", "rb") as f:
-	NON_FUNCTIONALITIES = pickle.load(f)
+# with open("/home/jsw7460/metaworld_sequential_requirements_mapping", "rb") as f:
+# 	SEQUENTIAL_REQUIREMENTS = pickle.load(f)
+#
+# with open("/home/jsw7460/metaworld_non_functionalities_mapping", "rb") as f:
+# 	NON_FUNCTIONALITIES = pickle.load(f)
 
 
 class ComdeSkillEnv(gym.Wrapper):

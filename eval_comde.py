@@ -45,6 +45,10 @@ def program(cfg: DictConfig) -> None:
 	with open(cfg.env.eval_tasks_path, "rb") as f:
 		tasks_for_eval = pickle.load(f)
 
+	# # Target tasks
+	# with open("/home/jsw7460/rw_tasks/mw", "rb") as f:
+	# 	tasks_for_eval = pickle.load(f)
+
 	# Task -> Predicted source skills (; Output of Semantic skill encoder)
 	with open(cfg.env.source_skills_path, "rb") as f:
 		task_to_source_skills = pickle.load(f)
