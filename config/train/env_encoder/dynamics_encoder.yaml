@@ -1,0 +1,42 @@
+#low_policy:
+_target_: comde.comde_modules.environment_encoder.VecQuantizedLSTM
+
+seed: ${seed}
+
+cfg:
+  context_dim: 16
+  observation_dim: ${env.observation_dim}
+  action_dim: ${env.action_dim}
+  batch_size: ${batch_size}
+  subseq_len: ${subseq_len}
+  encoder_lr: 1e-4
+
+  wind_axis: ${env.wind_axis}
+
+  coef_positive_loss: 1.0
+  coef_negative_loss: 1.0
+  coef_skill_dec_aid: 1.0
+  coef_dyna_decoder: 0.0
+  coef_commitment: 0.25
+  coef_gamma_moving_avg: 0.98
+  use_contrastive: ${mode.use_contrastive}
+
+  encoder_cfg:
+    lstm_cfg:
+      subseq_len: ${subseq_len}
+      embed_dim: 8
+      hidden_dim: ${env_encoder.cfg.context_dim}
+      dropout: 0.0
+      activation_fn: relu
+      embed_net_arch:
+        - 32
+        - 32
+    n_codebook: 50
+
+  decoder_lr: 1e-4
+  decoder_cfg:
+    output_dim: ${env.action_dim}
+    net_arch:
+      - 32
+      - 32
+    activation_fn: relu

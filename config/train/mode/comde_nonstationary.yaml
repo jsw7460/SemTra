@@ -1,0 +1,15 @@
+mode: comde_nonstationary
+trainer: comde.trainer.comde_trainer.ComdeTrainer
+modules:
+  - low_policy
+  - env_encoder
+  - termination
+
+intent_dim: 1024
+save_source_trajectory: False
+save_interval: 5000
+datadir_limit: 10
+step_per_dataset: 5000
+register_language_embedding: False
+online_context_dim: ${env_encoder.cfg.context_dim}
+use_contrastive: True

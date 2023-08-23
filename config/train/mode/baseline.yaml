@@ -9,3 +9,5 @@ save_interval: 50000
 datadir_limit: 999
 step_per_dataset: 5000
 register_language_embedding: True
+online_context_dim: ${baseline.cfg.online_context_dim}
+use_contrastive: False

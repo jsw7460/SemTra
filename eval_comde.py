@@ -45,6 +45,10 @@ def program(cfg: DictConfig) -> None:
 	with open(cfg.env.eval_tasks_path, "rb") as f:
 		tasks_for_eval = pickle.load(f)
 
+	# # Target tasks
+	# with open("/home/jsw7460/rw_tasks/mw", "rb") as f:
+	# 	tasks_for_eval = pickle.load(f)
+
 	# Task -> Predicted source skills (; Output of Semantic skill encoder)
 	with open(cfg.env.source_skills_path, "rb") as f:
 		task_to_source_skills = pickle.load(f)
@@ -52,18 +56,22 @@ def program(cfg: DictConfig) -> None:
 	param_dim = pretrained_cfg["low_policy"]["cfg"]["param_dim"]
 	param_repeats = pretrained_cfg["low_policy"]["cfg"].get("param_repeats", 100)
 	total_param_dim = param_dim * param_repeats
+	online_context_dim = pretrained_cfg["low_policy"]["cfg"].get("online_context_dim", 0)
 	subseq_len = pretrained_cfg["subseq_len"]
+
+	semantic_dim = pretrained_cfg["skill_dim"]
+	nf_dim = pretrained_cfg["non_functionality_dim"]
 
 	env_class = get_class(cfg.env.path)  # type: Union[type, Type[gym.Env]]
 	envs_candidate = get_batch_env(
 		env_class=env_class,
 		tasks=tasks_for_eval.copy(),
 		n_target=cfg.env.n_target,
-		cfg={**pretrained_cfg["env"], **cfg.env},
-		skill_dim=pretrained_cfg["skill_dim"] + pretrained_cfg["non_functionality_dim"] + total_param_dim,
+		cfg={**pretrained_cfg["env"], **cfg.env, **{"released_thresh": bool("baseline" in pretrained_models)}},
+		skill_dim=semantic_dim + nf_dim + total_param_dim + online_context_dim,
 		time_limit=cfg.env.timelimit,
-		history_len=subseq_len,
-		seed=cfg.seed
+		history_len=subseq_len + 1,	# Because current is appended.	# Note: This +1 is added after all baselines are evaluated.
+		seed=cfg.seed,
 	)
 
 	non_functionalities = envs_candidate[0].non_functionalities_vector_mapping
@@ -202,7 +210,8 @@ def program(cfg: DictConfig) -> None:
 
 	returns_mean = 0.0
 
-	for n_trial, (_, _) in enumerate(zip(range(cfg.n_eval), params_for_skills)):
+	param_for_skill = params_for_skills
+	for n_trial in range(cfg.n_eval):
 		param_for_skill = params_for_skills
 		seed = cfg["seed"] + n_trial
 		for env in envs:
@@ -215,6 +224,8 @@ def program(cfg: DictConfig) -> None:
 				   + "=" * 30 + "\n" \
 				   + f"seq_req: {_info['sequential_requirement']}, seed: {seed}, step: {cfg.step}\n" \
 				   + f"skill prediction: {str_skill_pred_accuracy}\n" \
+				   + f"parameter: {cfg.parameter}\n "\
+				   + f"nonstationary type: {cfg.env.nonstationary_type}, mean: {cfg.env.nonstationary_mean}\n" \
 				   + eval_fmt
 
 		if str(envs[0]) == "metaworld":

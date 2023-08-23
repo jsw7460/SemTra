@@ -6,7 +6,6 @@ from comde.rl.envs.base import ComdeSkillEnv
 from comde.trainer.base import BaseTrainer
 from comde.utils.common.natural_languages.prompt_templates import prompt_templates
 from comde.utils.common.natural_languages.language_processing import number_to_words
-from comde.utils.common.timeit import timeit
 
 
 class PromptTrainer(BaseTrainer):
@@ -25,7 +24,6 @@ class PromptTrainer(BaseTrainer):
 		self.n_examples = cfg["prompt_learner"]["cfg"]["n_example"]
 		self.__last_onehot_skills = None
 
-	@timeit
 	def _make_batch_training_data(self):
 		prompts = []
 		target_inputs = []
@@ -79,10 +77,28 @@ class PromptTrainer(BaseTrainer):
 		self.record_from_dicts(info, mode="train")
 		self.n_update += 1
 
+		if (self.n_update % 100) == 0:
+			self.evaluate()
 		if (self.n_update % self.log_interval) == 0:
 			self.dump_logs(step=self.n_update)
 		if (self.n_update % self.save_interval) == 0:
 			self.save()
+
+	def _gpt2_evaluate(self):
+		dataset = self._make_batch_training_data()
+		examples = dataset["examples"]
+		target_inputs = dataset["target_inputs"]
+		target_outputs = dataset["target_outputs"]
+		self.prompt_learner.evaluate(
+			examples=examples,
+			target_inputs=target_inputs,
+			target_outputs=target_outputs
+		)
+
+	def evaluate(self) -> None:
+		self._gpt2_evaluate()
+		return None
+
 
 	def dump_logs(self, step: int):
 		self.record(self.info_records)

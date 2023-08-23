@@ -8,6 +8,7 @@ from .target_all import TargetAllPromptDT
 from .interleave import InterleavedPromptDT
 from .vima import VIMA
 from .flaxvima import FlaxVIMA
+from .bcz_nonst import BCZNonst
 
 from .sensors_baselines.sensor_bcz import SensorBCZ
 from .sensors_baselines.sensor_demogen import SensorDemoGen

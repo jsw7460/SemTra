@@ -1,4 +1,5 @@
 from abc import abstractmethod
+import pickle
 from typing import List, Dict, Any, Union, Tuple
 
 from copy import deepcopy
@@ -6,6 +7,17 @@ from copy import deepcopy
 import gym
 import numpy as np
 from comde.utils.common import pretrained_forwards
+
+
+SEQUENTIAL_REQUIREMENTS = None
+NON_FUNCTIONALITIES = None
+
+# with open("/home/jsw7460/metaworld_sequential_requirements_mapping", "rb") as f:
+# 	SEQUENTIAL_REQUIREMENTS = pickle.load(f)
+#
+# with open("/home/jsw7460/metaworld_non_functionalities_mapping", "rb") as f:
+# 	NON_FUNCTIONALITIES = pickle.load(f)
+
 
 class ComdeSkillEnv(gym.Wrapper):
 
@@ -38,30 +50,42 @@ class ComdeSkillEnv(gym.Wrapper):
 		self.str_parameter = parameter
 
 	def get_sequential_requirements_mapping(self, sequential_requirements: Dict):
-		mapping = {
-			seq_req: dict() for seq_req in sequential_requirements.keys()
-		}
-		for seq_req, variations in sequential_requirements.items():
-			for variation in variations:
-				vec = self._language_encoder_forward(variation)["language_embedding"]
-				_vec = vec[:, 0, ...]
-				del vec
-				_vec = _vec.reshape(-1, )
-				mapping[seq_req][variation] = _vec
+		if SEQUENTIAL_REQUIREMENTS is not None:
+			return SEQUENTIAL_REQUIREMENTS
+		else:
+			mapping = {
+				seq_req: dict() for seq_req in sequential_requirements.keys()
+			}
+			for seq_req, variations in sequential_requirements.items():
+				for variation in variations:
+					vec = self._language_encoder_forward(variation)["language_embedding"]
+					_vec = vec[:, 0, ...]
+					del vec
+					_vec = _vec.reshape(-1, )
+					mapping[seq_req][variation] = _vec
 
-		return mapping
+			# with open("/home/jsw7460/metaworld_sequential_requirements_mapping", "wb") as f:
+			# 	pickle.dump(mapping, f)
+			# print("Save seqreq !!!!!!!!!!!!!!!!!!!" * 999)
+			return mapping
 
 	def get_non_functionalities_mapping(self, non_functionalities: Dict):
-		mapping = {
-			seq_req: dict() for seq_req in non_functionalities.keys()
-		}
-		for seq_req, variations in non_functionalities.items():
-			for variation in variations:
-				vec = self._language_encoder_forward(variation)["language_embedding"][:, 0, ...]
-				vec = vec.reshape(-1, )
-				mapping[seq_req][variation] = vec
+		if NON_FUNCTIONALITIES is not None:
+			return NON_FUNCTIONALITIES
+		else:
+			mapping = {
+				seq_req: dict() for seq_req in non_functionalities.keys()
+			}
+			for seq_req, variations in non_functionalities.items():
+				for variation in variations:
+					vec = self._language_encoder_forward(variation)["language_embedding"][:, 0, ...]
+					vec = vec.reshape(-1, )
+					mapping[seq_req][variation] = vec
 
-		return mapping
+			# with open("/home/jsw7460/metaworld_non_functionalities_mapping", "wb") as f:
+			# 	pickle.dump(mapping, f)
+			# print("Save nf !!!!!!!!!!!!!!!!!!!" * 999)
+			return mapping
 
 	@staticmethod
 	@abstractmethod

@@ -15,3 +15,4 @@ save_interval: 5000
 datadir_limit: 10
 step_per_dataset: 5000
 register_language_embedding: False
+online_context_dim: 0

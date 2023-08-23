@@ -5,6 +5,7 @@ import numpy as np
 from jax.tree_util import tree_map
 
 from comde.comde_modules.low_policies.base import BaseLowPolicy
+from comde.comde_modules.environment_encoder.base import BaseEnvEncoder
 from comde.comde_modules.termination.base import BaseTermination
 from comde.evaluations.utils.postprocess_evaldata import postprocess_eval_data as postprocess
 from comde.rl.envs.utils import SkillHistoryEnv
@@ -21,6 +22,7 @@ def evaluate_comde(
 	termination: BaseTermination,
 	target_skills: np.ndarray,
 	termination_pred_interval: int,
+	env_encoder: BaseEnvEncoder = None,
 	save_results: bool = False,
 	use_optimal_next_skill: bool = False,
 ):
@@ -34,6 +36,11 @@ def evaluate_comde(
 	cur_skill_pos = np.array([0 for _ in range(n_envs)])  # [8, ]
 	max_skills = np.array([n_possible_skills - 1 for _ in range(n_envs)])
 
+	if env_encoder is not None:
+		online_context_dim = low_policy.online_context_diim
+	else:
+		online_context_dim = 0
+
 	# Prepare save
 	eval_infos = {f"env_{k}": defaultdict(list, env_name=envs[k].get_short_str_for_save()) for k in range(n_envs)}
 
@@ -42,7 +49,9 @@ def evaluate_comde(
 	done = [False for _ in range(n_envs)]
 	rew = np.array([0 for _ in range(n_envs)])
 
-	obs_list = [envs[i].reset(target_skills[i][cur_skill_pos[i]]) for i in range(n_envs)]
+	obs_list = [envs[i].reset(
+		np.concatenate((target_skills[i][cur_skill_pos[i]], np.zeros((online_context_dim,))), axis=-1)
+	) for i in range(n_envs)]
 	obs = tree_map(lambda *arr: np.stack(arr, axis=0), *obs_list)
 	first_observations = obs["observations"][:, -1, ...].copy()
 	returns = np.array([0.0 for _ in range(n_envs)])
@@ -55,10 +64,19 @@ def evaluate_comde(
 		history_maskings = obs["maskings"]
 		timestep += 1
 
+		# print("History maskings", history_maskings[0])
+		# if timestep >= 21:
+		# 	exit()
+		if env_encoder is not None:
+			encoder_input = np.concatenate((history_observations[:, :-1, ...], history_actions[:, :-1, ...]),axis=-1)
+			online_context = env_encoder.predict(
+				sequence=encoder_input,
+				n_iter=np.sum(history_maskings[:, :-1], axis=-1, dtype="i4")
+			)
+		else:
+			online_context = np.zeros(shape=(n_envs, 0))
+
 		done_prev = done.copy()
-
-		# cur_skill_pos = np.array([0 for _ in range(n_envs)])
-
 		if use_optimal_next_skill:
 			cur_skill_pos = np.min([cur_skill_pos + rew, max_skills], axis=0)
 		else:
@@ -88,7 +106,10 @@ def evaluate_comde(
 			timesteps=timesteps,
 			to_np=True
 		)
-		step_results = [env.step(act.copy(), cur_skills[i].copy()) for env, act, i in zip(envs, actions, range(n_envs))]
+		step_results = [
+			env.step(act.copy(), np.concatenate((cur_skills[i].copy(), online_context[i].copy()), axis=-1))
+			for env, act, i in zip(envs, actions, range(n_envs))
+		]
 		obs_list = [result[I_OBS] for result in step_results]
 
 		obs = tree_map(lambda *arr: np.stack(arr, axis=0), *obs_list)

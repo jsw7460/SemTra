@@ -99,8 +99,13 @@ class IJaxSavable(metaclass=ABCMeta):
 				# Catch anything for now.
 				raise ValueError(f"Key {name} is an invalid object name.")
 
-			jax_model = attr.load_dict(params[name])
-			recursive_setattr(self, name, jax_model)
+			try:	# Jax
+				model = attr.load_dict(params[name])
+				recursive_setattr(self, name, model)
+
+			except:	# Torch -> load_state_dict returns parameter matched dictionary
+				attr.load_state_dict(params[name]["state_dict"], strict=exact_match)
+
 			updated_objects.add(name)
 
 		if exact_match and updated_objects != objects_needing_update:

@@ -21,6 +21,7 @@ cfg:
     act_scale: ${act_scale}
     max_ep_len: 1024
 
+  online_context_dim: 0
   language_dim: ${language_dim}
   observation_dim: ${observation_dim}
   action_dim: ${action_dim}

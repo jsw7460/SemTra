@@ -15,12 +15,14 @@ defaults:
   - translate_learner: transformer
   - language_space: bert
   - sensor_encoder: transformer
+  - env_encoder: dynamics_encoder
 
 save_prefix: /home/jsw7460/comde_save/train/
 save_suffix: foo
 modules: ${mode.modules}
 trainer: ${mode.trainer}
 non_functionality_dim: ${language_dim}
+train_online_context: False
 
 act_scale: ${env.act_scale}
 observation_dim: ${env.observation_dim}

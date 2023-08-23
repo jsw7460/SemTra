@@ -13,6 +13,7 @@ cfg:
   param_repeats: ${env.param_repeats}
   act_scale: ${act_scale}
   video_dim: 768
+  online_context_dim: 0
 
   videofeature_path: ${env.videofeature_path}
   episodic_instruction_path: ${env.episodic_instruction_path}

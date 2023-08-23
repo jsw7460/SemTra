@@ -1,4 +1,5 @@
 import random
+from contextlib import contextmanager
 from copy import deepcopy
 from typing import Dict, Optional, Union, Tuple, List
 
@@ -59,6 +60,9 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 		self.eval_param = self.env.eval_param
 		self.param_dim = self.env.param_dim
 		self.episode_class = SourceTargetSkillContainedEpisode
+
+	def __len__(self):
+		return len(self.episodes)
 
 	def add_dict_chunk(self, dataset: Dict, representative: str = None, clear_info: bool = False) -> None:
 		raise NotImplementedError("This is only for pickle file. ComDe does not support it.")
@@ -240,6 +244,13 @@ class ComdeBuffer(EpisodicMaskingBuffer):
 			source_actions = np.array(trajectory["source_actions"])
 			dataset.update({"source_observations": source_observations, "source_actions": source_actions})
 		return dataset
+
+	@contextmanager
+	def history_mode(self):
+		prev_subseq_len = self.subseq_len
+		self.subseq_len = self.subseq_len + 1
+		yield
+		self.subseq_len = prev_subseq_len
 
 	def _get_samples(
 		self,

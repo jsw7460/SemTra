@@ -62,6 +62,7 @@ def get_arguments(kwargs: Dict, mode: str, custom_seed: int):
 			if "sensor" not in mode:
 				if mode == "demogen":
 					with open(cfg["env"]["task_video_path"], "rb") as f:
+						print("Here" * 9999)
 						vl_feature_dict = pickle.load(f)
 
 				elif mode == "bcz":

@@ -1,3 +1,4 @@
+import pickle
 import random
 from typing import Dict, List, Union
 
@@ -6,6 +7,12 @@ import numpy as np
 
 from comde.utils.common import pretrained_forwards
 from comde.utils.common.natural_languages.lang_representation import SkillRepresentation
+
+
+SKILL_INFOS = None
+
+# with open("/home/jsw7460/metaworld_skill_infos", "rb") as f:
+# 	SKILL_INFOS = pickle.load(f)
 
 
 class SkillInfoEnv(gym.Wrapper):
@@ -43,12 +50,19 @@ class SkillInfoEnv(gym.Wrapper):
 		return self.env.__str__()
 
 	def _override_skill_vectors(self):
-		for skill, representations in self.__skill_infos.items():
-			for i in range(len(representations)):
-				rep = representations[i]
-				bert_vec = self._language_encoder_forward(rep.variation)["language_embedding"][:, 0, ...]
-				rep = rep._replace(vec=np.squeeze(bert_vec))
-				representations[i] = rep
+		if SKILL_INFOS is not None:
+			self.__skill_infos = SKILL_INFOS
+		else:
+			for skill, representations in self.__skill_infos.items():
+				for i in range(len(representations)):
+					rep = representations[i]
+					bert_vec = self._language_encoder_forward(rep.variation)["language_embedding"][:, 0, ...]
+					rep = rep._replace(vec=np.squeeze(bert_vec))
+					representations[i] = rep
+
+		# with open("/home/jsw7460/metaworld_skill_infos", "wb") as f:
+		# 	pickle.dump(self.__skill_infos, f)
+		# print("Dump skill infos" * 99)
 
 	@property
 	def skill_infos(self):

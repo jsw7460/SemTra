@@ -9,6 +9,5 @@ prompt_templates = [
     "{skill} is modified using the non-functionality {nf} with {param} as its parameter in this sentence.",
     "This sentence involves applying the non-functionality {nf} with {param} as its parameter to {skill}.",
     "The parameter {param} is assigned to the non-functionality {nf} which is then applied to {skill} within this sentence."
-	
 	"The non-functionality {nf} with parameter {param} is applied to {skill} here.",
 ]

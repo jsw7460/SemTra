@@ -140,7 +140,6 @@ class HistoryEnv(gym.Wrapper):
 		# Update applied action to the previous timestep.
 
 		store_action = action.copy()
-		store_action[0] += 0.0
 
 		self.act_stack[-1] = store_action
 		obs, rew, done, info = self.env.step(np.array(action))

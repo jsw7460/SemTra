@@ -27,15 +27,16 @@ from .utils import (
 
 class MultiStageMetaWorld(ComdeSkillEnv):
 	mw_obs_dim = 140
-	# tasks_idxs = {"easy": [1, 3, 4, 6]}		# 원래 이거임 !!!!!!!!
-	tasks_idxs = {"easy": [1, 2, 3, 4, 5, 6]}
+	tasks_idxs = {"easy": [1, 3, 4, 6]}		# 원래 이거임 !!!!!!!!
+	# tasks_idxs = {"easy": [1, 2, 3, 4, 5, 6]}
 	onehot_skills_mapping = {
 		"box": 0, "puck": 1, "handle": 2, "drawer": 3, "button": 4, "lever": 5, "door": 6, "stick": 7
 	}
 	skill_index_mapping = {v: k for k, v in onehot_skills_mapping.items()}
 
 	non_functionalities = ["wind", "speed"]
-	speed_default_param = {1: 25.0, 2: 25.0, 3: 25.0, 4: 15.0, 5: 15.0, 6: 25.0}
+	# speed_default_param = {1: 25.0, 2: 25.0, 3: 25.0, 4: 15.0, 5: 15.0, 6: 25.0}
+	speed_default_param = {1: 25.0, 3: 25.0, 4: 15.0, 6: 25.0}		# 원래 이거임
 	wind_default_param = {1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0, 5: 0.0, 6: 0.0}
 	param_dim = 1
 
@@ -63,6 +64,15 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 
 		base_env = SingleTask(seed=seed, task=task)
 		super(MultiStageMetaWorld, self).__init__(env=base_env, seed=seed, task=task, n_target=n_target, cfg=cfg)
+
+		self.nonstationary_mean = 0.0
+		self.timestep = 0
+		self.nonstationary_ft = lambda timestep: 0.08 * np.sin((8 * np.pi * timestep) / 1000)
+		self.nonstationary_type = cfg.get("nonstationary_type", "None")
+		if cfg is not None:
+			self.nonstationary_mean = float(cfg.get("nonstationary_mean", 0.0))
+
+		print("\n\n\nNonstationary type:", self.nonstationary_type, f"Mean: {self.nonstationary_mean}", "\n\n\n")
 
 		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(1, MultiStageMetaWorld.mw_obs_dim))
 		if cfg is None:
@@ -121,8 +131,41 @@ class MultiStageMetaWorld(ComdeSkillEnv):
 	def get_rtg(self):
 		return self.n_target
 
-	def step(self, action):
+	def get_nonstationary_param(self):
+
+		if self.nonstationary_type == "sin":
+			if np.random.uniform(0, 1) < 0.5:
+				nonstationary_param = self.nonstationary_ft(self.timestep)
+			else:
+				nonstationary_param = self.nonstationary_ft(self.timestep ** 2)
+
+			return nonstationary_param
+
+		elif self.nonstationary_type == "bias":
+			noise = np.random.uniform(0, 0.1)
+			if np.random.uniform(0, 1) < 0.25:
+				return - self.nonstationary_mean + noise
+			else:
+				return self.nonstationary_mean + noise
+
+		elif self.nonstationary_type == "zigzag":
+			if np.random.uniform(0, 1) < 0.5:
+				return 0.10
+			else:
+				return -0.10
+
+		else:
+			return 0.0
+
+	def step(self, action: np.ndarray):
+		action = action.copy()
+
+		nonstationary_param = self.get_nonstationary_param()
+		action[0] += nonstationary_param
+		self.timestep += 1
+
 		obs, reward, done, info = super(MultiStageMetaWorld, self).step(action)
+		reward = ((reward > 0) or (info["success"] > 0))
 		self.timestep_per_skills[self.task[self.env.mode]] += 1
 
 		if self.env.env.mode == self.n_target:

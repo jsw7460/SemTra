@@ -13,6 +13,8 @@ skill_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/skill_video_em
 task_video_path: /home/jsw7460/mnt/comde_datasets/videos/kitchen/task_video_embeddings
 first_few_sensors_path: /home/jsw7460/mnt/comde_datasets/metaworld/first_few_sensors/first_few_sensors
 
+nonstationary_mean: 0.0
+nonstationary_type: None
 
 template_path: /home/jsw7460/mnt/comde_datasets/language_embeddings/bert_mappings/language_guidance/BERT_metaworld_templates
 n_target: 3

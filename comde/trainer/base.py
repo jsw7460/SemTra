@@ -46,7 +46,7 @@ class BaseTrainer(Loggable):
 
 	def dump_logs(self, step: int):
 		now = datetime.now()
-		elapsed = (now - self.start).seconds
+		elapsed = max((now - self.start).seconds, 1)
 		fps = step / elapsed
 		remain = int((self.required_total_update - step) / fps)
 		eta = now + timedelta(seconds=remain)

@@ -13,6 +13,8 @@ cfg:
   n_example: 1
   language_space: ${language_space.language_space}
 
+  language_model: gpt2  # [gpt2, gpt2-large, bigscience/bloom-560m]
+
   transformer_cfg:
     input_dropout_prob: 0.1
 

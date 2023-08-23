@@ -16,9 +16,7 @@ def get_source_skills(
 	task = [str(t) for t in task]
 	task_str = "".join(task).replace(" ","")
 
-	stripped_task_to_source_skills = {
-		k.replace(" ", "").replace("_", ""): v for k, v in task_to_source_skills.items()
-	}
+	stripped_task_to_source_skills = {k.replace(" ", "").replace("_", ""): v for k, v in task_to_source_skills.items()}
 
 	source_skills = stripped_task_to_source_skills[task_str][sequential_requirement]
 
@@ -32,8 +30,8 @@ def get_source_skills(
 			source_skill_idxs.append(skill_rep.index)
 
 		np_source_skills = np.array(source_skill_vectors)
-
 		return {"np_source_skills": np_source_skills, "source_skill_idxs": source_skill_idxs}
+
 	else:
 		return {"np_source_skills": None, "source_skill_idxs": None}
 

@@ -115,6 +115,9 @@ class SemanticSkillTranslator(BaseSeqToSeq):
 			tx=tx
 		)
 
+		n_param = sum(x.size for x in jax.tree_leaves(self.model.params))
+		print('N param:', n_param)
+
 	def update(self, replay_data: ComDeBufferSample, **kwargs) -> Dict:
 		qkv_info = self._language_encoder_forward(replay_data.language_guidance)
 
@@ -143,8 +146,8 @@ class SemanticSkillTranslator(BaseSeqToSeq):
 		self.model = new_model
 		self.rng, _ = jax.random.split(self.rng)
 
-		if self.n_update % 100 == 0:
-			self.check()
+		if self.n_update > 120000:
+			exit()
 
 		return info
 
@@ -390,7 +393,13 @@ class SemanticSkillTranslator(BaseSeqToSeq):
 
 		match_ratio = np.sum(pred_skills == target_skills_idxs) / np.sum(tgt_mask)
 		batch_match_ratio = np.sum(pred_skills == target_skills_idxs, axis=-1) / np.sum(tgt_mask, axis=-1)
-		return {"s2s/match_ratio(%)": match_ratio * 100, **prediction, "__batch_match_ratio": batch_match_ratio}
+		ret_info = {
+			"eval/accuracy": match_ratio * 100,
+			"s2s/match_ratio(%)": match_ratio * 100,
+			**prediction,
+			"__batch_match_ratio": batch_match_ratio
+		}
+		return ret_info
 
 	def evaluate(self, replay_data: ComDeBufferSample, visualization: bool = False) -> Dict:
 		eval_info = self._evaluate_discrete(replay_data=replay_data)
