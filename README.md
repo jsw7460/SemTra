@@ -1,3 +1,6 @@
+# SemTra (AAAI-2024)
+This is the official github repository of our SemTra: A Semantic Skill Translator for Cross-Domain Zero-Shot Policy Adaptation
+
 # SemTra Training
 Semtra consists of six modules. Due to the modularized structure, we separate the training codes.
 (1) multi-modal skill encoder, (2) semantic skill sequence generator, (3) skill boundary detector, (4) context encoder, (5) online context encoder, and (6) behavior decoder.
