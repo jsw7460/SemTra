@@ -1,5 +1,5 @@
 # SemTra (AAAI-2024)
-This is the official github repository of our SemTra: A Semantic Skill Translator for Cross-Domain Zero-Shot Policy Adaptation
+This is the official github repository of our [SemTra: A Semantic Skill Translator for Cross-Domain Zero-Shot Policy Adaptation](https://arxiv.org/abs/2402.07418)
 
 # SemTra Training
 Semtra consists of six modules. Due to the modularized structure, we separate the training codes.
