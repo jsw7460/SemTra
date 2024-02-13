@@ -1,4 +1,4 @@
-PaLM_API = "AIzaSyAgNekUrP783K23LMp7VaW9eWW_awY7qRA"
+PaLM_API = ""
 import argparse
 import os
 
