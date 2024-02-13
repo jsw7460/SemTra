@@ -1,1 +1,0 @@
-from comde.baselines.architectures.vima.vima import PrimVIMA
