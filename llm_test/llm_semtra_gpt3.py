@@ -1,6 +1,6 @@
 import openai
 
-openai.api_key = "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"
+openai.api_key = ""
 ENGINE = "text-davinci-002"
 
 import argparse
